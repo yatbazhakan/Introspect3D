@@ -1,3 +1,8 @@
+#Customized .gitignore file for Python projects
+*.png
+*.json
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
