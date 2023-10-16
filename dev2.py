@@ -176,6 +176,7 @@ def create_oriented_bounding_box_gt(box_params, color=(0, 1, 0),calib=None, offs
     # center_tr = transform_camera_to_lidar(point_homogeneous, Tr_velo_to_cam)
         center = box_params['real_center']
         coners = box_params['corners']
+        # coners[:,2] /=2
         coners[:,axis] += offset
         return plot_bounding_box_from_corners(coners,offset=offset, calib=calib, color=color)
         # R_empty = np.eye(3)
@@ -185,7 +186,7 @@ def create_oriented_bounding_box_gt(box_params, color=(0, 1, 0),calib=None, offs
         # obb.color = color
         # return obb, cntr
     # Rotate around the Y-axis for KITTI's rotation_y
-    print("Plotting from center")
+    # print("Plotting from center")
     # Create OrientedBoundingBox
     obb = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=extent)
     cntr = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=[0.1,0.1,0.1])
@@ -262,24 +263,25 @@ def read_kitti_label_file(bin_file_path, filter_classes=['Car', 'Pedestrian', 'C
             T_inv = np.linalg.inv(Tr_velo_to_cam_extended)
             Homogeneous_corners = np.ones((4,8))
             Homogeneous_corners[:3,:] = translated_corners
-            translated_corners = np.matmul(T_inv,Homogeneous_corners)[:3,:] 
-            print(translated_corners.shape)
+            translated_corners = np.matmul(T_inv,Homogeneous_corners)[:3,:]
+            real_center = np.mean(translated_corners,axis=1)
+            # print(translated_corners.shape)
             # real_center = np.mean(translated_corners,axis=1)
             # print(real_center)
             objects.append({
                 'type': obj_type,
-                'x': center_tr[0],
-                'y': center_tr[1],
-                'z': center_tr[2],
+                'x': real_center[0],
+                'y': real_center[1],
+                'z': real_center[2],
                 'dx': dimensions_length,
                 'dy': dimensions_height,
                 'dz': dimensions_width,
                 'yaw': o3d.geometry.get_rotation_matrix_from_xyz((0,rotation_y,0)),
                 'corners': translated_corners.T,
-                'real_center': np.mean(translated_corners,axis=1)
+                'real_center': real_center
             })
     return objects
-def create_oriented_bounding_box(box_params,offset=100,axis=0,calib=None):
+def create_oriented_bounding_box(box_params,offset=100,axis=0,calib=None,color=(1, 0, 0)):
     offset_array = np.zeros(3)
     offset_array[axis] = offset
     center = np.array([box_params[0], box_params[1], box_params[2]/2])
@@ -297,6 +299,29 @@ def create_oriented_bounding_box(box_params,offset=100,axis=0,calib=None):
     obb = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=extent)
     obb.color = (1, 0, 0)  # Red color
     return obb
+def create_oriented_bounding_box_nuscenes(detection, offset=100, axis=0, color=(1, 0, 0),calib=None):
+    offset_array = np.zeros(3)
+    offset_array[axis] = offset
+
+    # Extract parameters from the detection array
+    x, y, z, dx, dy, dz, r, _, _ = detection
+
+    # Define the center and extent of the box
+    center = np.array([x, y, z/2])
+    extent = np.array([dx, dy, dz])
+
+    # Create the rotation matrix from the heading angle
+    R = o3d.geometry.get_rotation_matrix_from_xyz((0, 0, 0 ))
+
+    # Apply the offset to the center
+    center += offset_array
+
+    # Create the Oriented Bounding Box
+    obb = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=extent)
+    obb.color = color  # Set the color
+    obb_for_center = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=[0.1,0.1,0.1])
+    obb_for_center.color = (1,1,1)
+    return obb , obb_for_center
 def rotate_points(points, R):
     return np.dot(points, R.T)
 
@@ -313,7 +338,7 @@ def match_detections_3d(ground_truths, predictions, iou_threshold=0.5):
             if current_iou > max_iou:
                 max_iou = current_iou
                 max_iou_idx = idx
-        print("For gt",gt,"max iou is",max_iou)
+        # print("For gt",gt,"max iou is",max_iou)
         if max_iou >= iou_threshold:
             matches.append((gt, unmatched_predictions[max_iou_idx]))
             del unmatched_predictions[max_iou_idx]
@@ -346,7 +371,7 @@ def calculate_iou_3d(box1,box2):
         corners2 = rotate_points(corners2, box2.R) + center2
     else:
         #get corners from lineset
-        print("Getting corners from lineset")
+        # print("Getting corners from lineset")
 
         corners2 = np.array(box2.points)
         dimensions_from_corners = np.max(corners2,axis=0) - np.min(corners2,axis=0)
@@ -370,98 +395,185 @@ def calculate_iou_3d(box1,box2):
     # Calculate IoU
     iou = intersection_volume / (vol1 + vol2 - intersection_volume)
     return iou
+
+
+def is_point_inside_obb(obb, point):
+    """
+    Check if a point is inside an oriented bounding box (OBB).
+    
+    Parameters:
+    - obb: Open3D OrientedBoundingBox object.
+    - point: NumPy array of shape (3,) representing the point.
+    
+    Returns:
+    - bool: True if the point is inside the OBB, False otherwise.
+    """
+    # Transform the point to the OBB's local coordinate system
+    point_local = np.linalg.inv(obb.R).dot((point[:3] - obb.center))
+    
+    # Check if the transformed point is inside the axis-aligned box
+    return np.all(np.abs(point_local) <= (obb.extent / 2))
+
+def remove_points_inside_obbs(point_cloud, obbs):
+    """
+    Remove points inside oriented bounding boxes from a point cloud.
+    
+    Parameters:
+    - point_cloud: NumPy array of shape (N, 3), where N is the number of points.
+    - obbs: List of Open3D OrientedBoundingBox objects.
+    
+    Returns:
+    - filtered_point_cloud: NumPy array containing points outside the bounding boxes.
+    """
+    mask = np.ones(point_cloud.shape[0], dtype=bool)
+    
+    for obb in obbs:
+        for i, point in enumerate(point_cloud):
+            if is_point_inside_obb(obb, point):
+                mask[i] = False
+    
+    filtered_point_cloud = point_cloud[mask]
+    
+    return filtered_point_cloud
+
 if __name__ == '__main__':
     import random
+    from tqdm.auto import tqdm
     #Define paths
+    used_model = "pointpillars"
+    training_set = "kitti"
+    num_classes = 3
     kitti_velodyne_path= r"D:\introspectionBase\datasets\Kitti\raw\training\velodyne"
     img_path = r"D:\introspectionBase\datasets\Kitti\raw\training\image_2"
-    config_file = r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'
-    checkpoint = r'D:\mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth'
-    test_num  = random.randint(0,7480) #Selecting a random data point
-    filename = os.path.join(kitti_velodyne_path, f'{test_num:06}.bin')
-    
-    #Read Calibration file, load point cloud and transfrom to image coordinates
-    calib_data = read_calib_file(filename.replace('.bin', '.txt').replace("velodyne","calib"))
-    points = load_velodyne_points(filename)
-    
-    # Transformation matrix is in (3x4) shape, so we extend it to (4x4) by adding a row of [0,0,0,1] for homogeneous coordinates
-    Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape(3, 4)
-    Tr_velo_to_cam_extended = np.eye(4)  # Create a 4x4 identity matrix
-    Tr_velo_to_cam_extended[:3, :] = Tr_velo_to_cam  # Replace the top-left 3x4 block
-    
-    #Simple transformation to image coordinates
-    # y = Tr_velo_to_cam_extended @ points.T
-    #y_below_ground_removed = y.T[y.T[:,1] > -1] -> Not sure if this is needed or the axis is correct
-    
-
-    
-    #Create a Open3D point cloud from the points for visualization
-    max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
-    original_pcd = create_point_cloud(points,distance=max_distance)    
-    
-  
-    
-    
-    #Define the ellipse parameters and filter the points inside the ellipse, then create a point cloud from the filtered points
-    a, b = 25, 15  # Semi-major and semi-minor axes
-    filtered_points = filter_points_inside_ellipse(points, a, b,offset=-10) #filter_points_inside_pyramid(points, min_x, max_x, min_y,max_y ) #
-    filtered_pcd = create_point_cloud(filtered_points,distance=max_distance)
-    outside_points = filter_points_outside_ellipse(points, a, b,offset=-10)
-    outside_pcd = create_point_cloud(outside_points)
-    
-    #Retrieve the ground truth objects from the label file, then create oriented bounding boxes for visualization
-    labels = read_kitti_label_file(filename)
-    filtered_gt_boxes = filter_objects_outside_ellipse(labels, a, b,offset=-10,axis=0)
-    print(len(filtered_gt_boxes),len(labels))
-    # gt_oriented_boxes_orj = [create_oriented_bounding_box_gt(label,axis=1,offset=100) for label in labels]
-    gt_oriented_boxes = [create_oriented_bounding_box_gt(label,offset=0) for label in filtered_gt_boxes]
-    # Initialize the object detector
+    config_file = r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
+    checkpoint = r'D:\mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+    save_path = f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}/labels/"
     model = init_model(config_file, checkpoint, device='cuda:0')
-    score_threshold = 0.5 #Threshold for filtering detections with low confidence
-    
-    # Run inference on the raw point cloud, and create oriented bounding boxes for visualization
-    # res,data = inference_detector(model, points)
-    # pred_boxes_box = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-    # pred_boxes_score = res.pred_instances_3d.scores_3d.cpu().numpy()
-    # filtered_indices = np.where(pred_boxes_score >= score_threshold)[0]
-    # filtered_boxes = pred_boxes_box[filtered_indicesdev2.py]
-    # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
-    
-    # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
-    res_f,data_f = inference_detector(model, filtered_points)
-    pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-    pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
-    filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
-    filtered_boxes = pred_boxes_box_f[filtered_indices]
-    obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
-    
-    coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1, origin=[0, 0, 0])
 
-    # Visualize the results
-    vis = o3d.visualization.Visualizer()
-    vis.create_window(window_name=str(test_num)) 
-    #
-    # original_pcd.translate([0,100, 0], relative=False)
-    vis.add_geometry(outside_pcd)
-    vis.add_geometry(filtered_pcd)
-    
-    render_option = vis.get_render_option()
-    render_option.point_size = 1.5
-    # print("Difference between orj and regular gt boxes",len(gt_oriented_boxes_orj),len(gt_oriented_boxes))
-    # for gt_obb in gt_oriented_boxes_orj:
-    #     vis.add_geometry(gt_obb)
-    for gt_obb in gt_oriented_boxes:
-        vis.add_geometry(gt_obb)
-    for obb in obb_list_f:
-        vis.add_geometry(obb)
-    # for obb in obb_list:
-    #     vis.add_geometry(obb)
-    set_custom_view(vis)
-    vis.add_geometry(coordinate_frame)
-    vis.run()
+    os.makedirs(save_path,exist_ok=True)
+    new_dataset = pd.DataFrame(columns=['image_path', 'is_missed','missed_objects','total_objects'])
+    with tqdm(total=7481) as pbar:
+        for i in range(7481):
+            test_num= i #random.randint(0,7480)# 11 #
+            filename = os.path.join(kitti_velodyne_path, f'{test_num:06}.bin')
+            
+            #Read Calibration file, load point cloud and transfrom to image coordinates
+            calib_data = read_calib_file(filename.replace('.bin', '.txt').replace("velodyne","calib"))
+            points = load_velodyne_points(filename)
+            
+            # Transformation matrix is in (3x4) shape, so we extend it to (4x4) by adding a row of [0,0,0,1] for homogeneous coordinates
+            Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape(3, 4)
+            Tr_velo_to_cam_extended = np.eye(4)  # Create a 4x4 identity matrix
+            Tr_velo_to_cam_extended[:3, :] = Tr_velo_to_cam  # Replace the top-left 3x4 block
+            
+            #Simple transformation to image coordinates
+            # y = Tr_velo_to_cam_extended @ points.T
+            #y_below_ground_removed = y.T[y.T[:,1] > -1] -> Not sure if this is needed or the axis is correct
+            
 
-    # Close the visualizer window
-    vis.destroy_window()
-    # only_gt_boxes = [obb for obb,cntr in gt_oriented_boxes]
-    detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
-    print(len(detected_objects),len(missed_gt),len(not_matched_predictions))
+            
+            #Create a Open3D point cloud from the points for visualization
+            max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
+            original_pcd = create_point_cloud(points,distance=max_distance)    
+            
+            
+            nuscenes_compatible_points = np.ones((points.shape[0],5))
+            nuscenes_compatible_points[:,:3] = points[:,:3]
+            
+        
+            #Define the ellipse parameters and filter the points inside the ellipse, then create a point cloud from the filtered points
+            a, b = 25, 15  # Semi-major and semi-minor axes
+            filtered_points = filter_points_inside_ellipse(points, a, b,offset=-10) #filter_points_inside_pyramid(points, min_x, max_x, min_y,max_y ) #
+            filtered_pcd = create_point_cloud(filtered_points,distance=max_distance)
+            outside_points = filter_points_outside_ellipse(filtered_points, a, b,offset=-10)
+            outside_pcd = create_point_cloud(outside_points)
+            
+            #Retrieve the ground truth objects from the label file, then create oriented bounding boxes for visualization
+            labels = read_kitti_label_file(filename)
+            filtered_gt_boxes = filter_objects_outside_ellipse(labels, a, b,offset=-10,axis=0)
+            # print(len(filtered_gt_boxes),len(labels))
+            # gt_oriented_boxes_orj = [create_oriented_bounding_box_gt(label,axis=1,offset=100) for label in labels]
+            gt_oriented_boxes = [create_oriented_bounding_box_gt(label,offset=0) for label in filtered_gt_boxes]
+            # Initialize the object detector
+            score_threshold = 0.5 #Threshold for filtering detections with low confidence
+            
+            # Run inference on the raw point cloud, and create oriented bounding boxes for visualization
+            # res,data = inference_detector(model, points)
+            # pred_boxes_box = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            # pred_boxes_score = res.pred_instances_3d.scores_3d.cpu().numpy()
+            # filtered_indices = np.where(pred_boxes_score >= score_threshold)[0]
+            # filtered_boxes = pred_boxes_box[filtered_indicesdev2.py]
+            # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
+            
+            # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
+            res_f,data_f = inference_detector(model, filtered_points)
+            pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
+            filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
+            filtered_boxes = pred_boxes_box_f[filtered_indices]
+            obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
+            # print("Object shapes",len(obb_list_f),"Prediction shape", filtered_boxes.shape,filtered_boxes[0])
+            #Remove points from the filtered point cloud that are inside the predicted bounding boxes
+            removed_object_points = remove_points_inside_obbs(filtered_points, obb_list_f)
+            removed_pcd = create_point_cloud(removed_object_points,distance=max_distance)
+            
+            one_more_chance_res, one_more_chance_data = inference_detector(model, removed_object_points)
+            one_more_chance_pred_boxes_box = one_more_chance_res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            one_more_chance_pred_boxes_score = one_more_chance_res.pred_instances_3d.scores_3d.cpu().numpy()
+            filtered_indices = np.where(one_more_chance_pred_boxes_score >= score_threshold)[0]
+            one_more_chance_filtered_boxes = one_more_chance_pred_boxes_box[filtered_indices]
+            one_more_chance_obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data,color=(1,0.647,0)) for box in one_more_chance_filtered_boxes]
+            
+            
+            # coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1, origin=[0, 0, 0])
+
+            
+
+            # #Visualize the results
+            # vis = o3d.visualization.Visualizer()
+            # vis.create_window(window_name=str(test_num)) 
+            # #
+            # # original_pcd.translate([0,100, 0], relative=False)
+            # vis.add_geometry(outside_pcd)
+            # vis.add_geometry(filtered_pcd)
+            # # vis.add_geometry(removed_pcd)
+            
+            # render_option = vis.get_render_option()
+            # render_option.point_size = 2.0
+            # # print("Difference between orj and regular gt boxes",len(gt_oriented_boxes_orj),len(gt_oriented_boxes))
+            # # for gt_obb in gt_oriented_boxes_orj:
+            # #     vis.add_geometry(gt_obb)
+            # for gt_obb in gt_oriented_boxes:
+            #     vis.add_geometry(gt_obb)
+            # for obb in obb_list_f:
+            #     vis.add_geometry(obb)
+ 
+            # for obb in one_more_chance_obb_list_f:
+            #     vis.add_geometry(obb)
+            # set_custom_view(vis)
+            # vis.add_geometry(coordinate_frame)
+            # vis.run()
+
+            # # Close the visualizer window
+            # vis.destroy_window()
+            # # only_gt_boxes = [obb for obb,cntr in gt_oriented_boxes]
+            detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
+            if(len(gt_oriented_boxes) > 0):
+                row = {'image_path':f"{test_num:06}.png",'is_missed':len(missed_gt) > 0,'missed_objects':len(missed_gt),'total_objects':len(gt_oriented_boxes)}
+                new_dataset = pd.concat([new_dataset,pd.DataFrame([row])])
+            
+            # print("Detected objects",len(detected_objects),"Missed gt",len(missed_gt),"Not matched predictions",len(not_matched_predictions))
+            # break
+            # This is for the custom dataset creation
+            # if(len(missed_gt) > 0 and len(detected_objects) > 0):
+            #     custom_dataset_label_str = ""
+            #     for gt in missed_gt:
+            #         # custom_dataset_label_str += f"{gt['type']} "
+            #         box_3d_corners = np.array(gt.points)
+            #         for corner in box_3d_corners:
+            #             custom_dataset_label_str += f"{corner[0]} {corner[1]} {corner[2]} "
+            #         custom_dataset_label_str += "\n"
+            #     with open(os.path.join(save_path,f"{test_num:06}.txt"), "w") as f:
+            #         f.write(custom_dataset_label_str)
+            pbar.update(1)
+    new_dataset.to_csv(f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}_dataset.csv",index=False)
