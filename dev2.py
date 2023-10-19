@@ -23,6 +23,10 @@ from mmdet3d.visualization import Det3DLocalVisualizer
 from mmdet3d.structures import LiDARInstance3DBoxes
 print("Open3D Version: " + o3d.__version__)
 # o3d.visualization.webrtc_server.enable_webrtc()
+
+save_name = ""
+
+save_dir = "/mnt/ssd1/Introspect3D/custom_dataset/pointpillars_kitti_class3"
 def get_rotation_matrix_from_corners(corners):
     """
     Get the rotation matrix from 8 corners of a 3D bounding box.
@@ -435,6 +439,15 @@ def remove_points_inside_obbs(point_cloud, obbs):
     filtered_point_cloud = point_cloud[mask]
     
     return filtered_point_cloud
+def backbone_extraction_hook(ins,inp,out):
+    global image_name, save_dir,flag
+    last_output = out[2].detach().cpu().numpy()
+    last_output = np.squeeze(last_output)
+    if(flag):
+        np.save(os.path.join(save_dir,"features" ,save_name + '.npy'), last_output)
+    else:
+        np.save(os.path.join(save_dir,"removed_features" ,save_name + '.npy'), last_output)
+
 
 if __name__ == '__main__':
     import random
@@ -443,20 +456,25 @@ if __name__ == '__main__':
     used_model = "pointpillars"
     training_set = "kitti"
     num_classes = 3
-    kitti_velodyne_path= r"D:\introspectionBase\datasets\Kitti\raw\training\velodyne"
-    img_path = r"D:\introspectionBase\datasets\Kitti\raw\training\image_2"
-    config_file = r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
-    checkpoint = r'D:\mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+    # kitti_velodyne_path= r"D:\introspectionBase\datasets\Kitti\raw\training\velodyne"
+    # img_path = r"D:\introspectionBase\datasets\Kitti\raw\training\image_2"
+    # config_file = r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
+    # checkpoint = r'D:\mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+    kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
+    img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
+    config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
+    checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
     save_path = f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}/labels/"
     model = init_model(config_file, checkpoint, device='cuda:0')
-
     os.makedirs(save_path,exist_ok=True)
     new_dataset = pd.DataFrame(columns=['image_path', 'is_missed','missed_objects','total_objects'])
+    # hook = model.backbone.register_forward_hook(backbone_extraction_hook)
     with tqdm(total=7481) as pbar:
         for i in range(7481):
+
             test_num= i #random.randint(0,7480)# 11 #
             filename = os.path.join(kitti_velodyne_path, f'{test_num:06}.bin')
-            
+            save_name = f'{test_num:06}'
             #Read Calibration file, load point cloud and transfrom to image coordinates
             calib_data = read_calib_file(filename.replace('.bin', '.txt').replace("velodyne","calib"))
             points = load_velodyne_points(filename)
@@ -505,6 +523,7 @@ if __name__ == '__main__':
             # filtered_boxes = pred_boxes_box[filtered_indicesdev2.py]
             # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
             
+            flag = 1
             # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
             res_f,data_f = inference_detector(model, filtered_points)
             pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
@@ -512,17 +531,19 @@ if __name__ == '__main__':
             filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
             filtered_boxes = pred_boxes_box_f[filtered_indices]
             obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
-            # print("Object shapes",len(obb_list_f),"Prediction shape", filtered_boxes.shape,filtered_boxes[0])
-            #Remove points from the filtered point cloud that are inside the predicted bounding boxes
-            removed_object_points = remove_points_inside_obbs(filtered_points, obb_list_f)
-            removed_pcd = create_point_cloud(removed_object_points,distance=max_distance)
+            # # print("Object shapes",len(obb_list_f),"Prediction shape", filtered_boxes.shape,filtered_boxes[0])
+            # #Remove points from the filtered point cloud that are inside the predicted bounding boxes
+            # removed_object_points = remove_points_inside_obbs(filtered_points, obb_list_f)
+            # # removed_pcd = create_point_cloud(removed_object_points,distance=max_distance)
             
-            one_more_chance_res, one_more_chance_data = inference_detector(model, removed_object_points)
-            one_more_chance_pred_boxes_box = one_more_chance_res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-            one_more_chance_pred_boxes_score = one_more_chance_res.pred_instances_3d.scores_3d.cpu().numpy()
-            filtered_indices = np.where(one_more_chance_pred_boxes_score >= score_threshold)[0]
-            one_more_chance_filtered_boxes = one_more_chance_pred_boxes_box[filtered_indices]
-            one_more_chance_obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data,color=(1,0.647,0)) for box in one_more_chance_filtered_boxes]
+
+            # flag = 0
+            # one_more_chance_res, one_more_chance_data = inference_detector(model, removed_object_points)
+            # one_more_chance_pred_boxes_box = one_more_chance_res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            # one_more_chance_pred_boxes_score = one_more_chance_res.pred_instances_3d.scores_3d.cpu().numpy()
+            # filtered_indices = np.where(one_more_chance_pred_boxes_score >= score_threshold)[0]
+            # one_more_chance_filtered_boxes = one_more_chance_pred_boxes_box[filtered_indices]
+            # one_more_chance_obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data,color=(1,0.647,0)) for box in one_more_chance_filtered_boxes]
             
             
             # coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1, origin=[0, 0, 0])
@@ -576,4 +597,5 @@ if __name__ == '__main__':
             #     with open(os.path.join(save_path,f"{test_num:06}.txt"), "w") as f:
             #         f.write(custom_dataset_label_str)
             pbar.update(1)
-    new_dataset.to_csv(f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}_dataset.csv",index=False)
+    # hook.remove()
+    # new_dataset.to_csv(f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}_dataset.csv",index=False)
