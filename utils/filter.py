@@ -8,6 +8,7 @@ from base_classes.base import FilterStrategy
 class FilteringArea(Enum):
     INSIDE = 0
     OUTSIDE = 1 
+
 class EllipseFilter(FilterStrategy):
     """Implements ellipse-based filtering."""
 
@@ -35,7 +36,7 @@ class EllipseFilter(FilterStrategy):
         self.offset = offset_array
         
     def filter_pointcloud(self, data: PointCloud, mode: FilteringArea = FilteringArea.INSIDE):
-        points = data.get_points()
+        points = data
         x,y,z = points[:,0],points[:,1],points[:,2] #What if I need to send yz, xz combinations
         points += self.offset #Types of points might be problem such as (N,4) or (N,5)
         if mode == FilteringArea.INSIDE:
@@ -61,7 +62,7 @@ class EllipseFilter(FilterStrategy):
         x,y = kwargs['x'],kwargs['y']
         return (x**2 / self.a**2) + (y**2 / self.b**2) <= 1
     
-    def is_outside_ellipse(self,**kwargs):
+    def is_outside(self,**kwargs):
         x,y = kwargs['x'],kwargs['y']
         return (x**2 / self.a**2) + (y**2 / self.b**2) > 1
     
@@ -92,9 +93,20 @@ class RectangleFilter(FilterStrategy):
     
     def is_outside(self,**kwargs):
         pass   
-
+class NoFilter(FilterStrategy):
+    def __init__(self) -> None:
+        super().__init__()
+    def filter_pointcloud(self, data, mode=0):
+        return data
+    def filter_bounding_boxes(self, data, mode=0):
+        return data
+    def is_inside(self,**kwargs):
+        return True
+    def is_outside(self,**kwargs):
+        return False
 
 
 class FilterType(Enum):
     RECTANGLE = RectangleFilter
     ELLIPSE = EllipseFilter 
+    NONE = NoFilter

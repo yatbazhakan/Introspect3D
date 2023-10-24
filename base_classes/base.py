@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 class DrivingDataset(ABC):
     #As placeholder for now
     @abstractmethod
-    def read_label(self, **kwargs):
+    def read_labels(self, **kwargs):
         """Load dataset into memory."""
         pass
 

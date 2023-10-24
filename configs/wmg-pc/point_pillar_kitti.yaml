@@ -1,0 +1,56 @@
+experiment_name: point_pillar_kitti_activations
+experiment_path: ./
+device: 'cuda:0'
+method: activations
+wandb:
+  mode: disabled
+  project: pointpillars
+  entity: pointpillars
+  name: pointpillars
+  tags: []
+  params: {}
+detection:
+  device: 'cuda:0'
+  dataset:
+    name: Kitti
+    root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
+    class_names: ['Car', 'Pedestrian', 'Cyclist']
+    filtering_style: FilterType.ELLIPSE
+  model:
+  
+    name: pointpillars
+    root_dir: /mnt/ssd1/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+extraction:
+  device: 'cuda:0'
+  dataset:
+    name: Kitti
+    root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
+    class_names: ['Car', 'Pedestrian', 'Cyclist']
+    filtering_style: FilterType.ELLIPSE
+    filter_params:
+      a: 25
+      b: 10
+      offset: -10
+      axis: 0
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd1/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  method:
+    name: raw_activations
+    hook:
+      layer: backbone
+      indexes: []
+    save_dir: ../custom_dataset/kitti_pointpillars_activations/
+    labels_file_name: kitti_point_pillars_labels.csv
+    balanced: False
+    transforms: None

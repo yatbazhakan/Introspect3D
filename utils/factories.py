@@ -46,5 +46,5 @@ class DatasetFactory(Factory):
             self.datasets[name] = name
 
     def get(self,name,**kwargs):
-        return eval(self.datasets[name])(kwargs)
+        return eval(self.datasets[name])(**kwargs)
     

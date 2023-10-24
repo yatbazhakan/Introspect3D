@@ -2,6 +2,7 @@ from utils.config import Config
 import argparse
 import os
 from operators.activation_extractor import ActivationExractionOperator
+
 def get_operator(type:int = 1):
     if type == 1:
         return ActivationExractionOperator
@@ -17,7 +18,9 @@ def parse_args():
 if __name__== "__main__":
     args = parse_args()
     #Get current path#
-    current_path = os.path.dirname(os.path.realpath(__file__))
+    current_path = os.path.dirname(os.path.abspath(__file__))
+
     config = Config(os.path.join(current_path,'configs',args.config))
+    
     operator = get_operator(int(args.operator))(config)
     operator.execute(verbose=True)

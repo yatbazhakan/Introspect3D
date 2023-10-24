@@ -1,6 +1,7 @@
 from typing import List, Union, Tuple, Dict, Any
 import numpy as np
 import os
+from mmdet3d.apis import inference_detector, init_model
 
 class Activations:
 
@@ -15,7 +16,7 @@ class Activations:
         self.save_name = name
         self.gradients = []
         self.activations = []
-        return self.model(x)
+        return inference_detector(self.model, x)
     
     def save_activation(self,module, input, output):
         last_output = output[2].detach().cpu().numpy()

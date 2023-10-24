@@ -10,18 +10,20 @@ from math import cos,sin
 import cv2 
 from utils.filter import FilterType, FilteringArea
 class Kitti(DrivingDataset):
+
     def __init__(self,
                  root_dir: str,
-                 classes: Union[None, List],
-                 filtering_style: FilterType = FilterType.ELLIPSE) -> None:
+                 class_names: Union[None, List],
+                 filtering_style: FilterType = FilterType.ELLIPSE,**kwargs) -> None:
         self.root_dir = root_dir
-        self.classes = classes
+        self.classes = class_names
         self.image_paths = self.get_image_paths()
         self.lidar_paths = self.get_lidar_paths()
         self.calibration_paths = self.get_calibration_paths()
         self.label_paths = self.get_label_paths()
-        self.filtering_style = filtering_style
-        
+        self.filtering_style = eval(filtering_style)
+        self.filter_params = kwargs['filter_params']
+        print(self.filter_params)
     def __getitem__(self, idx):       
         #Read data
         file_name = self.image_paths[idx].split('/')[-1]
@@ -33,7 +35,7 @@ class Kitti(DrivingDataset):
         point_cloud = PointCloud(points=points)
         point_cloud.convert_to_kitti_points()
         point_cloud.filter_pointcloud(filter=self.filtering_style,
-                                      mode=FilteringArea)
+                                      **self.filter_params)
         return point_cloud, labels, file_name #might look for a way to extend this to images
     
     def get_image_paths(self):
@@ -84,7 +86,8 @@ class Kitti(DrivingDataset):
                     continue
                 calibration[key] = np.array([float(x) for x in value.strip().split()])
             return calibration
-       
+    def __len__(self):
+        return len(self.image_paths)
     def process_data(self,**kwargs):
         line = kwargs['line']
         calib_data = kwargs['calibration_data']
@@ -118,5 +121,5 @@ class Kitti(DrivingDataset):
         box = BoundingBox(center=real_center, 
                             dimensions=(dimensions_height, dimensions_width, dimensions_length),
                             rotation=o3d.geometry.get_rotation_matrix_from_xyz((0,rotation_y,0)), 
-                            label=obj_type)
+                            type=obj_type)
         return box
