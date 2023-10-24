@@ -1,5 +1,4 @@
 import numpy as np
-from filter import *
 
 class PointCloud:
     def __init__(self,points) -> None:
@@ -27,7 +26,7 @@ class PointCloud:
         #Transform points to new coordinate frame
         self.points = np.dot(transform,self.points.T).T
         
-    def filter_pointcloud(self,filter: FilterType,**kwargs): #0 for rectangle, 1 for ellipse
+    def filter_pointcloud(self,filter,**kwargs): #0 for rectangle, 1 for ellipse
         filter_strategy = filter.value(**kwargs)
         self.points = filter_strategy.filter_pointcloud(self.points)
         

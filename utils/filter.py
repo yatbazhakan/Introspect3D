@@ -8,7 +8,6 @@ from base_classes.base import FilterStrategy
 class FilteringArea(Enum):
     INSIDE = 0
     OUTSIDE = 1 
-    
 class EllipseFilter(FilterStrategy):
     """Implements ellipse-based filtering."""
 
@@ -93,6 +92,8 @@ class RectangleFilter(FilterStrategy):
     
     def is_outside(self,**kwargs):
         pass   
+
+
 
 class FilterType(Enum):
     RECTANGLE = RectangleFilter

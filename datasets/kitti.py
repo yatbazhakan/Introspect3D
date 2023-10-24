@@ -1,4 +1,4 @@
-from base_classes import DrivingDataset
+from base_classes.base import DrivingDataset
 from typing import Union, List
 import os 
 from glob import glob
@@ -24,6 +24,7 @@ class Kitti(DrivingDataset):
         
     def __getitem__(self, idx):       
         #Read data
+        file_name = self.image_paths[idx].split('/')[-1]
         #image = self.read_image(idx) #Can be used later
         points = self.read_points(idx=idx)
         labels = self.read_labels(idx=idx)
@@ -33,7 +34,7 @@ class Kitti(DrivingDataset):
         point_cloud.convert_to_kitti_points()
         point_cloud.filter_pointcloud(filter=self.filtering_style,
                                       mode=FilteringArea)
-        return point_cloud, labels #might look for a way to extend this to images
+        return point_cloud, labels, file_name #might look for a way to extend this to images
     
     def get_image_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'image_2', '*.png')))

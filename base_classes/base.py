@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from utils.filter import FilteringArea
 #TODO: If scales more, might be better to separate these into indivudal files
 class DrivingDataset(ABC):
     #As placeholder for now
@@ -19,7 +18,7 @@ class FilterStrategy(ABC):
     """Abstract base class for different filtering strategies."""
 
     @abstractmethod
-    def filter_pointcloud(self, data,mode: FilteringArea):
+    def filter_pointcloud(self, data,mode):
         """Apply filtering to a point cloud based on a specified mode.
         
         Args:
@@ -29,7 +28,7 @@ class FilterStrategy(ABC):
         pass
     
     @abstractmethod
-    def filter_bounding_boxes(self, data,mode: FilteringArea):
+    def filter_bounding_boxes(self, data,mode):
         """Apply filtering to bounding boxes based on a specified mode.
         
         Args:
@@ -46,3 +45,12 @@ class FilterStrategy(ABC):
     def is_outside(self,**kwargs):
         pass
     
+class Operator(ABC):
+    @abstractmethod
+    def execute(self, **kwargs):
+        pass
+    
+class Factory(ABC):
+    @abstractmethod
+    def get(self,name, **kwargs):
+        pass

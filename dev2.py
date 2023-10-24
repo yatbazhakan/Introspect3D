@@ -578,10 +578,10 @@ if __name__ == '__main__':
             # # Close the visualizer window
             # vis.destroy_window()
             # # only_gt_boxes = [obb for obb,cntr in gt_oriented_boxes]
-            detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
-            if(len(gt_oriented_boxes) > 0):
-                row = {'image_path':f"{test_num:06}.png",'is_missed':len(missed_gt) > 0,'missed_objects':len(missed_gt),'total_objects':len(gt_oriented_boxes)}
-                new_dataset = pd.concat([new_dataset,pd.DataFrame([row])])
+            # detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
+            # if(len(gt_oriented_boxes) > 0):
+            #     row = {'image_path':f"{test_num:06}.png",'is_missed':len(missed_gt) > 0,'missed_objects':len(missed_gt),'total_objects':len(gt_oriented_boxes)}
+            #     new_dataset = pd.concat([new_dataset,pd.DataFrame([row])])
             
             # print("Detected objects",len(detected_objects),"Missed gt",len(missed_gt),"Not matched predictions",len(not_matched_predictions))
             # break
@@ -596,6 +596,6 @@ if __name__ == '__main__':
             #         custom_dataset_label_str += "\n"
             #     with open(os.path.join(save_path,f"{test_num:06}.txt"), "w") as f:
             #         f.write(custom_dataset_label_str)
-            pbar.update(1)
+            # pbar.update(1)
     # hook.remove()
     # new_dataset.to_csv(f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}_dataset.csv",index=False)

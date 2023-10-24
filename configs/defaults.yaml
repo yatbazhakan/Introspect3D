@@ -1,0 +1,7 @@
+project_dir: D:/Introspect3D
+datasets:
+    - Kitti
+models: {}
+operators:
+  - ActivationExtractionOperator
+
