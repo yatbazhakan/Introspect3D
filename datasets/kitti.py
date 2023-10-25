@@ -63,7 +63,6 @@ class Kitti(DrivingDataset):
     def read_labels(self, **kwargs):
         idx = kwargs['idx']
         objects = []
-        from math import cos,sin
         label_file =  self.label_paths[idx]
         calibration_data = self.read_calibration(idx)
         with open(label_file, 'r') as f:

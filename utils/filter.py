@@ -49,12 +49,12 @@ class EllipseFilter(FilterStrategy):
         filtered_objects = []
         for box in data:
             # Check if any corner point is inside the ellipse
-            corners = box.corners.T
-            adjusted_corners_x = corners[:,0] + self.offset
+            corners = box.corners
+            adjusted_corners= corners +  self.offset.reshape(-1,3)
             if mode == FilteringArea.INSIDE:
-                inside_ellipse = self.is_inside(x = adjusted_corners_x, y= corners[:, 1])
+                inside_ellipse = self.is_inside(x = adjusted_corners[:,0], y=adjusted_corners[:,1])
             elif mode == FilteringArea.OUTSIDE:
-                inside_ellipse = self.is_outside(x= adjusted_corners_x, y = corners[:, 1])
+                inside_ellipse = self.is_outside(x= adjusted_corners[:,0], y = adjusted_corners[:,1])
             if np.any(inside_ellipse):
                 filtered_objects.append(box)
         # print(filtered_objects)

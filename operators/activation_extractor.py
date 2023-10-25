@@ -26,7 +26,6 @@ class ActivationExractionOperator(Operator):
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
         for i in range(len(self.dataset)):
-            # vis = Visualizer()
             cloud, ground_truth_boxes, file_name = self.dataset[i]
             file_name = file_name.replace('.png','')
             result, data = self.activation(cloud.points,file_name)
@@ -35,6 +34,7 @@ class ActivationExractionOperator(Operator):
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
             filtered_predicted_boxes = predicted_boxes[score_mask]
             prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
+            # vis = Visualizer()
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
             matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
             # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
@@ -43,6 +43,6 @@ class ActivationExractionOperator(Operator):
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
             if verbose:
                 progress_bar.update(1)
-            
-            self.save_labels() #might be dependent to some condition in future
+            if(self.config['active']):
+                self.save_labels()
             

@@ -14,6 +14,7 @@ class Activations:
         self.save_dir = method['save_dir']
         #TODO: better way to do this, indexes are not used right now, save activation must be generalized
         if extract:
+            print("Hook initialized")
             self.hook = eval(f'self.model.{method["hook"]["layer"]}.register_forward_hook(self.save_activation)')
         else:
             self.hook = None
