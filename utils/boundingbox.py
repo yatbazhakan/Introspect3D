@@ -8,31 +8,78 @@ class BoundingBox:
                  center: np.ndarray, 
                  dimensions: Union[np.ndarray,tuple], 
                  rotation:  Union[float, np.ndarray],
-                 type: Union[str,int]) -> None:
+                 label: Union[str,int]) -> None:
         
         self.center = center
         self.dimensions = dimensions
         self.rotation = rotation
-        self.type = type
+        self.type = label
         self.corners = None
-        
-    def rotate_points(points, R): # For now, migt move somewhere else
+        if isinstance(self.rotation, np.float32):
+            self.calcukate_corners_from_prediction()
+        else:
+            self.calculate_corners()
+
+    def rotate_points(self,points, R): # For now, migt move somewhere else
         return np.dot(points, R.T)
     
-    
+    def calculate_corners(self):
+        dimensions_height, dimensions_width, dimensions_length = self.dimensions[0], self.dimensions[1], self.dimensions[2]
+        R = self.rotation
+        l_div_2 = dimensions_length / 2
+        x_corners = [l_div_2, l_div_2, -l_div_2, -l_div_2, l_div_2, l_div_2, -l_div_2, -l_div_2]
+        w_div_2 = dimensions_width / 2
+        y_corners = [0, 0, 0, 0, -dimensions_height, -dimensions_height, -dimensions_height, -dimensions_height]
+        z_corners = [w_div_2, -w_div_2, -w_div_2, w_div_2, w_div_2, -w_div_2, -w_div_2, w_div_2]
+
+        corner_matrix = np.array([x_corners, y_corners, z_corners])
+        self.corners = self.rotate_points(corner_matrix.T, R) + self.center
+
+    def calcukate_corners_from_prediction(self):
+        corners_list = []
+        
+        x, y, z = self.center
+        dx, dy, dz = self.dimensions
+        yaw = self.rotation
+        # Step 1: Create local corner points
+        local_corners = np.array([
+            [-dx/2, -dy/2, -dz/2],  # corner 1
+            [+dx/2, -dy/2, -dz/2],  # corner 2
+            [+dx/2, +dy/2, -dz/2],  # corner 3
+            [-dx/2, +dy/2, -dz/2],  # corner 4
+            [-dx/2, -dy/2, +dz/2],  # corner 5
+            [+dx/2, -dy/2, +dz/2],  # corner 6
+            [+dx/2, +dy/2, +dz/2],  # corner 7
+            [-dx/2, +dy/2, +dz/2],  # corner 8
+        ])
+        
+        # Step 2: Rotate corners
+        rotation_matrix = np.array([
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw), np.cos(yaw), 0],
+            [0, 0, 1]
+        ])
+        
+        rotated_corners = np.dot(local_corners, rotation_matrix.T)
+        
+        # Step 3: Translate corners
+        translated_corners = rotated_corners + np.array([x, y, z])
+        
+        self.corners = np.array(translated_corners)
+
     def calculate_iou(self, box: BoundingBox) -> float:
         center1 = self.center
         dimensions1 = self.dimensions
         corners1 = self.corners
         # There might be an issue if the rotation is not a matrix
-        corners1 =  self.rotate_points(corners1, self.rotation) + center1
+        #corners1 =  self.rotate_points(corners1, self.rotation) + center1
 
             
         center2 = box.center
         dimensions2 = box.dimensions
         corners2 = box.corners
         # Rotate and translate corners
-        corners2 = self.rotate_points(corners2, box.rotation) + center2
+        #corners2 = self.rotate_points(corners2, box.rotation) + center2
 
         # Calculate axis-aligned bounding boxes for intersection
         min_bound1 = np.min(corners1, axis=0)
@@ -54,6 +101,18 @@ class BoundingBox:
         iou = intersection_volume / (vol1 + vol2 - intersection_volume)
         return iou
     
+    def calculate_all_ious(self, boxes: List[BoundingBox]) -> List[float]:
+        return [self.calculate_iou(box) for box in boxes]
+    
+    def find_max_iou_box(self, boxes: List[BoundingBox]) -> BoundingBox:
+        #Function to return the box_idx with the highest iou, and iou value
+        if len(boxes) == 0:
+            return None, 0
+        ious = self.calculate_all_ious(boxes)
+        max_iou = max(ious)
+        max_iou_idx = np.argmax(ious)
+        return max_iou_idx, max_iou
+
     def transform_box(self,transform):
         dimensions_height, dimensions_width, dimensions_length = self.dimensions[0], self.dimensions[1], self.dimensions[2]
         if isinstance(self.rotation) == float:
@@ -110,4 +169,15 @@ class BoundingBox:
         
         filtered_point_cloud = point_cloud[mask]  
         return filtered_point_cloud
+
+    def get_open3d_oriented_boxes(self):
+        obb = o3d.geometry.OrientedBoundingBox(center=self.center, R=self.rotation, extent=self.dimensions)
+        return obb
+    
+    def __str__(self) -> str:
+        st = ""
+        st += "Center: " + str(self.center) + "\n"
+        st += "Dimensions: " + str(self.dimensions) + "\n"
+        st += "Rotation: " + str(self.rotation) + "\n"
+        return st
 

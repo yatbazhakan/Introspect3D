@@ -8,7 +8,8 @@ from utils.pointcloud import PointCloud
 import open3d as o3d
 from math import cos,sin
 import cv2 
-from utils.filter import FilterType, FilteringArea
+from utils.filter import *
+import open3d as o3d
 class Kitti(DrivingDataset):
 
     def __init__(self,
@@ -23,7 +24,7 @@ class Kitti(DrivingDataset):
         self.label_paths = self.get_label_paths()
         self.filtering_style = eval(filtering_style)
         self.filter_params = kwargs['filter_params']
-        print(self.filter_params)
+        self.filter = self.filtering_style.value(**self.filter_params)
     def __getitem__(self, idx):       
         #Read data
         file_name = self.image_paths[idx].split('/')[-1]
@@ -33,9 +34,10 @@ class Kitti(DrivingDataset):
         
         #Process data
         point_cloud = PointCloud(points=points)
-        point_cloud.convert_to_kitti_points()
-        point_cloud.filter_pointcloud(filter=self.filtering_style,
-                                      **self.filter_params)
+        point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
+        # point_cloud.convert_to_kitti_points()
+        
+        labels = self.filter.filter_bounding_boxes(labels)
         return point_cloud, labels, file_name #might look for a way to extend this to images
     
     def get_image_paths(self):
@@ -106,7 +108,8 @@ class Kitti(DrivingDataset):
         y_corners = [0, 0, 0, 0, -dimensions_height, -dimensions_height, -dimensions_height, -dimensions_height]
         z_corners = [w_div_2, -w_div_2, -w_div_2, w_div_2, w_div_2, -w_div_2, -w_div_2, w_div_2]
         corner_matrix = np.array([x_corners, y_corners, z_corners])
-        R = np.array([[cos(rotation_y),0,sin(rotation_y)],[0,1,0],[-sin(rotation_y),0,cos(rotation_y)]])
+        R = o3d.geometry.get_rotation_matrix_from_xyz((0,rotation_y,0))
+        # R = np.array([[cos(rotation_y),0,sin(rotation_y)],[0,1,0],[-sin(rotation_y),0,cos(rotation_y)]])
         rotated_corners = np.matmul(R,corner_matrix)
         translated_corners = rotated_corners + center_tr.reshape(3,1)
         
@@ -121,5 +124,6 @@ class Kitti(DrivingDataset):
         box = BoundingBox(center=real_center, 
                             dimensions=(dimensions_height, dimensions_width, dimensions_length),
                             rotation=o3d.geometry.get_rotation_matrix_from_xyz((0,rotation_y,0)), 
-                            type=obj_type)
+                            label=obj_type)
+        box.corners = translated_corners.T
         return box

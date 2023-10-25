@@ -471,10 +471,12 @@ if __name__ == '__main__':
     # hook = model.backbone.register_forward_hook(backbone_extraction_hook)
     with tqdm(total=7481) as pbar:
         for i in range(7481):
-
+            print("Processing image",i)
             test_num= i #random.randint(0,7480)# 11 #
+           
             filename = os.path.join(kitti_velodyne_path, f'{test_num:06}.bin')
             save_name = f'{test_num:06}'
+            print(filename)
             #Read Calibration file, load point cloud and transfrom to image coordinates
             calib_data = read_calib_file(filename.replace('.bin', '.txt').replace("velodyne","calib"))
             points = load_velodyne_points(filename)
@@ -498,10 +500,12 @@ if __name__ == '__main__':
             nuscenes_compatible_points = np.ones((points.shape[0],5))
             nuscenes_compatible_points[:,:3] = points[:,:3]
             
-        
+            print("Filtering points")
             #Define the ellipse parameters and filter the points inside the ellipse, then create a point cloud from the filtered points
             a, b = 25, 15  # Semi-major and semi-minor axes
+            print("Before filtering",points.shape[0],"points")
             filtered_points = filter_points_inside_ellipse(points, a, b,offset=-10) #filter_points_inside_pyramid(points, min_x, max_x, min_y,max_y ) #
+            print("After filtering",filtered_points.shape[0],"points")
             filtered_pcd = create_point_cloud(filtered_points,distance=max_distance)
             outside_points = filter_points_outside_ellipse(filtered_points, a, b,offset=-10)
             outside_pcd = create_point_cloud(outside_points)
@@ -522,12 +526,14 @@ if __name__ == '__main__':
             # filtered_indices = np.where(pred_boxes_score >= score_threshold)[0]
             # filtered_boxes = pred_boxes_box[filtered_indicesdev2.py]
             # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
-            
+            print("Running inference")
             flag = 1
             # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
-            res_f,data_f = inference_detector(model, filtered_points)
+            print(filtered_points.shape)
+            res_f,data_f = inference_detector(model, points)
             pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
+            print(pred_boxes_score_f)
             filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
             filtered_boxes = pred_boxes_box_f[filtered_indices]
             obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
@@ -535,7 +541,7 @@ if __name__ == '__main__':
             # #Remove points from the filtered point cloud that are inside the predicted bounding boxes
             # removed_object_points = remove_points_inside_obbs(filtered_points, obb_list_f)
             # # removed_pcd = create_point_cloud(removed_object_points,distance=max_distance)
-            
+            print("Running inference on the removed points")
 
             # flag = 0
             # one_more_chance_res, one_more_chance_data = inference_detector(model, removed_object_points)
@@ -551,8 +557,9 @@ if __name__ == '__main__':
             
 
             # #Visualize the results
-            # vis = o3d.visualization.Visualizer()
-            # vis.create_window(window_name=str(test_num)) 
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=str(test_num)) 
+            vis.add_geometry(original_pcd)
             # #
             # # original_pcd.translate([0,100, 0], relative=False)
             # vis.add_geometry(outside_pcd)
@@ -562,28 +569,28 @@ if __name__ == '__main__':
             # render_option = vis.get_render_option()
             # render_option.point_size = 2.0
             # # print("Difference between orj and regular gt boxes",len(gt_oriented_boxes_orj),len(gt_oriented_boxes))
-            # # for gt_obb in gt_oriented_boxes_orj:
-            # #     vis.add_geometry(gt_obb)
-            # for gt_obb in gt_oriented_boxes:
+            # for gt_obb in gt_oriented_boxes_orj:
             #     vis.add_geometry(gt_obb)
-            # for obb in obb_list_f:
-            #     vis.add_geometry(obb)
+            for gt_obb in gt_oriented_boxes:
+                vis.add_geometry(gt_obb)
+            for obb in obb_list_f:
+                vis.add_geometry(obb)
  
             # for obb in one_more_chance_obb_list_f:
             #     vis.add_geometry(obb)
-            # set_custom_view(vis)
+            set_custom_view(vis)
             # vis.add_geometry(coordinate_frame)
-            # vis.run()
+            vis.run()
 
             # # Close the visualizer window
             # vis.destroy_window()
             # # only_gt_boxes = [obb for obb,cntr in gt_oriented_boxes]
-            # detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
+            detected_objects, missed_gt, not_matched_predictions = match_detections_3d(gt_oriented_boxes, obb_list_f)
             # if(len(gt_oriented_boxes) > 0):
             #     row = {'image_path':f"{test_num:06}.png",'is_missed':len(missed_gt) > 0,'missed_objects':len(missed_gt),'total_objects':len(gt_oriented_boxes)}
             #     new_dataset = pd.concat([new_dataset,pd.DataFrame([row])])
             
-            # print("Detected objects",len(detected_objects),"Missed gt",len(missed_gt),"Not matched predictions",len(not_matched_predictions))
+            print("Detected objects",len(detected_objects),"Missed gt",len(missed_gt),"Not matched predictions",len(not_matched_predictions))
             # break
             # This is for the custom dataset creation
             # if(len(missed_gt) > 0 and len(detected_objects) > 0):
@@ -597,5 +604,6 @@ if __name__ == '__main__':
             #     with open(os.path.join(save_path,f"{test_num:06}.txt"), "w") as f:
             #         f.write(custom_dataset_label_str)
             # pbar.update(1)
+            break
     # hook.remove()
     # new_dataset.to_csv(f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}_dataset.csv",index=False)

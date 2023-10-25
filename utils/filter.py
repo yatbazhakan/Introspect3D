@@ -25,20 +25,19 @@ class EllipseFilter(FilterStrategy):
         """
         super().__init__()
 
-        if isinstance(offset, float):
+        if isinstance(offset, float) or isinstance(offset, int):
             offset_array = np.zeros(3)
             offset_array[axis] = offset
         else:
             offset_array = offset
-            
         self.a = a
         self.b = b   
         self.offset = offset_array
         
     def filter_pointcloud(self, data: PointCloud, mode: FilteringArea = FilteringArea.INSIDE):
         points = data
-        x,y,z = points[:,0],points[:,1],points[:,2] #What if I need to send yz, xz combinations
-        points += self.offset #Types of points might be problem such as (N,4) or (N,5)
+        temp_points = points[:,:3] + self.offset #Types of points might be problem such as (N,4) or (N,5)
+        x,y,z = temp_points[:,0],temp_points[:,1],temp_points[:,2] #What if I need to send yz, xz combinations
         if mode == FilteringArea.INSIDE:
             inside_ellipse = self.is_inside(x=x,y=y)
             return data[inside_ellipse]
@@ -50,9 +49,12 @@ class EllipseFilter(FilterStrategy):
         filtered_objects = []
         for box in data:
             # Check if any corner point is inside the ellipse
-            corners = box.corners
-            adjusted_corners_x = corners + self.offset
-            inside_ellipse = self.is_inside(adjusted_corners_x, corners[:, 1], self.a, self.b)
+            corners = box.corners.T
+            adjusted_corners_x = corners[:,0] + self.offset
+            if mode == FilteringArea.INSIDE:
+                inside_ellipse = self.is_inside(x = adjusted_corners_x, y= corners[:, 1])
+            elif mode == FilteringArea.OUTSIDE:
+                inside_ellipse = self.is_outside(x= adjusted_corners_x, y = corners[:, 1])
             if np.any(inside_ellipse):
                 filtered_objects.append(box)
         # print(filtered_objects)
@@ -94,7 +96,7 @@ class RectangleFilter(FilterStrategy):
     def is_outside(self,**kwargs):
         pass   
 class NoFilter(FilterStrategy):
-    def __init__(self) -> None:
+    def __init__(self,**kwargs) -> None:
         super().__init__()
     def filter_pointcloud(self, data, mode=0):
         return data
