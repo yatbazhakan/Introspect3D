@@ -1,5 +1,6 @@
 from datasets.kitti import Kitti
 from datasets.bdd import BerkeleyDeepDrive
+from datasets.activation_dataset import ErrorDataset
 import os
 import matplotlib.pyplot as plt
 import pandas as pd

@@ -12,8 +12,22 @@ class DrivingDataset(ABC):
         """Process the data, including any calibration steps."""
         pass
 
+#Not sure if needed but for consistency will not use for now
+class ErrorDataset(ABC):
+    @abstractmethod
+    def read_labels(self, **kwargs):
+        """Load dataset into memory."""
+        pass
 
+    @abstractmethod
+    def read_data(self, **kwargs):
+        """Load activation paths."""
+        pass
 
+    @abstractmethod
+    def process_data(self, **kwargs):
+        """Process the data, including any calibration steps."""
+        pass
 class FilterStrategy(ABC):
     """Abstract base class for different filtering strategies."""
 
@@ -53,4 +67,10 @@ class Operator(ABC):
 class Factory(ABC):
     @abstractmethod
     def get(self,name, **kwargs):
+        pass
+
+
+class ActivationProcessor(ABC):
+    @abstractmethod
+    def process(self, **kwargs):
         pass

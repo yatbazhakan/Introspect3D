@@ -6,6 +6,10 @@ from utils.boundingbox import BoundingBox
 import numpy as np
 import open3d as o3d
 import matplotlib.pyplot as plt
+import torch.nn as nn
+from torch.optim import *
+from torch.optim.lr_scheduler import *
+from torch.nn import *
 def load_detection_model(config: Config):
     """Loads the detection model."""
     root_dir = config['model']['root_dir']
@@ -55,3 +59,30 @@ def check_detection_matches(ground_truth_boxes:BoundingBox, predicted_boxes:Boun
 
     return matches, unmatched_ground_truths, unmatched_predictions
 
+
+def generate_model_from_config(config):
+
+    
+    layers = []
+
+    for layer_config in config['layers']:
+        layer_type = layer_config['type']
+        layer_params = layer_config['params']
+        layers.append(eval(f"{layer_type}(**layer_params)"))
+
+    return nn.Sequential(*layers)
+
+def generate_optimizer_from_config(config,model):
+    optimizer_type = config['type']
+    optimizer_params = config['params']
+    return eval(f"{optimizer_type}(model.parameters(),**optimizer_params)")
+
+def generate_scheduler_from_config(config,optimizer):
+    scheduler_type = config['type']
+    scheduler_params = config['params']
+    return eval(f"{scheduler_type}(optimizer,**scheduler_params)")
+
+def generate_criterion_from_config(config):
+    loss_type = config['type']
+    loss_params = config['params']
+    return eval(f"{loss_type}(**loss_params)")

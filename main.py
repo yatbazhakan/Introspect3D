@@ -2,10 +2,13 @@ from utils.config import Config
 import argparse
 import os
 from operators.activation_extractor import ActivationExractionOperator
+from operators.introspector import IntrospectionOperator
 from definitions import ROOT_DIR,CONFIG_DIR
 def get_operator(type:int = 1):
     if type == 1:
         return ActivationExractionOperator
+    elif type == 2:
+        return IntrospectionOperator
     else:
         raise NotImplementedError("Operator not implemented")
 def parse_args():
