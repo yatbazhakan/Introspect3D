@@ -31,3 +31,4 @@ class Config:
         self.wandb: Dict[str, Any] = self.config_dict.get('wandb', {})
         self.detection: Dict[str, Any] = self.config_dict.get('detection', {})
         self.extraction: Dict[str, Any] = self.config_dict.get('extraction', {})
+        self.introspection: Dict[str, Any] = self.config_dict.get('introspection', {})

@@ -6,16 +6,22 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-import wandb
+from definitions import ROOT_DIR
+# import wandb
 import torch
+from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
-        self.wandb = self.config['wandb']
+        
         self.config = config.introspection
+        self.wandb = self.config['wandb']
         self.verbose = self.config['verbose']
         self.method_info = self.config['method']
         self.is_sweep = self.wandb['is_sweep']
+        self.device = self.config['device']
+        os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
+        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name'])
 
     def get_dataloader(self):
         if self.split:
@@ -23,14 +29,14 @@ class IntrospectionOperator(Operator):
             test_loader = DataLoader(self.test_dataset, **self.config['dataloader']['test'])
             self.train_loader = train_loader
             self.test_loader = test_loader
-        else:
+        else: # THis will give me flexibility for dataset shift case
             loader = DataLoader(self.dataset, **self.config['dataloader']['all'])
             self.test_loader = loader
 
     def train_test_split(self):
         indices = list(range(len(self.dataset)))
         all_labels= self.dataset.get_all_labels()
-        train_indices, test_indices = train_test_split(indices, self.method_info['train_test_split'],stratify=all_labels)
+        train_indices, test_indices = train_test_split(indices, test_size=self.method_info['train_test_split'],stratify=all_labels)
         self.train_dataset = Subset(self.dataset, train_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
         self.split=True
@@ -39,7 +45,7 @@ class IntrospectionOperator(Operator):
         self.device = self.config['device']
 
         self.split = False
-        if self.method_info['train_test_split']:
+        if self.method_info['train_test_split'] != None:
             self.train_test_split()
         self.get_dataloader()
 
@@ -51,15 +57,21 @@ class IntrospectionOperator(Operator):
         self.save_interval = self.method_info['save_interval']
     def train_epoch(self,epoch):
         epoch_loss = 0
+        if self.verbose:
+            print("Epoch:",epoch)
+        pbar = tqdm(total=len(self.train_loader),leave=False)
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(output, target)
+            output= output.float()
+            target = target.long()
+            loss = self.criterion(output, target.squeeze())
             loss.backward()
             self.optimizer.step()
             self.total_loss += loss.item()
             epoch_loss += loss.item()
+            pbar.update(1)
         #TODO: check if this division is correct way to do so
         return epoch_loss/len(self.train_loader.dataset)
 
@@ -67,35 +79,118 @@ class IntrospectionOperator(Operator):
         #MNot very OOP of me but this might improve earlier waiting times
         self.dataset = DatasetFactory().get(**self.config['dataset'])
         self.model = generate_model_from_config(self.method_info['model'])
-        self.initialize_learning_parameters()
+        
+        
 
-        self.model.to(self.device)
-        self.model.train()
+        early_stop_threshold = self.method_info['early_stop']
+        no_improvement_count = 0
+        print(type(self.model))
+        print(self.device)
+        self.model = self.model.to(self.device)
+        
+        self.initialize_learning_parameters()
+        self.criterion.to(self.device)
         self.total_loss = np.inf
         previous_loss = np.inf
-        pbar = tqdm(total=self.epochs)
+        
+        self.model.train()
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(epoch)
             if self.verbose:
-                pbar.update(1)
-            wandb.log({'epoch_loss':epoch_loss})
+                print("Epoch loss:",epoch_loss)
+            # wandb.log({'epoch_loss':epoch_loss})
             if epoch_loss < previous_loss:
                 previous_loss = epoch_loss
+                no_improvement_count = 0
                 if self.verbose:
                     print("Saving model")
-                torch.save(self.model.state_dict(), self.method_info['save_path'])
-
-
+                torch.save(self.model.state_dict(), self.model_save_to)
+                # wandb.save(self.method_info['save_path'])
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= early_stop_threshold:
+                    if self.verbose:
+                        print("Early stopping")
+                    break
+            if self.method_info['sanity_check']:
+                self.evaluate(loader=self.train_loader,epoch=epoch)
+                self.evaluate(loader=self.test_loader,epoch=epoch)
         
+
+    def evaluate(self,loader=None,epoch=None):
+        if loader == None:
+            if self.verbose:
+                print("No loader provided, Evaluation started for test set")
+            loader = self.test_loader
+        self.model.eval()
+        test_loss = 0
+        all_preds = torch.tensor([]).to(self.config['device'],dtype=torch.float32) 
+        all_labels = torch.tensor([]).to(self.config['device'],dtype=torch.long)
+        with torch.no_grad():
+            for data, target, name in loader:
+
+                data, target = data.to(self.device), target.to(self.device)
+                output = self.model(data)
+                test_loss += self.criterion(output, target.squeeze(1)).item()
+                # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        
+                # print(pred.squeeze().shape,target.squeeze().shape)
+                all_preds = torch.cat(
+                    (all_preds, output),dim=0
+                )
+                all_labels = torch.cat(
+                        (all_labels, target),dim=0
+                    )
+        test_loss /= len(loader.dataset)       
+        self.calculate_torchmetrics(all_preds,all_labels)
+        # wandb.log({'test_loss':test_loss})
+
+    def print_metrics(self):
+        # classes = ['Non Failure', 'Failure']
+        # # print(self.conf)
+        # output_dir = self.config['output_dir']
+        # file_name = self.config.exp_name
+        # # file = open(output_dir+file_name+".txt","w")
+        # wandb.log(self.metrics)
+        print(self.metrics)
+    def calculate_torchmetrics(self,pred,target):
+        
+
+        num_classes = 2
+        task = 'multiclass'
+        pred = torch.tensor(pred).squeeze()
+        target = torch.tensor(target,dtype=torch.int64).squeeze()
+        metric_collection = MetricCollection([
+        ConfusionMatrix(num_classes=num_classes,task=task),
+        Accuracy(task=task,num_classes=num_classes,average='none'),
+        Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
+        Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
+        F1Score(task=task,num_classes=num_classes,average='none'),
+        AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
+        StatScores(num_classes=num_classes,task=task,average='none'),
+        AveragePrecision(num_classes=num_classes,task=task,average='none'),
+        ])
+        metric_collection.to(self.device)
+        self.metrics = metric_collection(pred,target)
+        from pprint import pprint
+        pprint(self.metrics)
+        # wandb.log(self.metrics)
 
     def execute(self, **kwargs):
         if self.is_sweep:
             sweep_configuration = self.wandb['sweep_configuration']
-            sweep_id = wandb.sweep(sweep=sweep_configuration, project='introspectionBase')
+            # sweep_id = wandb.sweep(sweep=sweep_configuration, project='introspectionBase')
             if self.verbose:
-                print("="*100,"\n",wandb.config,"\n","="*100)
-            wandb.agent(sweep_id, function=self.train,count=1)
+                print("Sweep id:",None)
+                # print("="*100,"\n",wandb.config,"\n","="*100)
+            # wandb.agent(sweep_id, function=self.train,count=1)
         else:
             #Some management will be needed here
-            wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'])
-            self.train()
+            # wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'])
+            if self.config['operation']['type'] == "train":
+                self.train()
+            elif self.config['operation']['type'] == "evaluate":
+                self.evaluate()
+            else:
+                self.train()
+                self.evaluate()

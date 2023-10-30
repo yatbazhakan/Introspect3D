@@ -10,6 +10,10 @@ import torch.nn as nn
 from torch.optim import *
 from torch.optim.lr_scheduler import *
 from torch.nn import *
+from torchvision.models import *
+import torchvision
+import torch
+from modules.other import Identity
 def load_detection_model(config: Config):
     """Loads the detection model."""
     root_dir = config['model']['root_dir']
@@ -64,12 +68,41 @@ def generate_model_from_config(config):
 
     
     layers = []
-
+    num_ftrs = None
     for layer_config in config['layers']:
         layer_type = layer_config['type']
-        layer_params = layer_config['params']
-        layers.append(eval(f"{layer_type}(**layer_params)"))
+        if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
+            model = eval(f"{layer_type}(**layer_config['params'])")
+            # Clone the first 3 channels from the original weights
+            original_weight = model.conv1.weight.clone()  # Shape: [64, 3, 7, 7]
+            model.conv1 = nn.Conv2d(layer_config['in_channels'], 64,
+                                            kernel_size=7, stride=2, padding=3, bias=False)
+            # Calculate the mean across the channel dimension
+            mean_weight = torch.mean(original_weight, dim=1, keepdim=True)  # Shape: [64, 1, 7, 7]
 
+            # Initialize a new weight tensor filled with zeros
+            new_weight = torch.zeros((64, layer_config['in_channels'], 7, 7), dtype=original_weight.dtype, device=original_weight.device)
+
+            # Copy the original 3 channels into the new weight tensor
+            new_weight[:, :3, :, :] = original_weight
+
+            # Fill the remaining 253 channels with the mean channel
+            new_weight[:, 3:, :, :] = mean_weight
+
+            # Assign the new weight tensor to the conv1 layer
+            model.conv1.weight = nn.Parameter(new_weight)
+
+
+            num_ftrs = model.fc.in_features 
+            model.fc = Identity()
+            layers.append(model)
+        else:
+            layer_params = layer_config['params']
+            if num_ftrs != None and 'in_features' in layer_params.keys():
+                print("in_features is set to",num_ftrs,"for layer",layer_type)
+                layer_params['in_features'] = num_ftrs
+                num_ftrs = None
+            layers.append(eval(f"{layer_type}(**layer_params)"))
     return nn.Sequential(*layers)
 
 def generate_optimizer_from_config(config,model):
@@ -85,4 +118,6 @@ def generate_scheduler_from_config(config,optimizer):
 def generate_criterion_from_config(config):
     loss_type = config['type']
     loss_params = config['params']
+    if "weight" in loss_params.keys():
+        loss_params['weight'] = torch.tensor(loss_params['weight'],dtype=torch.float32)
     return eval(f"{loss_type}(**loss_params)")

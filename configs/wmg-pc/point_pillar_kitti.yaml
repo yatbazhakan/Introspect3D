@@ -3,13 +3,7 @@ experiment_path: ./
 device: 'cuda:0'
 method: activations
 verbose: True
-wandb:
-  mode: disabled
-  project: pointpillars
-  entity: pointpillars
-  name: pointpillars
-  tags: []
-  params: {}
+
 detection:
   device: 'cuda:0'
   dataset:
@@ -56,3 +50,92 @@ extraction:
     labels_file_name: kitti_point_pillars_labels_filtered.csv
     balanced: False
     transforms: None
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+# experiment_name: point_pillar_kitti_activations
+# Only showing the introspection section for brevity
+introspection:
+  experiment_name: point_pillar_kitti_activations
+  wandb:
+    is_sweep: False
+    sweep_configuration: {}
+    project: <string>
+    entity: <string>
+    mode: <string>
+  verbose: True
+  method:
+    train_test_split: 0.2
+    processing:
+      active: True
+      method: ProcessorEnum.SF
+      params: {}
+    model:
+      layers:
+        - type: torchvision.models.resnet50
+          in_channels: 256
+          params:
+            weights: ResNet50_Weights.IMAGENET1K_V2
+        - type: "Flatten"
+          params: {}
+        - type: "Linear"
+          params:
+            in_features: None
+            out_features: 512
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 512
+            out_features: 256
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 256
+            out_features: 2
+    optimizer:
+      type: SGD
+      params:
+        lr: 0.001
+        momentum: 0.9
+        weight_decay: 0.0001
+    criterion:
+      type: CrossEntropyLoss
+      params: 
+        weight: [0.78, 1.39]
+    scheduler:
+      type: ReduceLROnPlateau
+      params:
+        patience : 15
+        factor: 0.1
+    epochs: 5
+    log_interval: 1
+    save_interval: 1
+    early_stop: 5 
+    sanity_check: True
+    save_path: outputs/ckpts
+    save_name: point_pillar_kitti_activations.pt
+  device: cuda:0
+  dataset:
+    name: ActivationDataset
+    config:
+      root_dir: /mnt/ssd1/custom_dataset/kitti_pointpillars_activations_filtered/
+      label_file: kitti_point_pillars_labels_filtered.csv
+      classes: ['No Error', 'Error']
+  dataloader:
+    all:
+      batch_size: 8
+      shuffle: True
+    train:
+      batch_size: 8
+      shuffle: True
+    test:
+      batch_size: 1
+      shuffle: False
+  operation: 
+    type: traineval
+    load_model: False
