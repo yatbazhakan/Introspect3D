@@ -93,8 +93,7 @@ class IntrospectionOperator(Operator):
 
         early_stop_threshold = self.method_info['early_stop']
         no_improvement_count = 0
-        print(type(self.model))
-        print(self.device)
+
         self.model = self.model.to(self.device)
         
         self.initialize_learning_parameters()
@@ -144,9 +143,6 @@ class IntrospectionOperator(Operator):
                     data = torch.from_numpy(data).to(self.device)
                 output = self.model(data)
                 test_loss += self.criterion(output, target.squeeze(1)).item()
-                # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        
-                # print(pred.squeeze().shape,target.squeeze().shape)
                 all_preds = torch.cat(
                     (all_preds, output),dim=0
                 )
@@ -154,19 +150,18 @@ class IntrospectionOperator(Operator):
                         (all_labels, target),dim=0
                     )
         test_loss /= len(loader.dataset)       
-        self.calculate_torchmetrics(all_preds,all_labels)
+        
         if loader == self.test_loader:
             wandb.log({'test_loss':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='test')
+        elif loader == self.train_loader:
+            wandb.log({'train_loss':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='train')
 
     def print_metrics(self):
-        # classes = ['Non Failure', 'Failure']
-        # # print(self.conf)
-        # output_dir = self.config['output_dir']
-        # file_name = self.config.exp_name
-        # # file = open(output_dir+file_name+".txt","w")
-        # wandb.log(self.metrics)
+
         print(self.metrics)
-    def calculate_torchmetrics(self,pred,target):
+    def calculate_torchmetrics(self,pred,target,mode = 'train'):
         
 
         num_classes = 2
@@ -174,21 +169,25 @@ class IntrospectionOperator(Operator):
         pred = torch.tensor(pred).squeeze()
         target = torch.tensor(target,dtype=torch.int64).squeeze()
         metric_collection = MetricCollection([
-        ConfusionMatrix(num_classes=num_classes,task=task),
-        Accuracy(task=task,num_classes=num_classes,average='none'),
-        Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
-        Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
-        F1Score(task=task,num_classes=num_classes,average='none'),
-        AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
-        StatScores(num_classes=num_classes,task=task,average='none'),
-        AveragePrecision(num_classes=num_classes,task=task,average='none'),
+            ConfusionMatrix(num_classes=num_classes,task=task),
+            Accuracy(task=task,num_classes=num_classes,average='none'),
+            Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
+            Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
+            F1Score(task=task,num_classes=num_classes,average='none'),
+            AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
+            StatScores(num_classes=num_classes,task=task,average='none'),
+            AveragePrecision(num_classes=num_classes,task=task,average='none'),
         ])
         metric_collection.to(self.device)
         self.metrics = metric_collection(pred,target)
         from pprint import pprint
         # pprint(self.metrics)
         self.metrics['epoch'] = self.epochs
-        wandb.log(self.metrics)
+        #This is messy but to try
+        log = {mode:self.metrics}
+
+        wandb.log(log,step=self.epochs)
+        
 
     def execute(self, **kwargs):
         if self.is_sweep:

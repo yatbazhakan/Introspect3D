@@ -104,7 +104,7 @@ introspection:
             out_features: 2
     optimizer:
       type: SGD
-      params:
+      params: 
         lr: 0.001
         momentum: 0.9
         weight_decay: 0.0001
@@ -117,7 +117,7 @@ introspection:
       params:
         patience : 15
         factor: 0.7
-    epochs: 5
+    epochs: 50
     log_interval: 1
     save_interval: 1
     early_stop: 5 
@@ -133,10 +133,10 @@ introspection:
       classes: ['No Error', 'Error']
   dataloader:
     all:
-      batch_size: 8
+      batch_size: 32
       shuffle: True
     train:
-      batch_size: 8
+      batch_size: 32
       shuffle: True
     test:
       batch_size: 1
