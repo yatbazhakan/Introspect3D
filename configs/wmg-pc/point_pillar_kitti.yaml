@@ -61,27 +61,32 @@ introspection:
   wandb:
     is_sweep: False
     sweep_configuration: {}
-    project: <string>
-    entity: <string>
-    mode: <string>
+    project: introspect3D
+    entity: yatbazhakan
+    mode: online
   verbose: True
   method:
     train_test_split: 0.2
     processing:
       active: True
       method: ProcessorEnum.SF
-      params: {}
+      params:
+        config:
+          functions:
+            - mean
+            - max
+            - std
     model:
       layers:
-        - type: torchvision.models.resnet50
-          in_channels: 256
-          params:
-            weights: ResNet50_Weights.IMAGENET1K_V2
-        - type: "Flatten"
-          params: {}
+        # - type: torchvision.models.resnet50
+        #   in_channels: 256
+        #   params:
+        #     weights: ResNet50_Weights.IMAGENET1K_V2
+        # - type: "Flatten"
+        #   params: {}
         - type: "Linear"
           params:
-            in_features: None
+            in_features: 768
             out_features: 512
         - type: "Dropout"
           params:
@@ -111,14 +116,14 @@ introspection:
       type: ReduceLROnPlateau
       params:
         patience : 15
-        factor: 0.1
+        factor: 0.7
     epochs: 5
     log_interval: 1
     save_interval: 1
     early_stop: 5 
     sanity_check: True
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations.pt
+    save_name: point_pillar_kitti_activations_sf.pt
   device: cuda:0
   dataset:
     name: ActivationDataset

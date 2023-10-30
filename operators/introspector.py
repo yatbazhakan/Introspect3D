@@ -7,7 +7,8 @@ from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from definitions import ROOT_DIR
-# import wandb
+from utils.process import *
+import wandb
 import torch
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 class IntrospectionOperator(Operator):
@@ -22,6 +23,11 @@ class IntrospectionOperator(Operator):
         self.device = self.config['device']
         os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
         self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name'])
+        if self.method_info['processing']['active']:
+            print(self.method_info['processing']['method'])
+            self.proceesor = eval(self.method_info['processing']['method']).value(**self.method_info['processing']['params'])
+        else:
+            self.proceesor = None
 
     def get_dataloader(self):
         if self.split:
@@ -63,6 +69,9 @@ class IntrospectionOperator(Operator):
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
+            if(self.proceesor != None):
+                data = self.proceesor.process(activation=data)
+                data = torch.from_numpy(data).to(self.device)
             output = self.model(data)
             output= output.float()
             target = target.long()
@@ -98,14 +107,14 @@ class IntrospectionOperator(Operator):
             epoch_loss = self.train_epoch(epoch)
             if self.verbose:
                 print("Epoch loss:",epoch_loss)
-            # wandb.log({'epoch_loss':epoch_loss})
+            wandb.log({'epoch_loss':epoch_loss})
             if epoch_loss < previous_loss:
                 previous_loss = epoch_loss
                 no_improvement_count = 0
                 if self.verbose:
                     print("Saving model")
                 torch.save(self.model.state_dict(), self.model_save_to)
-                # wandb.save(self.method_info['save_path'])
+                wandb.save(self.method_info['save_path'])
             else:
                 no_improvement_count += 1
                 if no_improvement_count >= early_stop_threshold:
@@ -130,6 +139,9 @@ class IntrospectionOperator(Operator):
             for data, target, name in loader:
 
                 data, target = data.to(self.device), target.to(self.device)
+                if(self.proceesor != None):
+                    data = self.proceesor.process(activation=data)
+                    data = torch.from_numpy(data).to(self.device)
                 output = self.model(data)
                 test_loss += self.criterion(output, target.squeeze(1)).item()
                 # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
@@ -143,7 +155,8 @@ class IntrospectionOperator(Operator):
                     )
         test_loss /= len(loader.dataset)       
         self.calculate_torchmetrics(all_preds,all_labels)
-        # wandb.log({'test_loss':test_loss})
+        if loader == self.test_loader:
+            wandb.log({'test_loss':test_loss})
 
     def print_metrics(self):
         # classes = ['Non Failure', 'Failure']
@@ -173,8 +186,9 @@ class IntrospectionOperator(Operator):
         metric_collection.to(self.device)
         self.metrics = metric_collection(pred,target)
         from pprint import pprint
-        pprint(self.metrics)
-        # wandb.log(self.metrics)
+        # pprint(self.metrics)
+        self.metrics['epoch'] = self.epochs
+        wandb.log(self.metrics)
 
     def execute(self, **kwargs):
         if self.is_sweep:
@@ -186,7 +200,7 @@ class IntrospectionOperator(Operator):
             # wandb.agent(sweep_id, function=self.train,count=1)
         else:
             #Some management will be needed here
-            # wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'])
+            wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'])
             if self.config['operation']['type'] == "train":
                 self.train()
             elif self.config['operation']['type'] == "evaluate":

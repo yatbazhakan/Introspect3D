@@ -27,9 +27,10 @@ class StatisticalFeatureExtraction(ActivationProcessor):
         #if the activation is a numpy array, process it
         #Assumption is that channel is 0th index, which makes the operation global pooling
         for function in functions:
-            processed_activation = eval(f"np.{function}(activation,axis=(1,2))")
-            processed_activation_list.append(processed_activation)
-        return np.concatenate(processed_activation_list)
+            processed_activation = eval(f"np.{function}(activation,axis=(2,3),keepdims=True)")
+            processed_activation_list.append(processed_activation.squeeze((2,3)))
+            # print(processed_activation.shape)
+        return np.concatenate(processed_activation_list,axis=1)
     
 class ExtremelySimpleActivationShaping(ActivationProcessor):
     def __init__(self, config):
