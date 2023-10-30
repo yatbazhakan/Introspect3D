@@ -3,6 +3,7 @@
 *.json
 *.txt
 *.npy
+*.pt
 custom_dataset/
 # Byte-compiled / optimized / DLL files
 __pycache__/
