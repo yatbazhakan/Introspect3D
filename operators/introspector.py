@@ -157,13 +157,38 @@ class IntrospectionOperator(Operator):
         elif loader == self.train_loader:
             wandb.log({'train_loss':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train')
+    def seprate_multiclass_metrics(self,metric_name):
+        multi_class_metric = self.metrics[metric_name]
+        try:
+            positive_metric = multi_class_metric[1].cpu().numpy()
+            negative_metric = multi_class_metric[0].cpu().numpy()
+        except:
+            print(metric_name,multi_class_metric)
+        return positive_metric,negative_metric
+    def log_metrics(self,mode):
+        #Here I need to separate metrics for each class and log them in wandb
+        cm = self.metrics['MulticlassConfusionMatrix']
+        cm = cm.cpu().numpy()
+        cm = cm.astype(int)
+        tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
+        wandb.log({f'{mode}_tp':tp,f'{mode}_fp':fp,f'{mode}_fn':fn,f'{mode}_tn':tn})
 
-    def print_metrics(self):
+        for metric_name in self.metrics.keys():
+            if metric_name == 'MulticlassConfusionMatrix':
+                continue
+            positive_metric,negative_metric = self.seprate_multiclass_metrics(metric_name)
+            print(positive_metric)
+            try:
+                for i in range(positive_metric.shape[0]):
+                    wandb.log({f'{mode}_{metric_name}_positive_{i}':positive_metric[i]})
+                for i in range(negative_metric.shape[0]):
+                    wandb.log({f'{mode}_{metric_name}_negative_{i}':negative_metric[i]})
+            except:
+                wandb.log({f'{mode}_{metric_name}_positive':positive_metric})
+                wandb.log({f'{mode}_{metric_name}_negative':negative_metric})
 
-        print(self.metrics)
+
     def calculate_torchmetrics(self,pred,target,mode = 'train'):
-        
-
         num_classes = 2
         task = 'multiclass'
         pred = torch.tensor(pred).squeeze()
@@ -182,11 +207,8 @@ class IntrospectionOperator(Operator):
         self.metrics = metric_collection(pred,target)
         from pprint import pprint
         # pprint(self.metrics)
-        self.metrics['epoch'] = self.epochs
         #This is messy but to try
-        log = {mode:self.metrics}
-
-        wandb.log(log,step=self.epochs)
+        self.log_metrics(mode)
         
 
     def execute(self, **kwargs):
@@ -199,7 +221,7 @@ class IntrospectionOperator(Operator):
             # wandb.agent(sweep_id, function=self.train,count=1)
         else:
             #Some management will be needed here
-            wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'])
+            wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
             if self.config['operation']['type'] == "train":
                 self.train()
             elif self.config['operation']['type'] == "evaluate":

@@ -64,26 +64,30 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
+    name: point_pillar_kitti_ash_activations
   verbose: True
   method:
     train_test_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.SF
+      method: ProcessorEnum.ASH
       params:
         config:
-          functions:
-            - mean
-            - max
-            - std
+          percentile: 0.9
+          method: p
+        # config:
+        #   functions:
+        #     - mean
+        #     - max
+        #     - std
     model:
       layers:
-        # - type: torchvision.models.resnet50
-        #   in_channels: 256
-        #   params:
-        #     weights: ResNet50_Weights.IMAGENET1K_V2
-        # - type: "Flatten"
-        #   params: {}
+        - type: torchvision.models.resnet50
+          in_channels: 256
+          params:
+            weights: ResNet50_Weights.IMAGENET1K_V2
+        - type: "Flatten"
+          params: {}
         - type: "Linear"
           params:
             in_features: 768
@@ -117,13 +121,13 @@ introspection:
       params:
         patience : 15
         factor: 0.7
-    epochs: 50
+    epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 5 
+    early_stop: 10
     sanity_check: True
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_sf.pt
+    save_name: point_pillar_kitti_activations_ash.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
