@@ -133,5 +133,5 @@ points_ri2, cp_points_ri2 = frame_utils.convert_range_image_to_point_cloud(
 max_distance = np.max(np.linalg.norm(points[0][:, :3], axis=1))
 
 
-pcd = create_point_cloud(points[1],None)
+pcd = create_point_cloud(points[0],max_distance)
 o3d.visualization.draw_geometries([pcd])

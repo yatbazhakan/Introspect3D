@@ -28,7 +28,7 @@ extraction:
     name: Kitti
     root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
     class_names: ['Car', 'Pedestrian', 'Cyclist']
-    filtering_style: FilterType.ELLIPSE
+    filtering_style: FilterType.NONE
     filter_params:
       a: 25
       b: 15
@@ -46,7 +46,7 @@ extraction:
     hook:
       layer: backbone
       indexes: []
-    save_dir: ../custom_dataset/kitti_pointpillars_activations_filtered/
+    save_dir: ../custom_dataset/kitti_pointpillars_activations_raw/
     labels_file_name: kitti_point_pillars_labels_filtered.csv
     balanced: False
     transforms: None
@@ -132,8 +132,8 @@ introspection:
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd1/custom_dataset/kitti_pointpillars_activations_filtered/
-      label_file: kitti_point_pillars_labels_filtered.csv
+      root_dir: /mnt/ssd1/custom_dataset/kitti_pointpillars_activations_raw/
+      label_file: kitti_point_pillars_labels_raw.csv
       classes: ['No Error', 'Error']
   dataloader:
     all:
