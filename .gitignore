@@ -4,6 +4,7 @@
 *.txt
 *.npy
 *.pt
+*.pkl
 *.wandb
 outputs/*
 */ckpts/

@@ -15,6 +15,10 @@ from mmdet3d.structures import Det3DDataSample, LiDARInstance3DBoxes
 from mmdet3d.visualization import Det3DLocalVisualizer
 from mmdet3d.structures import LiDARInstance3DBoxes
 from pyquaternion import Quaternion
+from open3d import geometry
+import cv2
+import pickle
+
 def get_quaternion_from_euler(roll, pitch, yaw):
     """
     Convert an Euler angle to a quaternion.
@@ -38,9 +42,9 @@ def plot_bounding_box_from_corners(corners,offset =0, calib=None, color=[0, 1, 0
     if corners.shape[0] != 8:
        corners = corners.T
     # pprint(corners)
-    lines = [[0, 1], [1, 2], [2, 3], [3, 0],
-             [4, 5], [5, 6], [6, 7], [7, 4],
-             [0, 4], [1, 5], [2, 6], [3, 7]]
+    lines = [[0, 1], [1, 2], [2, 3], [3, 0], # Lower face
+             [4, 5], [5, 6], [6, 7], [7, 4], # Upper face
+              [0, 4], [1, 5], [2, 6], [3, 7]] # Connect the faces
 
     # Create a LineSet object
     line_set = o3d.geometry.LineSet()
@@ -49,25 +53,32 @@ def plot_bounding_box_from_corners(corners,offset =0, calib=None, color=[0, 1, 0
     line_set.colors = o3d.utility.Vector3dVector([color for i in range(len(lines))])
 
     return line_set
-def create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0)):
-    offset_array = np.zeros(3)
-    offset_array[axis] = offset
-    center = np.array([box_params[0], box_params[1], box_params[2]/2+0.5])
+def create_oriented_bounding_box(box_params,rot_axis=2,calib=True,color=(1, 0, 0)):
+
+
+    center = np.array([box_params[0], box_params[1], box_params[2]])
     extent = np.array([box_params[3], box_params[4], box_params[5]])
     if(len(box_params) > 9):
+      print("Too many parameters for box")
       quat = Quaternion(box_params[6:10])
-      R = quat.rotation_matrix
-    else:
-      rotation = box_params[6]
-      rotataion = get_quaternion_from_euler(0,0,rotation)
-      quat = Quaternion(rotataion)
-      R = quat.rotation_matrix
-    box = Box(center=center, size=extent, orientation=quat,label=0)
+      rot_mat = quat.rotation_matrix
+    elif(len(box_params) == 9):
+      yaw = np.zeros(3)
+      yaw[2] = box_params[6]
 
-    obb = plot_bounding_box_from_corners(box.corners(),color=color)#o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=extent)
+      rot_mat = geometry.get_rotation_matrix_from_xyz(yaw)
+
+    center[2] += extent[2] / 2
+    print(rot_mat)
+    box3d = geometry.OrientedBoundingBox(center, rot_mat, extent)
+    
+    line_set = geometry.LineSet.create_from_oriented_bounding_box(box3d)
+    line_set.paint_uniform_color(color)
+
+    #  Move box to sensor coord system
     ctr = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=center)
     # obb.color = (1, 0, 0)  # Red color
-    return obb , ctr
+    return line_set , ctr
 def compute_colors_from_distance(points,max_distance):
     #If no disatance given return all black
     if max_distance==None:
@@ -91,9 +102,12 @@ def create_index_dict_for_categories(categories):
         print("Error with category {}".format(cat['name']))
    return dicti
 
-
 nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
+# nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
+# pickle.dump(nusc,open("nuscenes_trainval.pkl","wb"))
+# exit()
 # mapping= create_index_dict_for_categories(nusc.category)
+# nusc = pickle.load(open("nuscenes_trainval.pkl","rb"))
 print("Length of nuScenes database: {}".format(len(nusc.scene)))
 key_frame_count = 0
 frame_count = 0
@@ -104,8 +118,9 @@ while not first_sample_token == '':
     sample_record = nusc.get('sample', first_sample_token)
     frame_count += 1
     lidar_token = sample_record['data']['LIDAR_TOP']
-    calibrated_lidar = nusc.get('calibrated_sensor', nusc.get('sample_data', lidar_token)['calibrated_sensor_token'])
-    ego_pose = nusc.get('ego_pose', nusc.get('sample_data', lidar_token)['ego_pose_token'])
+    cs_record = nusc.get('calibrated_sensor', nusc.get('sample_data', lidar_token)['calibrated_sensor_token'])
+    pose_record = nusc.get('ego_pose', nusc.get('sample_data', lidar_token)['ego_pose_token'])
+    
     # print(calibrated_lidar)
     lidar_data = nusc.get('sample_data', lidar_token)
     if lidar_data['is_key_frame']:
@@ -116,7 +131,11 @@ while not first_sample_token == '':
       points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
       img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
       img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
-      img = plt.imread(img_filepath)
+      # img = cv2.imread(img_filepath)
+      # cv2.imshow("Image",img)
+      # cv2.waitKey(0)
+      # cv2.destroyAllWindows()
+      
       # transformation_matrix = np.eye(4)
       # transformation_matrix[:3,:3] = Quaternion(calibrated_lidar['rotation']).rotation_matrix
       # transformation_matrix[:3,3] = calibrated_lidar['translation']
@@ -130,13 +149,31 @@ while not first_sample_token == '':
       obb_boxes = []
       print(len(sample_record['anns']))
       _, boxes, _  = nusc.get_sample_data(lidar_token)
-      for i in range(len(boxes)):
 
+      for i in range(len(boxes)):
+        annotation = nusc.get('sample_annotation', sample_record['anns'][i])
         box = boxes[i]
+        if annotation['category_name'].startswith("vehicle") or annotation['category_name'].startswith('human'):
+          print(annotation['category_name'])
+
+      # for i in range(len(sample_record['anns'])):
+      #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
+      #   print(annotations['category_name'])
+      #   box = Box(center=annotations['translation'],size=annotations['size'],orientation=Quaternion(annotations['rotation']),label=0)
+
+      #   # Move box to ego vehicle coord system.
+      #   box.translate(-np.array(pose_record['translation']))
+      #   box.rotate(Quaternion(pose_record['rotation']).inverse)
+
+      #   #  Move box to sensor coord system.
+      #   box.translate(-np.array(cs_record['translation']))
+      #   box.rotate(Quaternion(cs_record['rotation']).inverse)
+
+        # box.translate(np.array([0, 0, 0.5]))
         # corners = np.array(box.corners())
         #box_params = np.concatenate((box_center,box_size,annotations['rotation']))
         # print(box_rotation.rotation_matrix)
-        obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
+          obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
       
 
 
@@ -144,8 +181,13 @@ while not first_sample_token == '':
       # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
       # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
       # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
-      config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
-      checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+      # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+      # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+      config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
+      checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
+      # config_file = r'/mnt/ssd1/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+      # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+      
       model = init_model(config_file, checkpoint, device='cuda:0')
       res = inference_detector(model, points2)
       res_f = res[0]
@@ -158,19 +200,16 @@ while not first_sample_token == '':
       # print(pred_boxes_score_f)
       filtered_indices = np.where(pred_boxes_score_f >= 0.5)[0]
       filtered_boxes = pred_boxes_box_f[filtered_indices]
-      obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=None) for box in filtered_boxes]
-      # print("Number of boxes: {}".format(len(obb_list_f)))
+      obb_list_f = [create_oriented_bounding_box(box) for box in filtered_boxes]
+      print("Number of boxes: {}".format(len(obb_list_f)))
       
       max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
-      given_inputs_np= data['inputs']['points'][:, :3].cpu().numpy()
-      given_inputs_pcd = create_point_cloud(given_inputs_np,max_distance)
-    
-      # print("Number of key frames: {}".format(key_frame_count))
+       # print("Number of key frames: {}".format(key_frame_count))
       # print("Number of frames: {}".format(frame_count))
       pcd = create_point_cloud(points,max_distance)
       vis = o3d.visualization.Visualizer()
       vis.create_window()
-      vis.add_geometry(given_inputs_pcd)
+      vis.add_geometry(pcd)
       #Plot axes
       x_axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=[0,0,0])
       vis.add_geometry(x_axis)
@@ -184,7 +223,10 @@ while not first_sample_token == '':
       vis.run()
       vis.destroy_window()
       first_sample_token = sample_record['next']
-      break
+      q = input("Press enter to continue")
+      if q == 'q':
+        break
+      
 # my_sample = nusc.get('sample', first_sample_token)
 # lidar_data = nusc.get('sample_data', my_sample['data']['LIDAR_TOP'])
 # #get point cloud data from nuscenes

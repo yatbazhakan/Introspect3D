@@ -10,6 +10,7 @@ from definitions import ROOT_DIR
 from utils.process import *
 import wandb
 import torch
+from pprint import pprint
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
@@ -46,7 +47,11 @@ class IntrospectionOperator(Operator):
         self.train_dataset = Subset(self.dataset, train_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
         self.split=True
-    
+        if self.verbose:
+            #Provide the class distribution overall
+            values,counts = np.unique(all_labels,return_counts=True)
+            print("Class distribution:",dict(zip(values,counts)))
+
     def initialize_learning_parameters(self):
         self.device = self.config['device']
 
@@ -177,7 +182,7 @@ class IntrospectionOperator(Operator):
             if metric_name == 'MulticlassConfusionMatrix':
                 continue
             positive_metric,negative_metric = self.seprate_multiclass_metrics(metric_name)
-            print(positive_metric)
+            # print(positive_metric)
             try:
                 for i in range(positive_metric.shape[0]):
                     wandb.log({f'{mode}_{metric_name}_positive_{i}':positive_metric[i]})
