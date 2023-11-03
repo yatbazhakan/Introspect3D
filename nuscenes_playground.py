@@ -110,24 +110,9 @@ def filter_objects_outside_ellipse(objects, a, b,offset=5,axis=0):
     filtered_objects = []
     
     for obj in objects:
-        # print(obj)
-        if 'corners' not in obj.keys():
-            x, y = obj['x'], obj['y']
-            
-            # Generate corner points for the box
-            dx, dy = obj['dx'], obj['dy']
-
-        else:
-            x,y,_ = obj['real_center']
-        dx, dy = obj['dx'], obj['dy']
-    
-        # Check if any corner point is inside the ellipse
-        corners = np.array([
-                [x - dx/2, y - dy/2],
-                [x - dx/2, y + dy/2],
-                [x + dx/2, y - dy/2],
-                [x + dx/2, y + dy/2]
-            ])
+        corners = obj.copy()
+        if(len(corners) != 8):
+          corners = corners.T
         adjusted_corners_x = corners[:, axis] + offset
         inside_ellipse = is_inside_ellipse(adjusted_corners_x, corners[:, 1], a, b)
         if np.any(inside_ellipse):
@@ -208,7 +193,7 @@ def create_point_cloud(points,distance=None):
     pcd.colors = o3d.utility.Vector3dVector(colors)
     return pcd
 
-def filter_points_inside_ellipse(points, a, b,offset=5):
+def filter_points_inside_ellipse(points, a, b,offset=5,axis=0):
     xyz  = points.copy()
     xyz[:,axis] += offset
     x,y,z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
@@ -220,13 +205,24 @@ def filter_points_outside_ellipse(points, a, b,offset=5,axis=0):
     x,y,z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
     outside = is_outside_ellipse(x, y, a, b)
     return points[outside]
-def filter_boxes_with_category(box_label,accepted_categories):
-    filtered_boxes = []
+def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','pedestrian','cyclist']):
     for cat in accepted_categories:
         if box_label.startswith(cat):
             return True
     return False
 nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
+# kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
+# img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
+# config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
+# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+# config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
+checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
+# config_file = r'/mnt/ssd1/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+
+model = init_model(config_file, checkpoint, device='cuda:0')
 # nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
 # pickle.dump(nusc,open("nuscenes_trainval.pkl","wb"))
 # exit()
@@ -238,6 +234,8 @@ frame_count = 0
 my_scene = nusc.scene[0]
 # print(nusc.calibrated_sensor)
 first_sample_token = my_scene['first_sample_token']
+frame_count = 0
+
 while not first_sample_token == '':
     sample_record = nusc.get('sample', first_sample_token)
     frame_count += 1
@@ -255,11 +253,13 @@ while not first_sample_token == '':
       points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
       img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
       img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
-      a,b = 25, 15
+      max_distance = np.max(np.linalg.norm(points2[:, :3], axis=1))
+
+      a,b = 15, 25
       offset = -10
       axis = 1
-      filtered_points = filter_points_outside_ellipse(points2,a,b,offset=offset,axis=1)
-  
+      filtered_points = filter_points_inside_ellipse(points2,a,b,offset=offset,axis=1)
+      filtered_pcd = create_point_cloud(filtered_points,max_distance)
       # img = cv2.imread(img_filepath)
       # cv2.imshow("Image",img)
       # cv2.waitKey(0)
@@ -282,9 +282,10 @@ while not first_sample_token == '':
       for i in range(len(boxes)):
         annotation = nusc.get('sample_annotation', sample_record['anns'][i])
         box = boxes[i]
-        
-          
-
+        if filter_boxes_with_category(annotation['category_name']):
+          #May need to add some coloring
+          filtered_boxes.append(box.corners())
+          # obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
 
       # for i in range(len(sample_record['anns'])):
       #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
@@ -303,23 +304,13 @@ while not first_sample_token == '':
         # corners = np.array(box.corners())
         #box_params = np.concatenate((box_center,box_size,annotations['rotation']))
         # print(box_rotation.rotation_matrix)
-          obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
+          
       
 
 
-      # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
-      # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
-      # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
-      # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
-      # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
-      # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-      config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
-      checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
-      # config_file = r'/mnt/ssd1/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
-      # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-      
-      model = init_model(config_file, checkpoint, device='cuda:0')
-      res = inference_detector(model, points2)
+      filtered_gt_boxes = filter_objects_outside_ellipse(filtered_boxes,a,b,offset=offset,axis=axis)
+      obb_boxes = [plot_bounding_box_from_corners(box,offset=offset) for box in filtered_gt_boxes]
+      res = inference_detector(model, filtered_points)
       res_f = res[0]
       data = res[1]
       
@@ -333,13 +324,12 @@ while not first_sample_token == '':
       obb_list_f = [create_oriented_bounding_box(box) for box in filtered_boxes]
       print("Number of boxes: {}".format(len(obb_list_f)))
       
-      max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
        # print("Number of key frames: {}".format(key_frame_count))
       # print("Number of frames: {}".format(frame_count))
       pcd = create_point_cloud(points,max_distance)
       vis = o3d.visualization.Visualizer()
       vis.create_window()
-      vis.add_geometry(pcd)
+      vis.add_geometry(filtered_pcd)
       #Plot axes
       x_axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=[0,0,0])
       vis.add_geometry(x_axis)
@@ -350,12 +340,17 @@ while not first_sample_token == '':
         vis.add_geometry(box)
         vis.add_geometry(ctr)
       # o3d.visualization.draw_geometries([pcd])
-      vis.run()
-      vis.destroy_window()
+      vis.capture_screen_image(f"./outputs/frame{frame_count}.jpg", do_render=True)
+      frame_count += 1
+      opt = vis.get_render_option()
+      opt.background_color = np.asarray([0.6, 0.6, 0.6])
+      
+      # vis.run()
+      # vis.destroy_window()
       first_sample_token = sample_record['next']
-      q = input("Press enter to continue")
-      if q == 'q':
-        break
+      # q = input("Press enter to continue")
+      # if q == 'q':
+      #   break
       
 # my_sample = nusc.get('sample', first_sample_token)
 # lidar_data = nusc.get('sample_data', my_sample['data']['LIDAR_TOP'])
