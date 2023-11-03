@@ -528,6 +528,7 @@ if __name__ == '__main__':
             # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
             print("Running inference")
             flag = 1
+            
             # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
             print(filtered_points.shape)
             res_f,data_f = inference_detector(model, points)

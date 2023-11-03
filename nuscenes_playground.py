@@ -18,7 +18,122 @@ from pyquaternion import Quaternion
 from open3d import geometry
 import cv2
 import pickle
+def rotate_points(points, R):
+    return np.dot(points, R.T)
 
+def match_detections_3d(ground_truths, predictions, iou_threshold=0.5):
+    matches = []
+    unmatched_ground_truths = []
+    unmatched_predictions = list(predictions)
+
+    for gt in ground_truths:
+        max_iou = -1
+        max_iou_idx = -1
+        for idx, pred in enumerate(unmatched_predictions):
+            current_iou = calculate_iou_3d(gt, pred)
+            if current_iou > max_iou:
+                max_iou = current_iou
+                max_iou_idx = idx
+        # print("For gt",gt,"max iou is",max_iou)
+        if max_iou >= iou_threshold:
+            matches.append((gt, unmatched_predictions[max_iou_idx]))
+            del unmatched_predictions[max_iou_idx]
+        else:
+            unmatched_ground_truths.append(gt)
+
+    return matches, unmatched_ground_truths, unmatched_predictions
+def calculate_iou_3d(box1,box2):
+    # Create corner points for both boxes
+    if type(box1) == o3d.geometry.OrientedBoundingBox:
+        center1 = np.array(box1.center)
+        dimensions1 = np.array(box1.extent)
+        half_dims1 = dimensions1 / 2
+        corners1 = np.array([np.array([x, y, z]) for x in [-half_dims1[0], half_dims1[0]] for y in [-half_dims1[1], half_dims1[1]] for z in [-half_dims1[2], half_dims1[2]]])
+        corners1 = rotate_points(corners1, box1.R) + center1
+
+    else:
+        #get corners from lineset
+        # print("Getting corners from lineset")
+        corners1 = np.array(box1.points)
+        dimensions_from_corners = np.max(corners1,axis=0) - np.min(corners1,axis=0)
+        dimensions1 = dimensions_from_corners
+        
+    if type(box2)== o3d.geometry.OrientedBoundingBox:
+        center2 = np.array(box2.center)
+        dimensions2 = np.array(box2.extent)
+        half_dims2 = dimensions2 / 2
+        corners2 = np.array([np.array([x, y, z]) for x in [-half_dims2[0], half_dims2[0]] for y in [-half_dims2[1], half_dims2[1]] for z in [-half_dims2[2], half_dims2[2]]])
+        # Rotate and translate corners
+        corners2 = rotate_points(corners2, box2.R) + center2
+    else:
+        #get corners from lineset
+        # print("Getting corners from lineset")
+
+        corners2 = np.array(box2.points)
+        dimensions_from_corners = np.max(corners2,axis=0) - np.min(corners2,axis=0)
+        dimensions2 = dimensions_from_corners
+    # Calculate axis-aligned bounding boxes for intersection
+    min_bound1 = np.min(corners1, axis=0)
+    max_bound1 = np.max(corners1, axis=0)
+    min_bound2 = np.min(corners2, axis=0)
+    max_bound2 = np.max(corners2, axis=0)
+    
+    # Calculate intersection
+    min_intersect = np.maximum(min_bound1, min_bound2)
+    max_intersect = np.minimum(max_bound1, max_bound2)
+    intersection_dims = np.maximum(0, max_intersect - min_intersect)
+    intersection_volume = np.prod(intersection_dims)
+    
+    # Calculate volumes of the individual boxes
+    vol1 = np.prod(dimensions1)
+    vol2 = np.prod(dimensions2)
+    
+    # Calculate IoU
+    iou = intersection_volume / (vol1 + vol2 - intersection_volume)
+    return iou
+def is_inside_ellipse(x, y, a, b):
+    return (x**2 / a**2) + (y**2 / b**2) <= 1
+def is_outside_ellipse(x, y, a, b):
+    return (x**2 / a**2) + (y**2 / b**2) > 1
+def filter_objects_outside_ellipse(objects, a, b,offset=5,axis=0):
+    """
+    Filters ground truth objects to only include those outside a specified ellipse.
+
+    Parameters:
+        objects (list): The input objects, each as a dictionary.
+        a (float): Semi-major axis length of the ellipse.
+        b (float): Semi-minor axis length of the ellipse.
+
+    Returns:
+        list: The filtered objects.
+    """
+    filtered_objects = []
+    
+    for obj in objects:
+        # print(obj)
+        if 'corners' not in obj.keys():
+            x, y = obj['x'], obj['y']
+            
+            # Generate corner points for the box
+            dx, dy = obj['dx'], obj['dy']
+
+        else:
+            x,y,_ = obj['real_center']
+        dx, dy = obj['dx'], obj['dy']
+    
+        # Check if any corner point is inside the ellipse
+        corners = np.array([
+                [x - dx/2, y - dy/2],
+                [x - dx/2, y + dy/2],
+                [x + dx/2, y - dy/2],
+                [x + dx/2, y + dy/2]
+            ])
+        adjusted_corners_x = corners[:, axis] + offset
+        inside_ellipse = is_inside_ellipse(adjusted_corners_x, corners[:, 1], a, b)
+        if np.any(inside_ellipse):
+            filtered_objects.append(obj)
+    # print(filtered_objects)
+    return filtered_objects
 def get_quaternion_from_euler(roll, pitch, yaw):
     """
     Convert an Euler angle to a quaternion.
@@ -92,16 +207,25 @@ def create_point_cloud(points,distance=None):
     colors = compute_colors_from_distance(points,distance)
     pcd.colors = o3d.utility.Vector3dVector(colors)
     return pcd
-def create_index_dict_for_categories(categories):
-   dicti = {}
-   for cat in categories:
-      try:
-        dicti[cat['name']] = cat['index']
-        pprint(cat)
-      except:
-        print("Error with category {}".format(cat['name']))
-   return dicti
 
+def filter_points_inside_ellipse(points, a, b,offset=5):
+    xyz  = points.copy()
+    xyz[:,axis] += offset
+    x,y,z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
+    inside = is_inside_ellipse(x, y, a, b)
+    return points[inside]
+def filter_points_outside_ellipse(points, a, b,offset=5,axis=0):
+    xyz  = points.copy()
+    xyz[:,axis] += offset
+    x,y,z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
+    outside = is_outside_ellipse(x, y, a, b)
+    return points[outside]
+def filter_boxes_with_category(box_label,accepted_categories):
+    filtered_boxes = []
+    for cat in accepted_categories:
+        if box_label.startswith(cat):
+            return True
+    return False
 nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
 # nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
 # pickle.dump(nusc,open("nuscenes_trainval.pkl","wb"))
@@ -131,6 +255,11 @@ while not first_sample_token == '':
       points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
       img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
       img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
+      a,b = 25, 15
+      offset = -10
+      axis = 1
+      filtered_points = filter_points_outside_ellipse(points2,a,b,offset=offset,axis=1)
+  
       # img = cv2.imread(img_filepath)
       # cv2.imshow("Image",img)
       # cv2.waitKey(0)
@@ -149,12 +278,13 @@ while not first_sample_token == '':
       obb_boxes = []
       print(len(sample_record['anns']))
       _, boxes, _  = nusc.get_sample_data(lidar_token)
-
+      filtered_boxes = []
       for i in range(len(boxes)):
         annotation = nusc.get('sample_annotation', sample_record['anns'][i])
         box = boxes[i]
-        if annotation['category_name'].startswith("vehicle") or annotation['category_name'].startswith('human'):
-          print(annotation['category_name'])
+        
+          
+
 
       # for i in range(len(sample_record['anns'])):
       #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
@@ -183,8 +313,8 @@ while not first_sample_token == '':
       # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
       # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
       # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-      config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
-      checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
+      config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
+      checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
       # config_file = r'/mnt/ssd1/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
       # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
       
