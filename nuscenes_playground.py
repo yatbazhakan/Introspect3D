@@ -17,7 +17,61 @@ from mmdet3d.structures import LiDARInstance3DBoxes
 from pyquaternion import Quaternion
 from open3d import geometry
 import cv2
+from utils.boundingbox import BoundingBox
 import pickle
+object_index_to_name = {
+    0: "vehicle.emergency.police car",
+    1: "vehicle.emergency.ambulance",
+    2: "vehicle.emergency.fire truck",
+    3: "vehicle.construction",
+    4: "vehicle.truck",
+    5: "vehicle.bus",
+    6: "vehicle.van",
+    7: "vehicle.motorcycle",
+    8: "vehicle.car",
+    9: "pedestrian",
+    10: "cyclist",
+    11: "traffic_cone",
+    12: "pole",
+    13: "fire_hydrant",
+    14: "stop_sign",
+    15: "traffic_light",
+    16: "parking_sign",
+    17: "speed_bump",
+    18: "sidewalk",
+    19: "parking_slot",
+    20: "road_marking",
+    21: "vegetation",
+    22: "terrain",
+    23: "other",
+}
+object_label_to_index = {
+    "vehicle.emergency.police car": 0,
+    "vehicle.emergency.ambulance": 1,
+    "vehicle.emergency.fire truck": 2,
+    "vehicle.construction": 3,
+    "vehicle.truck": 4,
+    "vehicle.bus": 5,
+    "vehicle.van": 6,
+    "vehicle.motorcycle": 7,
+    "vehicle.car": 8,
+    "pedestrian": 9,
+    "cyclist": 10,
+    "traffic_cone": 11,
+    "pole": 12,
+    "fire_hydrant": 13,
+    "stop_sign": 14,
+    "traffic_light": 15,
+    "parking_sign": 16,
+    "speed_bump": 17,
+    "sidewalk": 18,
+    "parking_slot": 19,
+    "road_marking": 20,
+    "vegetation": 21,
+    "terrain": 22,
+    "other": 23,
+}
+
 def rotate_points(points, R):
     return np.dot(points, R.T)
 
@@ -68,7 +122,7 @@ def calculate_iou_3d(box1,box2):
     else:
         #get corners from lineset
         # print("Getting corners from lineset")
-
+        print(type(box2),box2)
         corners2 = np.array(box2.points)
         dimensions_from_corners = np.max(corners2,axis=0) - np.min(corners2,axis=0)
         dimensions2 = dimensions_from_corners
@@ -113,8 +167,8 @@ def filter_objects_outside_ellipse(objects, a, b,offset=5,axis=0):
         corners = obj.copy()
         if(len(corners) != 8):
           corners = corners.T
-        adjusted_corners_x = corners[:, axis] + offset
-        inside_ellipse = is_inside_ellipse(adjusted_corners_x, corners[:, 1], a, b)
+        corners[:, axis] = corners[:, axis] + offset
+        inside_ellipse = is_inside_ellipse(corners[:, 0], corners[:, 1], a, b)
         if np.any(inside_ellipse):
             filtered_objects.append(obj)
     # print(filtered_objects)
@@ -141,17 +195,18 @@ def plot_bounding_box_from_corners(corners,offset =0, calib=None, color=[0, 1, 0
     # Define the lines connecting the corners based on their indices
     if corners.shape[0] != 8:
        corners = corners.T
-    # pprint(corners)
-    lines = [[0, 1], [1, 2], [2, 3], [3, 0], # Lower face
-             [4, 5], [5, 6], [6, 7], [7, 4], # Upper face
-              [0, 4], [1, 5], [2, 6], [3, 7]] # Connect the faces
+    # # pprint(corners)
+    # lines = [[0, 1], [1, 2], [2, 3], [3, 0], # Lower face
+    #          [4, 5], [5, 6], [6, 7], [7, 4], # Upper face
+    #           [0, 4], [1, 5], [2, 6], [3, 7]] # Connect the faces
 
-    # Create a LineSet object
-    line_set = o3d.geometry.LineSet()
-    line_set.points = o3d.utility.Vector3dVector(corners)
-    line_set.lines = o3d.utility.Vector2iVector(lines)
-    line_set.colors = o3d.utility.Vector3dVector([color for i in range(len(lines))])
-
+    # # Create a LineSet object
+    # line_set = o3d.geometry.LineSet()
+    # line_set.points = o3d.utility.Vector3dVector(corners)
+    # line_set.lines = o3d.utility.Vector2iVector(lines)
+    # line_set.colors = o3d.utility.Vector3dVector([color for i in range(len(lines))])
+    line_set = o3d.geometry.OrientedBoundingBox.create_from_points(o3d.utility.Vector3dVector(corners))
+    line_set.color = color
     return line_set
 def create_oriented_bounding_box(box_params,rot_axis=2,calib=True,color=(1, 0, 0)):
 
@@ -178,7 +233,7 @@ def create_oriented_bounding_box(box_params,rot_axis=2,calib=True,color=(1, 0, 0
     #  Move box to sensor coord system
     ctr = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=center)
     # obb.color = (1, 0, 0)  # Red color
-    return line_set , ctr
+    return box3d#line_set #, ctr
 def compute_colors_from_distance(points,max_distance):
     #If no disatance given return all black
     if max_distance==None:
@@ -205,7 +260,7 @@ def filter_points_outside_ellipse(points, a, b,offset=5,axis=0):
     x,y,z = xyz[:, 0], xyz[:, 1], xyz[:, 2]
     outside = is_outside_ellipse(x, y, a, b)
     return points[outside]
-def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','pedestrian','cyclist']):
+def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','human','cyclist']):
     for cat in accepted_categories:
         if box_label.startswith(cat):
             return True
@@ -217,10 +272,10 @@ nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini
 # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
 # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
 # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
-checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
-# config_file = r'/mnt/ssd1/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
-# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+# config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
+# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
+config_file = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
 
 model = init_model(config_file, checkpoint, device='cuda:0')
 # nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
@@ -253,12 +308,12 @@ while not first_sample_token == '':
       points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
       img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
       img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
-      max_distance = np.max(np.linalg.norm(points2[:, :3], axis=1))
+      max_distance =  None#np.max(np.linalg.norm(points2[:, :3], axis=1))
 
       a,b = 15, 25
-      offset = -10
+      offset = -5
       axis = 1
-      filtered_points = filter_points_inside_ellipse(points2,a,b,offset=offset,axis=1)
+      filtered_points = filter_points_inside_ellipse(points2,a,b,offset=offset,axis=axis)
       filtered_pcd = create_point_cloud(filtered_points,max_distance)
       # img = cv2.imread(img_filepath)
       # cv2.imshow("Image",img)
@@ -284,9 +339,12 @@ while not first_sample_token == '':
         box = boxes[i]
         if filter_boxes_with_category(annotation['category_name']):
           #May need to add some coloring
+        #   temp_box = BoundingBox(center=box.center,size=box.wlh,orientation=Quaternion(box.orientation),label=annotation['category_name'])
+        #   print("Adding box with category {}".format(annotation['category_name']))
           filtered_boxes.append(box.corners())
           # obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
-
+        else:
+            # print("Filtered out box with category {}".format(annotation['category_name']))
       # for i in range(len(sample_record['anns'])):
       #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
       #   print(annotations['category_name'])
@@ -309,7 +367,7 @@ while not first_sample_token == '':
 
 
       filtered_gt_boxes = filter_objects_outside_ellipse(filtered_boxes,a,b,offset=offset,axis=axis)
-      obb_boxes = [plot_bounding_box_from_corners(box,offset=offset) for box in filtered_gt_boxes]
+      obb_boxes = [plot_bounding_box_from_corners(box,offset=offset,color=(0,0,1)) for box in filtered_gt_boxes]
       res = inference_detector(model, filtered_points)
       res_f = res[0]
       data = res[1]
@@ -318,15 +376,18 @@ while not first_sample_token == '':
       # print(res_f.keys())
       pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
       pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
-      # print(pred_boxes_score_f)
+      pred_boxes_labels = res_f.pred_instances_3d.labels_3d.cpu().numpy()
       filtered_indices = np.where(pred_boxes_score_f >= 0.5)[0]
       filtered_boxes = pred_boxes_box_f[filtered_indices]
-      obb_list_f = [create_oriented_bounding_box(box) for box in filtered_boxes]
-      print("Number of boxes: {}".format(len(obb_list_f)))
-      
-       # print("Number of key frames: {}".format(key_frame_count))
+      filtered_labels = pred_boxes_labels[filtered_indices]
+      obb_list_f = [create_oriented_bounding_box(box,color=(1,1,1)) for box in filtered_boxes]
+      matches , unmatched_ground_truths, unmatched_predictions = match_detections_3d(obb_boxes,obb_list_f)
+      print("Number of matches: {}".format(len(matches)))
+      print("Number of unmatched ground truths: {}".format(len(unmatched_ground_truths)))
+      print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
+      # print("Number of key frames: {}".format(key_frame_count))
       # print("Number of frames: {}".format(frame_count))
-      pcd = create_point_cloud(points,max_distance)
+    #   pcd = create_point_cloud(points,max_distance)
       vis = o3d.visualization.Visualizer()
       vis.create_window()
       vis.add_geometry(filtered_pcd)
@@ -336,21 +397,21 @@ while not first_sample_token == '':
       
       for box in obb_boxes:
         vis.add_geometry(box)
-      for box,ctr in obb_list_f:
+      for box in obb_list_f:
         vis.add_geometry(box)
-        vis.add_geometry(ctr)
+        # vis.add_geometry(ctr)
       # o3d.visualization.draw_geometries([pcd])
-      vis.capture_screen_image(f"./outputs/frame{frame_count}.jpg", do_render=True)
+    #   vis.capture_screen_image(f"./outputs/frame{frame_count}.jpg", do_render=True)
       frame_count += 1
-      opt = vis.get_render_option()
-      opt.background_color = np.asarray([0.6, 0.6, 0.6])
+    #   opt = vis.get_render_option()
+    #   opt.background_color = np.asarray([0.6, 0.6, 0.6])
       
-      # vis.run()
-      # vis.destroy_window()
+      vis.run()
+      vis.destroy_window()
       first_sample_token = sample_record['next']
       # q = input("Press enter to continue")
       # if q == 'q':
-      #   break
+      
       
 # my_sample = nusc.get('sample', first_sample_token)
 # lidar_data = nusc.get('sample_data', my_sample['data']['LIDAR_TOP'])
