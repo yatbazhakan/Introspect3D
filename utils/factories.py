@@ -1,5 +1,5 @@
 from datasets.kitti import Kitti
-from datasets.bdd import BerkeleyDeepDrive
+from datasets.nuscenes import BerkeleyDeepDrive
 from datasets.activation_dataset import ActivationDataset
 import os
 import matplotlib.pyplot as plt

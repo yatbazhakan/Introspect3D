@@ -274,8 +274,10 @@ nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini
 # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
 # config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
 # checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
-config_file = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
 checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+config_file = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/tpvformer_8xb1-2x_nus-seg_20230411_150639-bd3844e2.pth'
+# config_file = r'/mnt/ssd2/mmdetection3d/configs/tpvformer/tpvformer_8xb1-2x_nus-seg.py'
 
 model = init_model(config_file, checkpoint, device='cuda:0')
 # nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
@@ -343,9 +345,7 @@ while not first_sample_token == '':
         #   print("Adding box with category {}".format(annotation['category_name']))
           filtered_boxes.append(box.corners())
           # obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
-        else:
-            # print("Filtered out box with category {}".format(annotation['category_name']))
-      # for i in range(len(sample_record['anns'])):
+          # for i in range(len(sample_record['anns'])):
       #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
       #   print(annotations['category_name'])
       #   box = Box(center=annotations['translation'],size=annotations['size'],orientation=Quaternion(annotations['rotation']),label=0)
