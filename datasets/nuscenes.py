@@ -68,17 +68,17 @@ class NuScenesDataset(DrivingDataset):
                  filtering_style: FilterType = FilterType.ELLIPSE,**kwargs):
         process = kwargs['process']
         self.save_path,self.save_filename = kwargs['save_path'], kwargs['save_filename']
-
+        self.filtering_style = eval(filtering_style)
+        self.filter_params = kwargs['filter_params']
+        self.filter = self.filtering_style.value(**self.filter_params)
+        self.dataset_flattened = {}
         if process:
             self.nusc = NuScenes(version=version, dataroot=dataroot, verbose=True)
             self.split = split
             self.transform = transform
             # Extract only the first sample token of each scene.
             self.sample_tokens = [s['first_sample_token'] for s in self.nusc.scene]
-            self.filtering_style = eval(filtering_style)
-            self.filter_params = kwargs['filter_params']
-            self.filter = self.filtering_style.value(**self.filter_params)
-            self.dataset_flattened = {}
+
             self.process_data()
         else:
             self.dataset_flattened = pickle.load(open(os.path.join(self.save_path,self.save_filename),'rb'))
@@ -90,7 +90,6 @@ class NuScenesDataset(DrivingDataset):
         lidar_token = kwargs['lidar_token']
         sample_record = kwargs['sample_record']
         _,  boxes, _  = self.nusc.get_sample_data(lidar_token)
-        filtered_boxes = []
         for i in range(len(boxes)):
             annotation = self.nusc.get('sample_annotation', sample_record['anns'][i])
             box = boxes[i]
@@ -98,8 +97,8 @@ class NuScenesDataset(DrivingDataset):
                 box.label = object_label_to_index[annotation['category_name']]
                 custom_box = BoundingBox()
                 custom_box.from_nuscenes_box(box)
-                filtered_boxes.append(custom_box)
-        self.dataset_flattened[id]['label'].append(filtered_boxes)
+                self.dataset_flattened[id]['label'].append(custom_box)
+
 
         return super().read_labels(**kwargs)
     def process_data(self, **kwargs):
@@ -131,10 +130,15 @@ class NuScenesDataset(DrivingDataset):
         labels = data['label']
 
         # Load the point cloud data
-        pointcloud = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
-        pc = PointCloud(pointcloud)
-        
-        return {'pointcloud': pc, 'sample_token': labels}
+        points = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
+        point_cloud = PointCloud(points)
+        point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
+        # point_cloud.convert_to_kitti_points()
+        # print(type(labels),len(labels))
+        # print("------------------")
+        labels = self.filter.filter_bounding_boxes(labels)
+        item_dict = {'pointcloud': point_cloud, 'labels': labels}
+        return item_dict
     
     def filter_boxes_with_category(self,box_label,accepted_categories=['vehicle.','human','cyclist']):
         for cat in accepted_categories:

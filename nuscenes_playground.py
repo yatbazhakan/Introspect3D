@@ -19,7 +19,7 @@ from open3d import geometry
 import cv2
 from utils.boundingbox import BoundingBox
 import pickle
-
+from utils.visualizer import Visualizer
 def rotate_points(points, R):
     return np.dot(points, R.T)
 
@@ -225,10 +225,11 @@ dataset = NuScenesDataset(dataroot='/mnt/ssd2/nuscenes/',
                           save_path=ROOT_DIR,
                           save_filename='nuscenes_train.pkl',
                           process=True,)
-
 print("Length of nuScenes database: {}".format(len(dataset)))
 item = dataset[0]
-print(item)
+
+visualizer = Visualizer()
+visualizer.visualize(cloud=item['pointcloud'].points,gt_boxes=item['labels'],pred_boxes=None)
 # nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
 # # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
 # # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"

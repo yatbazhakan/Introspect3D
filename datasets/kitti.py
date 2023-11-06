@@ -38,8 +38,9 @@ class Kitti(DrivingDataset):
         # point_cloud.convert_to_kitti_points()
         
         labels = self.filter.filter_bounding_boxes(labels)
-        
-        return point_cloud, labels, file_name #might look for a way to extend this to images
+        item_dict = {'pointcloud': point_cloud, 'labels': labels,'file_name':file_name}
+
+        return item_dict
     
     def get_image_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'image_2', '*.png')))

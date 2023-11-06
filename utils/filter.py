@@ -49,8 +49,11 @@ class EllipseFilter(FilterStrategy):
         filtered_objects = []
         for box in data:
             # Check if any corner point is inside the ellipse
-            corners = box.corners
-            adjusted_corners= corners +  self.offset.reshape(-1,3)
+            # print(box)
+            corners = box.corners.copy()
+            if corners.shape[0] == 8:
+                corners = corners.T
+            adjusted_corners= corners + self.offset
             if mode == FilteringArea.INSIDE:
                 inside_ellipse = self.is_inside(x = adjusted_corners[:,0], y=adjusted_corners[:,1])
             elif mode == FilteringArea.OUTSIDE:
