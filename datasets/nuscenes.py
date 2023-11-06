@@ -1,6 +1,7 @@
 from base_classes.base import DrivingDataset
 from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud
+from nuscenes.utils.data_classes import LidarPointCloud,Box
+
 from pyquaternion import Quaternion
 import numpy as np
 from utils.pointcloud import PointCloud
@@ -16,7 +17,19 @@ class NuScenesDataset(DrivingDataset):
         self.filtering_style = eval(filtering_style)
         self.filter_params = kwargs['filter_params']
         self.filter = self.filtering_style.value(**self.filter_params)
-
+        self.frame_pcd_locations = []
+    def prepare_data(self, **kwargs):
+        for first_sample_token in self.sample_tokens:
+            while not first_sample_token == '':
+                sample_record = nusc.get('sample', first_sample_token)
+                frame_count += 1
+                lidar_token = sample_record['data']['LIDAR_TOP']
+                cs_record = nusc.get('calibrated_sensor', nusc.get('sample_data', lidar_token)['calibrated_sensor_token'])
+                pose_record = nusc.get('ego_pose', nusc.get('sample_data', lidar_token)['ego_pose_token'])
+    
+    # print(calibrated_lidar)
+    lidar_data = nusc.get('sample_data', lidar_token)
+    if lidar_data['is_key_frame']:
     def read_labels(self, **kwargs):
         return super().read_labels(**kwargs)
     def process_data(self, **kwargs):
