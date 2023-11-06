@@ -19,58 +19,6 @@ from open3d import geometry
 import cv2
 from utils.boundingbox import BoundingBox
 import pickle
-object_index_to_name = {
-    0: "vehicle.emergency.police car",
-    1: "vehicle.emergency.ambulance",
-    2: "vehicle.emergency.fire truck",
-    3: "vehicle.construction",
-    4: "vehicle.truck",
-    5: "vehicle.bus",
-    6: "vehicle.van",
-    7: "vehicle.motorcycle",
-    8: "vehicle.car",
-    9: "pedestrian",
-    10: "cyclist",
-    11: "traffic_cone",
-    12: "pole",
-    13: "fire_hydrant",
-    14: "stop_sign",
-    15: "traffic_light",
-    16: "parking_sign",
-    17: "speed_bump",
-    18: "sidewalk",
-    19: "parking_slot",
-    20: "road_marking",
-    21: "vegetation",
-    22: "terrain",
-    23: "other",
-}
-object_label_to_index = {
-    "vehicle.emergency.police car": 0,
-    "vehicle.emergency.ambulance": 1,
-    "vehicle.emergency.fire truck": 2,
-    "vehicle.construction": 3,
-    "vehicle.truck": 4,
-    "vehicle.bus": 5,
-    "vehicle.van": 6,
-    "vehicle.motorcycle": 7,
-    "vehicle.car": 8,
-    "pedestrian": 9,
-    "cyclist": 10,
-    "traffic_cone": 11,
-    "pole": 12,
-    "fire_hydrant": 13,
-    "stop_sign": 14,
-    "traffic_light": 15,
-    "parking_sign": 16,
-    "speed_bump": 17,
-    "sidewalk": 18,
-    "parking_slot": 19,
-    "road_marking": 20,
-    "vegetation": 21,
-    "terrain": 22,
-    "other": 23,
-}
 
 def rotate_points(points, R):
     return np.dot(points, R.T)
@@ -265,152 +213,168 @@ def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','human'
         if box_label.startswith(cat):
             return True
     return False
-nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
-# kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
-# img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
-# config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
-# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
-# config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
-# checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-# config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
-# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
-checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-config_file = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
-# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/tpvformer_8xb1-2x_nus-seg_20230411_150639-bd3844e2.pth'
-# config_file = r'/mnt/ssd2/mmdetection3d/configs/tpvformer/tpvformer_8xb1-2x_nus-seg.py'
+from datasets.nuscenes import NuScenesDataset
+from utils.filter import FilterType
+from definitions import ROOT_DIR
+dataset = NuScenesDataset(dataroot='/mnt/ssd2/nuscenes/',
+                          version='v1.0-trainval',
+                          split='train',
+                          transform=None,
+                          filtering_style = "FilterType.ELLIPSE",
+                          filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
+                          save_path=ROOT_DIR,
+                          save_filename='nuscenes_train.pkl',
+                          process=True,)
 
-model = init_model(config_file, checkpoint, device='cuda:0')
-# nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
-# pickle.dump(nusc,open("nuscenes_trainval.pkl","wb"))
-# exit()
-# mapping= create_index_dict_for_categories(nusc.category)
-# nusc = pickle.load(open("nuscenes_trainval.pkl","rb"))
-print("Length of nuScenes database: {}".format(len(nusc.scene)))
-key_frame_count = 0
-frame_count = 0
-my_scene = nusc.scene[0]
-# print(nusc.calibrated_sensor)
-first_sample_token = my_scene['first_sample_token']
-frame_count = 0
+print("Length of nuScenes database: {}".format(len(dataset)))
+item = dataset[0]
+print(item)
+# nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
+# # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
+# # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"
+# # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py'#r'D:\mmdetection3d\configs\pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py' # 
+# # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+# # config_file = r'/mnt/ssd1/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+# # checkpoint = r'/mnt/ssd1/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+# # config_file = r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_fpn_sbn-all_8xb4-2x_nus-3d.py'
+# # checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_fpn_sbn-all_4x8_2x_nus-3d_20210826_104936-fca299c1.pth'
+# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+# config_file = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+# # checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/tpvformer_8xb1-2x_nus-seg_20230411_150639-bd3844e2.pth'
+# # config_file = r'/mnt/ssd2/mmdetection3d/configs/tpvformer/tpvformer_8xb1-2x_nus-seg.py'
 
-while not first_sample_token == '':
-    sample_record = nusc.get('sample', first_sample_token)
-    frame_count += 1
-    lidar_token = sample_record['data']['LIDAR_TOP']
-    cs_record = nusc.get('calibrated_sensor', nusc.get('sample_data', lidar_token)['calibrated_sensor_token'])
-    pose_record = nusc.get('ego_pose', nusc.get('sample_data', lidar_token)['ego_pose_token'])
+# model = init_model(config_file, checkpoint, device='cuda:0')
+# # nusc = NuScenes(version='v1.0-trainval', dataroot='/mnt/ssd2/nuscenes/', verbose=True)
+# # pickle.dump(nusc,open("nuscenes_trainval.pkl","wb"))
+# # exit()
+# # mapping= create_index_dict_for_categories(nusc.category)
+# # nusc = pickle.load(open("nuscenes_trainval.pkl","rb"))
+# print("Length of nuScenes database: {}".format(len(nusc.scene)))
+# key_frame_count = 0
+# frame_count = 0
+# my_scene = nusc.scene[0]
+# # print(nusc.calibrated_sensor)
+# first_sample_token = my_scene['first_sample_token']
+# frame_count = 0
+
+# while not first_sample_token == '':
+#     sample_record = nusc.get('sample', first_sample_token)
+#     frame_count += 1
+#     lidar_token = sample_record['data']['LIDAR_TOP']
+#     cs_record = nusc.get('calibrated_sensor', nusc.get('sample_data', lidar_token)['calibrated_sensor_token'])
+#     pose_record = nusc.get('ego_pose', nusc.get('sample_data', lidar_token)['ego_pose_token'])
     
-    # print(calibrated_lidar)
-    lidar_data = nusc.get('sample_data', lidar_token)
-    if lidar_data['is_key_frame']:
-      key_frame_count += 1
-      lidar_filepath = os.path.join(nusc.dataroot, lidar_data['filename'])
-      pc_file = os.path.join(nusc.dataroot,lidar_filepath)
-      pc = LidarPointCloud.from_file(pc_file)
-      points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
-      img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
-      img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
-      max_distance =  None#np.max(np.linalg.norm(points2[:, :3], axis=1))
+#     # print(calibrated_lidar)
+#     lidar_data = nusc.get('sample_data', lidar_token)
+#     if lidar_data['is_key_frame']:
+#       key_frame_count += 1
+#       lidar_filepath = os.path.join(nusc.dataroot, lidar_data['filename'])
+#       pc_file = os.path.join(nusc.dataroot,lidar_filepath)
+#       pc = LidarPointCloud.from_file(pc_file)
+#       points2 = np.fromfile(pc_file, dtype=np.float32, count=-1).reshape([-1, 5])
+#       img_cam_front = nusc.get('sample_data', sample_record['data']['CAM_FRONT'])
+#       img_filepath = os.path.join(nusc.dataroot, img_cam_front['filename'])
+#       max_distance =  None#np.max(np.linalg.norm(points2[:, :3], axis=1))
 
-      a,b = 15, 25
-      offset = -5
-      axis = 1
-      filtered_points = filter_points_inside_ellipse(points2,a,b,offset=offset,axis=axis)
-      filtered_pcd = create_point_cloud(filtered_points,max_distance)
-      # img = cv2.imread(img_filepath)
-      # cv2.imshow("Image",img)
-      # cv2.waitKey(0)
-      # cv2.destroyAllWindows()
+#       a,b = 15, 25
+#       offset = -5
+#       axis = 1
+#       filtered_points = filter_points_inside_ellipse(points2,a,b,offset=offset,axis=axis)
+#       filtered_pcd = create_point_cloud(filtered_points,max_distance)
+#       # img = cv2.imread(img_filepath)
+#       # cv2.imshow("Image",img)
+#       # cv2.waitKey(0)
+#       # cv2.destroyAllWindows()
       
-      # transformation_matrix = np.eye(4)
-      # transformation_matrix[:3,:3] = Quaternion(calibrated_lidar['rotation']).rotation_matrix
-      # transformation_matrix[:3,3] = calibrated_lidar['translation']
-      # pc.transform(transformation_matrix)
+#       # transformation_matrix = np.eye(4)
+#       # transformation_matrix[:3,:3] = Quaternion(calibrated_lidar['rotation']).rotation_matrix
+#       # transformation_matrix[:3,3] = calibrated_lidar['translation']
+#       # pc.transform(transformation_matrix)
 
-      # ego_to_global_transform = np.eye(4)
-      # ego_to_global_transform[:3,:3] = Quaternion(ego_pose['rotation']).rotation_matrix
-      # ego_to_global_transform[:3,3] = ego_pose['translation']
-      # pc.transform(ego_to_global_transform)
-      points = pc.points.T
-      obb_boxes = []
-      print(len(sample_record['anns']))
-      _, boxes, _  = nusc.get_sample_data(lidar_token)
-      filtered_boxes = []
-      for i in range(len(boxes)):
-        annotation = nusc.get('sample_annotation', sample_record['anns'][i])
-        box = boxes[i]
-        if filter_boxes_with_category(annotation['category_name']):
-          #May need to add some coloring
-        #   temp_box = BoundingBox(center=box.center,size=box.wlh,orientation=Quaternion(box.orientation),label=annotation['category_name'])
-        #   print("Adding box with category {}".format(annotation['category_name']))
-          filtered_boxes.append(box.corners())
-          # obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
-          # for i in range(len(sample_record['anns'])):
-      #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
-      #   print(annotations['category_name'])
-      #   box = Box(center=annotations['translation'],size=annotations['size'],orientation=Quaternion(annotations['rotation']),label=0)
+#       # ego_to_global_transform = np.eye(4)
+#       # ego_to_global_transform[:3,:3] = Quaternion(ego_pose['rotation']).rotation_matrix
+#       # ego_to_global_transform[:3,3] = ego_pose['translation']
+#       # pc.transform(ego_to_global_transform)
+#       points = pc.points.T
+#       obb_boxes = []
+#       print(len(sample_record['anns']))
+#       _, boxes, _  = nusc.get_sample_data(lidar_token)
+#       filtered_boxes = []
+#       for i in range(len(boxes)):
+#         annotation = nusc.get('sample_annotation', sample_record['anns'][i])
+#         box = boxes[i]
+#         if filter_boxes_with_category(annotation['category_name']):
+#           #May need to add some coloring
+#         #   temp_box = BoundingBox(center=box.center,size=box.wlh,orientation=Quaternion(box.orientation),label=annotation['category_name'])
+#         #   print("Adding box with category {}".format(annotation['category_name']))
+#           filtered_boxes.append(box.corners())
+#           # obb_boxes.append(plot_bounding_box_from_corners(box.corners())) #create_oriented_bounding_box(box_params,offset=0,axis=0,calib=None,color=(1, 0, 0))
+#           # for i in range(len(sample_record['anns'])):
+#       #   annotations = nusc.get('sample_annotation', sample_record['anns'][i])
+#       #   print(annotations['category_name'])
+#       #   box = Box(center=annotations['translation'],size=annotations['size'],orientation=Quaternion(annotations['rotation']),label=0)
 
-      #   # Move box to ego vehicle coord system.
-      #   box.translate(-np.array(pose_record['translation']))
-      #   box.rotate(Quaternion(pose_record['rotation']).inverse)
+#       #   # Move box to ego vehicle coord system.
+#       #   box.translate(-np.array(pose_record['translation']))
+#       #   box.rotate(Quaternion(pose_record['rotation']).inverse)
 
-      #   #  Move box to sensor coord system.
-      #   box.translate(-np.array(cs_record['translation']))
-      #   box.rotate(Quaternion(cs_record['rotation']).inverse)
+#       #   #  Move box to sensor coord system.
+#       #   box.translate(-np.array(cs_record['translation']))
+#       #   box.rotate(Quaternion(cs_record['rotation']).inverse)
 
-        # box.translate(np.array([0, 0, 0.5]))
-        # corners = np.array(box.corners())
-        #box_params = np.concatenate((box_center,box_size,annotations['rotation']))
-        # print(box_rotation.rotation_matrix)
+#         # box.translate(np.array([0, 0, 0.5]))
+#         # corners = np.array(box.corners())
+#         #box_params = np.concatenate((box_center,box_size,annotations['rotation']))
+#         # print(box_rotation.rotation_matrix)
           
       
 
 
-      filtered_gt_boxes = filter_objects_outside_ellipse(filtered_boxes,a,b,offset=offset,axis=axis)
-      obb_boxes = [plot_bounding_box_from_corners(box,offset=offset,color=(0,0,1)) for box in filtered_gt_boxes]
-      res = inference_detector(model, filtered_points)
-      res_f = res[0]
-      data = res[1]
+#       filtered_gt_boxes = filter_objects_outside_ellipse(filtered_boxes,a,b,offset=offset,axis=axis)
+#       obb_boxes = [plot_bounding_box_from_corners(box,offset=offset,color=(0,0,1)) for box in filtered_gt_boxes]
+#       res = inference_detector(model, filtered_points)
+#       res_f = res[0]
+#       data = res[1]
       
-      # print(res_f)
-      # print(res_f.keys())
-      pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-      pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
-      pred_boxes_labels = res_f.pred_instances_3d.labels_3d.cpu().numpy()
-      filtered_indices = np.where(pred_boxes_score_f >= 0.5)[0]
-      filtered_boxes = pred_boxes_box_f[filtered_indices]
-      filtered_labels = pred_boxes_labels[filtered_indices]
-      obb_list_f = [create_oriented_bounding_box(box,color=(1,1,1)) for box in filtered_boxes]
-      matches , unmatched_ground_truths, unmatched_predictions = match_detections_3d(obb_boxes,obb_list_f)
-      print("Number of matches: {}".format(len(matches)))
-      print("Number of unmatched ground truths: {}".format(len(unmatched_ground_truths)))
-      print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
-      # print("Number of key frames: {}".format(key_frame_count))
-      # print("Number of frames: {}".format(frame_count))
-    #   pcd = create_point_cloud(points,max_distance)
-      vis = o3d.visualization.Visualizer()
-      vis.create_window()
-      vis.add_geometry(filtered_pcd)
-      #Plot axes
-      x_axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=[0,0,0])
-      vis.add_geometry(x_axis)
+#       # print(res_f)
+#       # print(res_f.keys())
+#       pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+#       pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
+#       pred_boxes_labels = res_f.pred_instances_3d.labels_3d.cpu().numpy()
+#       filtered_indices = np.where(pred_boxes_score_f >= 0.5)[0]
+#       filtered_boxes = pred_boxes_box_f[filtered_indices]
+#       filtered_labels = pred_boxes_labels[filtered_indices]
+#       obb_list_f = [create_oriented_bounding_box(box,color=(1,1,1)) for box in filtered_boxes]
+#       matches , unmatched_ground_truths, unmatched_predictions = match_detections_3d(obb_boxes,obb_list_f)
+#       print("Number of matches: {}".format(len(matches)))
+#       print("Number of unmatched ground truths: {}".format(len(unmatched_ground_truths)))
+#       print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
+#       # print("Number of key frames: {}".format(key_frame_count))
+#       # print("Number of frames: {}".format(frame_count))
+#     #   pcd = create_point_cloud(points,max_distance)
+#       vis = o3d.visualization.Visualizer()
+#       vis.create_window()
+#       vis.add_geometry(filtered_pcd)
+#       #Plot axes
+#       x_axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1,origin=[0,0,0])
+#       vis.add_geometry(x_axis)
       
-      for box in obb_boxes:
-        vis.add_geometry(box)
-      for box in obb_list_f:
-        vis.add_geometry(box)
-        # vis.add_geometry(ctr)
-      # o3d.visualization.draw_geometries([pcd])
-    #   vis.capture_screen_image(f"./outputs/frame{frame_count}.jpg", do_render=True)
-      frame_count += 1
-    #   opt = vis.get_render_option()
-    #   opt.background_color = np.asarray([0.6, 0.6, 0.6])
+#       for box in obb_boxes:
+#         vis.add_geometry(box)
+#       for box in obb_list_f:
+#         vis.add_geometry(box)
+#         # vis.add_geometry(ctr)
+#       # o3d.visualization.draw_geometries([pcd])
+#     #   vis.capture_screen_image(f"./outputs/frame{frame_count}.jpg", do_render=True)
+#       frame_count += 1
+#     #   opt = vis.get_render_option()
+#     #   opt.background_color = np.asarray([0.6, 0.6, 0.6])
       
-      vis.run()
-      vis.destroy_window()
-      first_sample_token = sample_record['next']
-      # q = input("Press enter to continue")
-      # if q == 'q':
+#       vis.run()
+#       vis.destroy_window()
+#       first_sample_token = sample_record['next']
+#       # q = input("Press enter to continue")
+#       # if q == 'q':
       
       
 # my_sample = nusc.get('sample', first_sample_token)

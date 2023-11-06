@@ -38,6 +38,7 @@ class Kitti(DrivingDataset):
         # point_cloud.convert_to_kitti_points()
         
         labels = self.filter.filter_bounding_boxes(labels)
+        
         return point_cloud, labels, file_name #might look for a way to extend this to images
     
     def get_image_paths(self):

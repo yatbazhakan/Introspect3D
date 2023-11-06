@@ -5,10 +5,10 @@ from math import cos, sin
 import open3d as o3d
 class BoundingBox:
     def __init__(self,
-                 center: np.ndarray, 
-                 dimensions: Union[np.ndarray,tuple], 
-                 rotation:  Union[float, np.ndarray],
-                 label: Union[str,int]) -> None:
+                 center: Union[np.ndarray,None] = None, 
+                 dimensions: Union[np.ndarray,tuple,None] = None, 
+                 rotation:  Union[float, np.ndarray,None] = None,
+                 label: Union[str,int,None] = None) -> None:
         
         self.center = center
         self.dimensions = dimensions
@@ -17,9 +17,16 @@ class BoundingBox:
         self.corners = None
         if isinstance(self.rotation, np.float32):
             self.calcukate_corners_from_prediction()
+        elif self.rotation is None:
+            self.corners=None
         else:
             self.calculate_corners()
-
+    def from_nuscenes_box(self,box):
+        self.center = box.center
+        self.dimensions = box.wlh
+        self.rotation = box.orientation.rotation_matrix
+        self.type = box.label
+        self.corners = box.corners()
     def rotate_points(self,points, R): # For now, migt move somewhere else
         return np.dot(points, R.T)
     
@@ -151,6 +158,7 @@ class BoundingBox:
     
     
 
+        
     def remove_points_inside_box(self, point_cloud: np.ndarray) -> np.ndarray:
         """
         Remove points inside oriented bounding boxes from a point cloud.
