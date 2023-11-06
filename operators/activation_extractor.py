@@ -37,7 +37,7 @@ class ActivationExractionOperator(Operator):
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
             filtered_predicted_boxes = predicted_boxes[score_mask]
             is_nuscenes = self.config['dataset']['name'] == 'NuScenesDataset'
-            prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes,nuscenes=is_nuscenes)
+            prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
             # vis = Visualizer()
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
             matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)

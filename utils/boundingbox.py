@@ -16,7 +16,7 @@ class BoundingBox:
         self.type = label
         self.corners = None
         if isinstance(self.rotation, np.float32):
-            self.calcukate_corners_from_prediction()
+            self.calculate_corners_from_prediction()
         elif self.rotation is None:
             self.corners=None
         else:
@@ -44,7 +44,7 @@ class BoundingBox:
         corner_matrix = np.array([x_corners, y_corners, z_corners])
         self.corners = self.rotate_points(corner_matrix.T, R) + self.center
 
-    def calcukate_corners_from_prediction(self):
+    def calculate_corners_from_prediction(self):
         corners_list = []
         
         x, y, z = self.center
@@ -68,7 +68,6 @@ class BoundingBox:
             [np.sin(yaw), np.cos(yaw), 0],
             [0, 0, 1]
         ])
-        
         rotated_corners = np.dot(local_corners, rotation_matrix.T)
         
         # Step 3: Translate corners
@@ -77,38 +76,77 @@ class BoundingBox:
         self.corners = np.array(translated_corners)
 
     def calculate_iou(self, box: BoundingBox) -> float:
-        center1 = self.center
-        dimensions1 = self.dimensions
+        # Get the properties of the two boxes
         corners1 = self.corners
-        # There might be an issue if the rotation is not a matrix
-        #corners1 =  self.rotate_points(corners1, self.rotation) + center1
-
-            
-        center2 = box.center
-        dimensions2 = box.dimensions
         corners2 = box.corners
-        # Rotate and translate corners
-        #corners2 = self.rotate_points(corners2, box.rotation) + center2
 
-        # Calculate axis-aligned bounding boxes for intersection
+        # Calculate the axis-aligned min and max bounds for each box
         min_bound1 = np.min(corners1, axis=0)
         max_bound1 = np.max(corners1, axis=0)
         min_bound2 = np.min(corners2, axis=0)
         max_bound2 = np.max(corners2, axis=0)
-        
-        # Calculate intersection
+
+        # Calculate the intersection of the AABBs
         min_intersect = np.maximum(min_bound1, min_bound2)
         max_intersect = np.minimum(max_bound1, max_bound2)
+
+        # Ensure the intersection dimensions are non-negative
         intersection_dims = np.maximum(0, max_intersect - min_intersect)
         intersection_volume = np.prod(intersection_dims)
-        
-        # Calculate volumes of the individual boxes
-        vol1 = np.prod(dimensions1)
-        vol2 = np.prod(dimensions2)
-        
+
+        # Calculate the volumes of the individual AABBs
+        vol1 = np.prod(max_bound1 - min_bound1)
+        vol2 = np.prod(max_bound2 - min_bound2)
+
+        # Calculate the union volume
+        union_volume = vol1 + vol2 - intersection_volume
+
+        # Check for division by zero
+        if union_volume == 0:
+            return 0.0
+
         # Calculate IoU
-        iou = intersection_volume / (vol1 + vol2 - intersection_volume)
+        iou = intersection_volume / union_volume
+
         return iou
+
+    # def calculate_iou(self, box: BoundingBox) -> float:
+    #     center1 = self.center
+    #     dimensions1 = self.dimensions
+    #     corners1 = self.corners
+    #     # There might be an issue if the rotation is not a matrix
+    #     #corners1 =  self.rotate_points(corners1, self.rotation) + center1
+
+            
+    #     center2 = box.center
+    #     dimensions2 = box.dimensions
+    #     corners2 = box.corners
+    #     # Rotate and translate corners
+    #     #corners2 = self.rotate_points(corners2, box.rotation) + center2
+
+    #     # Calculate axis-aligned bounding boxes for intersection
+    #     min_bound1 = np.min(corners1, axis=0)
+    #     max_bound1 = np.max(corners1, axis=0)
+    #     min_bound2 = np.min(corners2, axis=0)
+    #     max_bound2 = np.max(corners2, axis=0)
+    #     # print(max_bound1, max_bound1.shape)
+        
+    #     # Calculate intersection
+    #     min_intersect = np.maximum(min_bound1, min_bound2)
+    #     max_intersect = np.minimum(max_bound1, max_bound2)
+        
+    #     intersection_dims = np.maximum(0, max_intersect - min_intersect)
+    #     intersection_volume = np.prod(intersection_dims)
+        
+    #     # Calculate volumes of the individual boxes
+    #     vol1 = np.prod(dimensions1)
+    #     vol2 = np.prod(dimensions2)
+        
+    #     # Calculate IoU
+    #     iou = intersection_volume / (vol1 + vol2 - intersection_volume)
+    #     print("Vols",intersection_volume, vol1, vol2)
+    #     print("IoU",iou)
+    #     return iou
     
     def calculate_all_ious(self, boxes: List[BoundingBox]) -> List[float]:
         return [self.calculate_iou(box) for box in boxes]
@@ -118,8 +156,10 @@ class BoundingBox:
         if len(boxes) == 0:
             return None, 0
         ious = self.calculate_all_ious(boxes)
+        # print(ious)
         max_iou = max(ious)
         max_iou_idx = np.argmax(ious)
+        # print(max_iou)
         return max_iou_idx, max_iou
 
     def transform_box(self,transform):

@@ -12,6 +12,7 @@ class Activations:
         self.config = config
         method = config['method']
         self.save_dir = method['save_dir']
+        self.extension =  method['extension']
         #TODO: better way to do this, indexes are not used right now, save activation must be generalized
         if extract:
             print("Hook initialized")
@@ -23,16 +24,17 @@ class Activations:
         check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
 
     def __call__(self, x,name):
-        self.save_name = name
+        self.save_name = name.split('/')[-1]
         self.gradients = []
         self.activations = []
         return inference_detector(self.model, x)
     
     def save_activation(self,module, input, output):
         last_output = output[2].detach().cpu().numpy()
-        print("Last output shape",last_output.shape)
+        # print("Last output shape",last_output.shape)
         last_output = np.squeeze(last_output)
-        save_name = self.save_name.replace('.png','.npy') #should be more generic currently depends on image, maybe jsut remove extension
+        save_name = self.save_name.replace(self.extension,'.npy') #should be more generic currently depends on image, maybe jsut remove extension
+        # print(save_name,self.save_dir)
         np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
 
     def clear(self):

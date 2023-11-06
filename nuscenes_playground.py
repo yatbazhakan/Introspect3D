@@ -228,15 +228,15 @@ dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
                           filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
                           save_path='/mnt/ssd2/nuscenes/',
                           save_filename='nuscenes_train.pkl',
-                          process=True,)
+                          process=False,)
 print("Length of nuScenes database: {}".format(len(dataset)))
 item = dataset[0]
 
 visualizer = Visualizer()
-# config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
-# checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+# checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+# config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
 model = init_model(config, checkpoint, device='cuda:0')
 item['pointcloud'].validate_and_update_descriptors(extend_or_reduce=5)
 res, data = inference_detector(model, item['pointcloud'].points)
