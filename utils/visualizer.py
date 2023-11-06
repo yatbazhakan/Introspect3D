@@ -73,17 +73,17 @@ class Visualizer:
                                        offset:Union[float, np.ndarray],
                                        axis:Union[int, np.ndarray],
                                        color:Union[tuple, np.ndarray] = Colors.BLUE) -> o3d.geometry.LineSet:
-        lines = [[0, 1], [1, 2], [2, 3], [3, 0],
-             [4, 5], [5, 6], [6, 7], [7, 4],
-             [0, 4], [1, 5], [2, 6], [3, 7]]
-        if box.corners.shape[0] != 8:
-            box.corners = box.corners.T
-        # Create a LineSet object
-        line_set = o3d.geometry.LineSet()
-        line_set.points = o3d.utility.Vector3dVector(box.corners)
-        line_set.lines = o3d.utility.Vector2iVector(lines)
-        line_set.colors = o3d.utility.Vector3dVector([color for i in range(len(lines))])
 
+        if box.corners.shape[0] != 8:
+            temp_corners = box.corners.T
+        else:
+            temp_corners = box.corners
+        o3d_box = o3d.geometry.OrientedBoundingBox.create_from_points(o3d.utility.Vector3dVector(temp_corners))
+
+            
+
+        o3d_box.color = color
+        line_set = o3d.geometry.LineSet.create_from_oriented_bounding_box(o3d_box)
         return line_set
     def create_pcd_from_points(self,points,max_distance=True):
         if max_distance:
@@ -112,10 +112,10 @@ class Visualizer:
         self.set_custom_view(visualizer)
         visualizer.add_geometry(cloud)
         for box in gt_boxes:
-            #print(box.corners)
+            print(type(box))
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0,Colors.GREEN.value))
         for box in pred_boxes:
-            #print(box.corners)
+            print(type(box))
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0,Colors.RED.value))
         
         visualizer.run()

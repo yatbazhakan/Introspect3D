@@ -15,6 +15,7 @@ class Activations:
         #TODO: better way to do this, indexes are not used right now, save activation must be generalized
         if extract:
             print("Hook initialized")
+            print(self.model)
             self.hook = eval(f'self.model.{method["hook"]["layer"]}.register_forward_hook(self.save_activation)')
         else:
             self.hook = None
@@ -29,6 +30,7 @@ class Activations:
     
     def save_activation(self,module, input, output):
         last_output = output[2].detach().cpu().numpy()
+        print("Last output shape",last_output.shape)
         last_output = np.squeeze(last_output)
         save_name = self.save_name.replace('.png','.npy') #should be more generic currently depends on image, maybe jsut remove extension
         np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)

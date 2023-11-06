@@ -36,7 +36,7 @@ def match_detections_3d(ground_truths, predictions, iou_threshold=0.5):
             if current_iou > max_iou:
                 max_iou = current_iou
                 max_iou_idx = idx
-        # print("For gt",gt,"max iou is",max_iou)
+        print("max iou is",max_iou)
         if max_iou >= iou_threshold:
             matches.append((gt, unmatched_predictions[max_iou_idx]))
             del unmatched_predictions[max_iou_idx]
@@ -56,9 +56,9 @@ def calculate_iou_3d(box1,box2):
     else:
         #get corners from lineset
         # print("Getting corners from lineset")
-        corners1 = np.array(box1.points)
-        dimensions_from_corners = np.max(corners1,axis=0) - np.min(corners1,axis=0)
-        dimensions1 = dimensions_from_corners
+        corners1 = np.array(box1.corners)
+ 
+        dimensions1 = box1.dimensions
         
     if type(box2)== o3d.geometry.OrientedBoundingBox:
         center2 = np.array(box2.center)
@@ -70,11 +70,15 @@ def calculate_iou_3d(box1,box2):
     else:
         #get corners from lineset
         # print("Getting corners from lineset")
-        print(type(box2),box2)
-        corners2 = np.array(box2.points)
-        dimensions_from_corners = np.max(corners2,axis=0) - np.min(corners2,axis=0)
-        dimensions2 = dimensions_from_corners
+    
+        corners2 = np.array(box2.corners)
+        
+        dimensions2 = box2.dimensions
     # Calculate axis-aligned bounding boxes for intersection
+    print(corners1.shape,corners2.shape)
+    pprint(corners1)
+
+    pprint(corners2)
     min_bound1 = np.min(corners1, axis=0)
     max_bound1 = np.max(corners1, axis=0)
     min_bound2 = np.min(corners2, axis=0)
@@ -216,20 +220,40 @@ def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','human'
 from datasets.nuscenes import NuScenesDataset
 from utils.filter import FilterType
 from definitions import ROOT_DIR
-dataset = NuScenesDataset(dataroot='/mnt/ssd2/nuscenes/',
+dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
                           version='v1.0-trainval',
                           split='train',
                           transform=None,
                           filtering_style = "FilterType.ELLIPSE",
                           filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
-                          save_path=ROOT_DIR,
+                          save_path='/mnt/ssd2/nuscenes/',
                           save_filename='nuscenes_train.pkl',
-                          process=False,)
+                          process=True,)
 print("Length of nuScenes database: {}".format(len(dataset)))
 item = dataset[0]
 
 visualizer = Visualizer()
-visualizer.visualize(cloud=item['pointcloud'].points,gt_boxes=item['labels'],pred_boxes=[])
+# config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+# checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+model = init_model(config, checkpoint, device='cuda:0')
+item['pointcloud'].validate_and_update_descriptors(extend_or_reduce=5)
+res, data = inference_detector(model, item['pointcloud'].points)
+predicted_boxes = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+predicted_scores = res.pred_instances_3d.scores_3d.cpu().numpy()
+score_mask = np.where(predicted_scores >= 0.5)[0] # May require edit later
+filtered_predicted_boxes = predicted_boxes[score_mask]
+is_nuscenes = True
+from utils.utils import create_bounding_boxes_from_predictions
+prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
+from utils.utils import check_detection_matches
+matches , unmatched_ground_truths, unmatched_predictions = check_detection_matches(item['labels'],prediction_bounding_boxes)
+print("Number of matches: {}".format(len(matches)))
+print("Number of unmatched ground truths: {}".format(len(unmatched_ground_truths)))
+print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
+# print(type(prediction_bounding_boxes[0]),type(item['labels'][0]))
+visualizer.visualize(cloud= item['pointcloud'].points[:,:3],gt_boxes = item['labels'],pred_boxes = prediction_bounding_boxes)  # item['labels']
 # nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
 # # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
 # # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"

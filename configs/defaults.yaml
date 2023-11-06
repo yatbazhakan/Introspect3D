@@ -1,6 +1,7 @@
 project_dir: D:/Introspect3D
 datasets:
     - Kitti
+    - NuScenesDataset
     - ActivationDataset
 models: {}
 operators:

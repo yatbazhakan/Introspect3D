@@ -27,6 +27,8 @@ class BoundingBox:
         self.rotation = box.orientation.rotation_matrix
         self.type = box.label
         self.corners = box.corners()
+        if self.corners.shape != (8,3):
+            self.corners = self.corners.T
     def rotate_points(self,points, R): # For now, migt move somewhere else
         return np.dot(points, R.T)
     

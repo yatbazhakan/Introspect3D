@@ -5,6 +5,7 @@ from utils.config import Config
 from utils.boundingbox import BoundingBox
 import numpy as np
 import open3d as o3d
+from nuscenes.utils.data_classes import LidarPointCloud,Box
 import matplotlib.pyplot as plt
 import torch.nn as nn
 from torch.optim import *
@@ -12,6 +13,7 @@ from torch.optim.lr_scheduler import *
 from torch.nn import *
 from torchvision.models import *
 import torchvision
+from pyquaternion import Quaternion
 import torch
 from modules.other import Identity
 def load_detection_model(config: Config):
@@ -33,19 +35,21 @@ def create_bounding_boxes_from_predictions(boxes: np.ndarray):
     #TODO: checks for the boxes in terms of shape (what if more values are given)
     bounding_boxes = []
     for box in boxes:
+        if isinstance(box,BoundingBox):
+            print("Box is already a BoundingBox object")
+            bounding_boxes.append(box)
+            continue
         center = box[:3]
-        #Some fix I dont;know for sure
-        center[2]= center[2]/2
         dimensions = box[3:6]
         rotation = box[6]
-        #These rotations might be a problem later, but for now they are fine
-        #Type is integer and not available with box, some mapping may be needed, but I dont care about classes for now
-        # print("Rotation from prediction",rotation,type(rotation))
+
+        center[2] += dimensions[2]/2
         bounding_box = BoundingBox(center, dimensions, rotation, 0)
+    
         bounding_boxes.append(bounding_box)
     return bounding_boxes
 
-def check_detection_matches(ground_truth_boxes:BoundingBox, predicted_boxes:BoundingBox, iou_threshold:float=0.5):
+def check_detection_matches(ground_truth_boxes, predicted_boxes, iou_threshold:float=0.5):
     """Checks if the predicted boxes match with the ground truth boxes."""
     matches = []
     unmatched_ground_truths = []
@@ -121,3 +125,22 @@ def generate_criterion_from_config(config):
     if "weight" in loss_params.keys():
         loss_params['weight'] = torch.tensor(loss_params['weight'],dtype=torch.float32)
     return eval(f"{loss_type}(**loss_params)")
+
+def get_quaternion_from_euler(roll, pitch, yaw):
+    """
+    Convert an Euler angle to a quaternion.
+    
+    Input
+    :param roll: The roll (rotation around x-axis) angle in radians.
+    :param pitch: The pitch (rotation around y-axis) angle in radians.
+    :param yaw: The yaw (rotation around z-axis) angle in radians.
+
+    Output
+    :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+    """
+    qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+    qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+    qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+    qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+
+    return [qx, qy, qz, qw]

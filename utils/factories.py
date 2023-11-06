@@ -1,5 +1,5 @@
 from datasets.kitti import Kitti
-from datasets.nuscenes import BerkeleyDeepDrive
+from datasets.nuscenes import NuScenesDataset
 from datasets.activation_dataset import ActivationDataset
 import os
 import matplotlib.pyplot as plt
@@ -21,7 +21,7 @@ from mmengine.structures import InstanceData
 from mmdet3d.utils import register_all_modules
 from mmdet3d.apis import inference_detector, init_model
 from mmdet3d.evaluation.metrics.nuscenes_metric import NuScenesMetric
-from mmdet3d.datasets import NuScenesDataset
+
 from mmdet3d.structures import Det3DDataSample, LiDARInstance3DBoxes
 from mmdet3d.visualization import Det3DLocalVisualizer
 from mmdet3d.structures import LiDARInstance3DBoxes

@@ -64,7 +64,7 @@ object_label_to_index = {
 object_index_to_label = {v: k for k, v in object_label_to_index.items()}
 
 class NuScenesDataset(DrivingDataset):
-    def __init__(self, dataroot, version='v1.0-mini', split='train', transform=None,
+    def __init__(self, root_dir, version='v1.0-mini', split='train', transform=None,
                  filtering_style: FilterType = FilterType.ELLIPSE,**kwargs):
         process = kwargs['process']
         self.save_path,self.save_filename = kwargs['save_path'], kwargs['save_filename']
@@ -73,7 +73,7 @@ class NuScenesDataset(DrivingDataset):
         self.filter = self.filtering_style.value(**self.filter_params)
         self.dataset_flattened = {}
         if process:
-            self.nusc = NuScenes(version=version, dataroot=dataroot, verbose=True)
+            self.nusc = NuScenes(version=version, dataroot=root_dir, verbose=True)
             self.split = split
             self.transform = transform
             # Extract only the first sample token of each scene.
@@ -97,10 +97,10 @@ class NuScenesDataset(DrivingDataset):
                 box.label = object_label_to_index[annotation['category_name']]
                 custom_box = BoundingBox()
                 custom_box.from_nuscenes_box(box)
+
                 self.dataset_flattened[id]['label'].append(custom_box)
 
 
-        return super().read_labels(**kwargs)
     def process_data(self, **kwargs):
         id = 0
         for first_sample_token in self.sample_tokens:
@@ -137,7 +137,7 @@ class NuScenesDataset(DrivingDataset):
         # print(type(labels),len(labels))
         # print("------------------")
         labels = self.filter.filter_bounding_boxes(labels)
-        item_dict = {'pointcloud': point_cloud, 'labels': labels}
+        item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath}
         return item_dict
     
     def filter_boxes_with_category(self,box_label,accepted_categories=['vehicle.','human','cyclist']):
@@ -145,3 +145,4 @@ class NuScenesDataset(DrivingDataset):
             if box_label.startswith(cat):
                 return True
         return False
+    

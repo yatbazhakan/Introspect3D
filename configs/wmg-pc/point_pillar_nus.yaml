@@ -1,0 +1,162 @@
+experiment_name: point_pillar_nus_activations
+experiment_path: ./
+device: 'cuda:0'
+method: activations
+verbose: True
+
+detection:
+  device: 'cuda:0'
+  dataset:
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.NONE
+    filter_params:
+      a: 25
+      b: 15
+      offset: -10
+      axis: 0
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
+    checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+extraction:
+  active: True
+  device: 'cuda:0'
+  score_threshold: 0.5
+  dataset:
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.NONE
+    filter_params:
+      a: 25
+      b: 15
+      offset: -10
+      axis: 0
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config : pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+    checkpoint:  hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  method:
+    name: raw_activations
+    hook:
+      layer: pts_backbone
+      indexes: []
+    save_dir: ../custom_dataset/nus_pointpillars_activations_raw/
+    labels_file_name: nus_point_pillars_labels_raw.csv
+    balanced: False
+    transforms: None
+    #Are theese needed?
+    # config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
+    # checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+# experiment_name: point_pillar_kitti_activations
+# Only showing the introspection section for brevity
+introspection:
+  experiment_name: point_pillar_nus_activations
+  wandb:
+    is_sweep: False
+    sweep_configuration: {}
+    project: introspect3D
+    entity: yatbazhakan
+    mode: online
+    name: point_pillar_kitti_sf_activations_all
+  verbose: True
+  method:
+    train_test_split: 0.2
+    processing:
+      active: True
+      method: ProcessorEnum.SF
+      params:
+        # config:
+        #   percentile: 0.9
+        #   method: p
+        config:
+          functions:
+            - mean
+            - max
+            - std
+    model:
+      layers:
+        # - type: torchvision.models.resnet50
+        #   in_channels: 256
+        #   params:
+        #     weights: ResNet50_Weights.IMAGENET1K_V2
+        # - type: "Flatten"
+        #   params: {}
+        - type: "Linear"
+          params:
+            in_features: 768
+            out_features: 512
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 512
+            out_features: 256
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 256
+            out_features: 2
+    optimizer:
+      type: SGD
+      params: 
+        lr: 0.001
+        momentum: 0.9
+        weight_decay: 0.0001
+    criterion:
+      type: CrossEntropyLoss
+      params: 
+        weight: [0.78, 1.39]
+    scheduler:
+      type: ReduceLROnPlateau
+      params:
+        patience : 15
+        factor: 0.7
+    epochs: 100
+    log_interval: 1
+    save_interval: 1
+    early_stop: 10
+    sanity_check: True
+    save_path: outputs/ckpts
+    save_name: point_pillar_kitti_activations_sf.pt
+  device: cuda:0
+  dataset:
+    name: ActivationDataset
+    config:
+      root_dir: /mnt/ssd1/custom_dataset/kitti_pointpillars_activations_raw/
+      label_file: kitti_point_pillars_labels_raw.csv
+      classes: ['No Error', 'Error']
+  dataloader:
+    all:
+      batch_size: 32
+      shuffle: True
+    train:
+      batch_size: 32
+      shuffle: True
+    test:
+      batch_size: 1
+      shuffle: False
+  operation: 
+    type: traineval
+    load_model: False

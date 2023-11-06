@@ -26,14 +26,18 @@ class ActivationExractionOperator(Operator):
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
         for i in range(len(self.dataset)):
-            cloud, ground_truth_boxes, file_name = self.dataset[i]
+            result = self.dataset[i]
+            cloud, ground_truth_boxes, file_name = result['pointcloud'], result['labels'], result['file_name']
+            if "nus" in self.config['model']['config']:
+                cloud.validate_and_update_descriptors(extend_or_reduce = 5)
             file_name = file_name.replace('.png','')
             result, data = self.activation(cloud.points,file_name)
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
             filtered_predicted_boxes = predicted_boxes[score_mask]
-            prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
+            is_nuscenes = self.config['dataset']['name'] == 'NuScenesDataset'
+            prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes,nuscenes=is_nuscenes)
             # vis = Visualizer()
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
             matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
