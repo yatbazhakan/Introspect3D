@@ -224,12 +224,12 @@ dataset = NuScenesDataset(dataroot='/mnt/ssd2/nuscenes/',
                           filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
                           save_path=ROOT_DIR,
                           save_filename='nuscenes_train.pkl',
-                          process=True,)
+                          process=False,)
 print("Length of nuScenes database: {}".format(len(dataset)))
 item = dataset[0]
 
 visualizer = Visualizer()
-visualizer.visualize(cloud=item['pointcloud'].points,gt_boxes=item['labels'],pred_boxes=None)
+visualizer.visualize(cloud=item['pointcloud'].points,gt_boxes=item['labels'],pred_boxes=[])
 # nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
 # # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
 # # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"

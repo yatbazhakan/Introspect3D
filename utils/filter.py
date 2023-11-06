@@ -51,7 +51,7 @@ class EllipseFilter(FilterStrategy):
             # Check if any corner point is inside the ellipse
             # print(box)
             corners = box.corners.copy()
-            if corners.shape[0] == 8:
+            if corners.shape[0] != 8:
                 corners = corners.T
             adjusted_corners= corners + self.offset
             if mode == FilteringArea.INSIDE:
