@@ -39,12 +39,12 @@ extraction:
     process: False
     save_path: /mnt/ssd2/nuscenes/
     save_filename: nuscenes_train.pkl
-    filtering_style: FilterType.NONE
+    filtering_style: FilterType.ELLIPSE
     filter_params:
-      a: 25
-      b: 15
-      offset: -10
-      axis: 0
+      a: 15
+      b: 25
+      offset: -5
+      axis: 1
   model:
     name: pointpillars
     root_dir: /mnt/ssd2/mmdetection3d/
@@ -57,8 +57,9 @@ extraction:
     hook:
       layer: pts_backbone
       indexes: []
-    save_dir: ../custom_dataset/nus_pointpillars_activations_raw/
-    labels_file_name: nus_point_pillars_labels_raw.csv
+      layer_index: 2
+    save_dir: ../custom_dataset/nus_pointpillars_activations_filtered/
+    labels_file_name: nus_point_pillars_labels_filtered.csv
     balanced: False
     transforms: None
     extension: .pcd.bin

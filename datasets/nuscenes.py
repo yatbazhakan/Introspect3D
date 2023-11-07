@@ -74,6 +74,7 @@ class NuScenesDataset(DrivingDataset):
         self.dataset_flattened = {}
         if process:
             self.nusc = NuScenes(version=version, dataroot=root_dir, verbose=True)
+
             self.split = split
             self.transform = transform
             # Extract only the first sample token of each scene.
@@ -132,7 +133,10 @@ class NuScenesDataset(DrivingDataset):
         # Load the point cloud data
         points = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
         point_cloud = PointCloud(points)
+        # print("Before filtering",point_cloud.points.shape)
         point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
+        point_cloud.raw_points = point_cloud.points.copy()
+        # print("After filtering",point_cloud.points.shape)
         # point_cloud.convert_to_kitti_points()
         # print(type(labels),len(labels))
         # print("------------------")

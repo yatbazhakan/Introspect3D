@@ -39,10 +39,12 @@ class EllipseFilter(FilterStrategy):
         temp_points = points[:,:3] + self.offset #Types of points might be problem such as (N,4) or (N,5)
         x,y,z = temp_points[:,0],temp_points[:,1],temp_points[:,2] #What if I need to send yz, xz combinations
         if mode == FilteringArea.INSIDE:
+            # print("Before filtering",data.shape)
             inside_ellipse = self.is_inside(x=x,y=y)
+            # print("After filtering",data[inside_ellipse].shape)
             return data[inside_ellipse]
         elif mode == FilteringArea.OUTSIDE:
-            outside_ellipse = self.is_outside_ellipse(x=x,y=y)
+            outside_ellipse = self.is_outside(x=x,y=y)
             return data[outside_ellipse]
         
     def filter_bounding_boxes(self, data, mode: FilteringArea = FilteringArea.INSIDE):
@@ -58,9 +60,11 @@ class EllipseFilter(FilterStrategy):
                 inside_ellipse = self.is_inside(x = adjusted_corners[:,0], y=adjusted_corners[:,1])
             elif mode == FilteringArea.OUTSIDE:
                 inside_ellipse = self.is_outside(x= adjusted_corners[:,0], y = adjusted_corners[:,1])
-            if np.any(inside_ellipse):
+            # print("Corners inside ellipse",np.sum(inside_ellipse))
+            if np.sum(inside_ellipse) >= 4 and FilteringArea.INSIDE == mode:
                 filtered_objects.append(box)
-        # print(filtered_objects)
+            elif np.sum(inside_ellipse) == 0 and FilteringArea.OUTSIDE == mode:
+                filtered_objects.append(box)
         return filtered_objects
     
     def is_inside(self,**kwargs):

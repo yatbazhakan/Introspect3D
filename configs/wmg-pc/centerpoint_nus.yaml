@@ -1,32 +1,18 @@
-experiment_name: point_pillar_kitti_activations
+experiment_name: centerpoint_nus_activations
 experiment_path: ./
 device: 'cuda:0'
 method: activations
 verbose: True
+
 detection:
   device: 'cuda:0'
   dataset:
-    name: Kitti
-    root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
-    class_names: ['Car', 'Pedestrian', 'Cyclist']
-    filtering_style: FilterType.NONE
-  model:
-    name: pointpillars
-    root_dir: /mnt/ssd2/mmdetection3d/
-    config_dir: configs/
-    checkpoint_dir: ckpts/
-    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
-    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
-  #save_path: ./custom_dataset/
-  training_params: {}
-extraction:
-  active: True
-  device: 'cuda:0'
-  score_threshold: 0.5
-  dataset:
-    name: Kitti
-    root_dir: /mnt/ssd2/kitti/training/
-    class_names: ['Car', 'Pedestrian', 'Cyclist']
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
     filtering_style: FilterType.NONE
     filter_params:
       a: 25
@@ -34,38 +20,65 @@ extraction:
       offset: -10
       axis: 0
   model:
-    name: pointpillars
+    name: centerpoint
     root_dir: /mnt/ssd2/mmdetection3d/
     config_dir: configs/
     checkpoint_dir: ckpts/
-    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
-    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+    config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+    checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+extraction:
+  active: True
+  device: 'cuda:0'
+  score_threshold: 0.5
+  dataset:
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.ELLIPSE
+    filter_params:
+      a: 15
+      b: 25
+      offset: -10
+      axis: 1
+  model:
+    name: centerpoint
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+    checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
   method:
     name: raw_activations
     hook:
-      layer: backbone
+      layer: pts_backbone
       indexes: []
-      layer_index: 2
-    save_dir: ../custom_dataset/kitti_pointpillars_activations_raw/
-    labels_file_name: kitti_point_pillars_labels_raw.csv
+      layer_index: 1
+    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered/
+    labels_file_name: nus_centerpoint_labels_filtered.csv
     balanced: False
     transforms: None
-    # config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
-    # checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
-    extension: .bin
-  #save_path: ./custom_dataset/
+    extension: .pcd.bin
+    #Are theese needed?
+    # config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
+    # checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  save_path: ./custom_dataset/
   training_params: {}
-# experiment_name: point_pillar_kitti_activations
+# experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: point_pillar_kitti_activations
+  experiment_name: centerpoint_nus_activations
   wandb:
     is_sweep: False
     sweep_configuration: {}
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_sf_activations_all
+    name: centerpoint_nus_sf_activations_all
   verbose: True
   method:
     train_test_split: 0.2
@@ -128,13 +141,13 @@ introspection:
     early_stop: 10
     sanity_check: True
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_sf.pt
+    save_name: centerpoint_nus_activations_sf.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
-      label_file: kitti_point_pillars_labels_raw.csv
+      root_dir: /mnt/ssd1/custom_dataset/nus_pointpillars_activations_raw/
+      label_file: nus_centerpoint_labels_raw.csv
       classes: ['No Error', 'Error']
   dataloader:
     all:

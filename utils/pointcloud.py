@@ -1,13 +1,13 @@
 import numpy as np
 class PointCloud:
-    def __init__(self, points,model_req_dim = 3) -> None:
+    def __init__(self, points,model_req_dim = 4) -> None:
         self.raw_points = points
         self.validate_and_update_descriptors(extend_or_reduce=model_req_dim)
         
     def validate_and_update_descriptors(self, **kwargs):
         if self.raw_points.shape[1] < 3:
             raise ValueError("Points array must have at least 3 columns for X, Y, and Z coordinates.")
-        extend_or_reduce = kwargs.get('extend_or_reduce', 3)
+        extend_or_reduce = kwargs.get('extend_or_reduce', 4)
         if self.raw_points.shape[1] == extend_or_reduce:
             self.points = self.raw_points
         elif self.raw_points.shape[1] < extend_or_reduce and self.points.shape[1] != extend_or_reduce:

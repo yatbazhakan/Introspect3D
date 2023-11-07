@@ -18,7 +18,7 @@ class Kitti(DrivingDataset):
                  filtering_style: FilterType = FilterType.ELLIPSE,**kwargs) -> None:
         self.root_dir = root_dir
         self.classes = class_names
-        self.image_paths = self.get_image_paths()
+        # self.image_paths = self.get_image_paths()
         self.lidar_paths = self.get_lidar_paths()
         self.calibration_paths = self.get_calibration_paths()
         self.label_paths = self.get_label_paths()
@@ -27,11 +27,10 @@ class Kitti(DrivingDataset):
         self.filter = self.filtering_style.value(**self.filter_params)
     def __getitem__(self, idx):       
         #Read data
-        file_name = self.image_paths[idx].split('/')[-1]
+        file_name = self.lidar_paths[idx].split('/')[-1]
         #image = self.read_image(idx) #Can be used later
         points = self.read_points(idx=idx)
         labels = self.read_labels(idx=idx)
-        
         #Process data
         point_cloud = PointCloud(points=points)
         point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
@@ -52,7 +51,7 @@ class Kitti(DrivingDataset):
         return sorted(glob(os.path.join(self.root_dir, 'label_2', '*.txt')))
     
     def read_image(self, idx):
-        image_path = self.image_paths[idx]
+        image_path = self.lidar_paths[idx]
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image
@@ -90,7 +89,7 @@ class Kitti(DrivingDataset):
                 calibration[key] = np.array([float(x) for x in value.strip().split()])
             return calibration
     def __len__(self):
-        return len(self.image_paths)
+        return len(self.lidar_paths)
     def process_data(self,**kwargs):
         line = kwargs['line']
         calib_data = kwargs['calibration_data']

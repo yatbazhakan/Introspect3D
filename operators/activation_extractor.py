@@ -26,11 +26,11 @@ class ActivationExractionOperator(Operator):
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
         for i in range(len(self.dataset)):
-            result = self.dataset[i]
-            cloud, ground_truth_boxes, file_name = result['pointcloud'], result['labels'], result['file_name']
-            if "nus" in self.config['model']['config']:
+            data = self.dataset[i]
+            cloud, ground_truth_boxes, file_name = data['pointcloud'], data['labels'], data['file_name']
+            if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-            file_name = file_name.replace('.png','')
+            file_name = file_name.replace(self.config['method']['extension'],'')
             result, data = self.activation(cloud.points,file_name)
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
@@ -44,9 +44,11 @@ class ActivationExractionOperator(Operator):
             # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
             if(len(ground_truth_boxes) > 0):
                 row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
+                from pprint import pprint
+                # pprint(row)
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
             if verbose:
                 progress_bar.update(1)
-            if(self.config['active']):
-                self.save_labels()
+        if(self.config['active']):
+            self.save_labels()
             

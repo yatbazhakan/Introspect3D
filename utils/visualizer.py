@@ -112,10 +112,11 @@ class Visualizer:
         self.set_custom_view(visualizer)
         visualizer.add_geometry(cloud)
         for box in gt_boxes:
-            print(type(box))
+            # print(type(box))
+            print(box.type)
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0,Colors.GREEN.value))
         for box in pred_boxes:
-            print(type(box))
+            # print(type(box))
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0,Colors.RED.value))
         
         visualizer.run()
