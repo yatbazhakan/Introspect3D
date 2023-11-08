@@ -15,13 +15,19 @@ class ActivationDataset:
         self.label_file = self.get_label_file()
         self.labels = pd.read_csv(self.label_file)
         self.labels['name'] = self.labels['name'].astype(str)
+        #remove if any leading path is there in self labels['name']
+        self.labels['name'] = self.labels['name'].apply(lambda x: x.split('/')[-1].replace('.npy',''))
         #fill names with leading zeros to make them 6 digits
-        self.labels['name'] = self.labels['name'].apply(lambda x: x.zfill(6))
+        if self.config['name'] == 'kitti':
+            self.labels['name'] = self.labels['name'].apply(lambda x: x.zfill(6))
         if len(self.labels) != len(self.feature_paths):
             temp_paths = []
             for path in self.feature_paths:
                 name = path.split('/')[-1].replace('.npy','')
+            
+                # print(type(name),type(self.labels['name'].values[-1]),name in self.labels['name'].values)
                 if name in self.labels['name'].values:
+                    
                     temp_paths.append(path)
             self.feature_paths = temp_paths
             print("Feature paths and labels are not equal, some features are missing")

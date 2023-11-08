@@ -34,8 +34,10 @@ class IntrospectionOperator(Operator):
         if self.split:
             train_loader = DataLoader(self.train_dataset, **self.config['dataloader']['train'])
             test_loader = DataLoader(self.test_dataset, **self.config['dataloader']['test'])
+            val_loader = DataLoader(self.val_dataset, **self.config['dataloader']['test'])
             self.train_loader = train_loader
             self.test_loader = test_loader
+            self.val_loader = val_loader
         else: # THis will give me flexibility for dataset shift case
             loader = DataLoader(self.dataset, **self.config['dataloader']['all'])
             self.test_loader = loader
@@ -43,8 +45,11 @@ class IntrospectionOperator(Operator):
     def train_test_split(self):
         indices = list(range(len(self.dataset)))
         all_labels= self.dataset.get_all_labels()
-        train_indices, test_indices = train_test_split(indices, test_size=self.method_info['train_test_split'],stratify=all_labels)
+        train_indices, test_indices = train_test_split(indices, test_size=self.method_info['train_test_split'],stratify=all_labels,random_state=1024)
         self.train_dataset = Subset(self.dataset, train_indices)
+        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=self.method_info['validation_split'],stratify=all_labels[train_indices],random_state=1024)
+        self.train_dataset = Subset(self.dataset, after_val_train_indices)
+        self.val_dataset = Subset(self.dataset, val_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
         self.split=True
         #Provide the class distribution overall
@@ -78,6 +83,7 @@ class IntrospectionOperator(Operator):
         if self.verbose:
             print("Epoch:",epoch)
         pbar = tqdm(total=len(self.train_loader),leave=False)
+        pbar.set_description(f'Training at Epoch {epoch} with learning rate {self.optimizer.param_groups[0]["lr"]:.2E} and No improvement count {self.scheduler.num_bad_epochs}')
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
@@ -111,7 +117,8 @@ class IntrospectionOperator(Operator):
         self.initialize_learning_parameters()
         self.criterion.to(self.device)
         self.total_loss = np.inf
-        previous_loss = np.inf
+        previous_val_loss = np.inf
+        val_loss = np.inf
         
         self.model.train()
         for epoch in range(self.epochs):
@@ -119,48 +126,61 @@ class IntrospectionOperator(Operator):
             if self.verbose:
                 print("Epoch loss:",epoch_loss)
             wandb.log({'epoch_loss':epoch_loss})
-            if epoch_loss < previous_loss:
-                previous_loss = epoch_loss
+            
+            if self.method_info['sanity_check']:
+                self.evaluate(loader=self.train_loader,epoch=epoch)
+            val_loss = self.evaluate(loader=self.val_loader,epoch=epoch)
+                        
+            if val_loss < previous_val_loss:
+                previous_val_loss = val_loss
                 no_improvement_count = 0
+
                 if self.verbose:
                     print("Saving model")
                 torch.save(self.model.state_dict(), self.model_save_to)
-                wandb.save(self.method_info['save_path'])
+                wandb.save( self.model_save_to)
             else:
+                if self.verbose:
+                    print("No improvement")
                 no_improvement_count += 1
+                self.scheduler.step(val_loss)
                 if no_improvement_count >= early_stop_threshold:
                     if self.verbose:
                         print("Early stopping")
-                    break
-            if self.method_info['sanity_check']:
-                self.evaluate(loader=self.train_loader,epoch=epoch)
-                self.evaluate(loader=self.test_loader,epoch=epoch)
-        
+                    break        
 
     def evaluate(self,loader=None,epoch=None):
         if loader == None:
+            
+            loader = self.test_loader
+            self.model.load_state_dict(torch.load(self.model_save_to))
             if self.verbose:
                 print("No loader provided, Evaluation started for test set")
-            loader = self.test_loader
+                print("Model loaded from:",self.model_save_to)
+
         self.model.eval()
         test_loss = 0
         all_preds = torch.tensor([]).to(self.config['device'],dtype=torch.float32) 
         all_labels = torch.tensor([]).to(self.config['device'],dtype=torch.long)
         with torch.no_grad():
-            for data, target, name in loader:
+            with tqdm(total=len(loader),leave=False) as pbar:
+                pbar.set_description(f'Evaluating at Epoch {epoch}')
+                pbar.refresh()
+                for data, target, name in loader:
 
-                data, target = data.to(self.device), target.to(self.device)
-                if(self.proceesor != None):
-                    data = self.proceesor.process(activation=data)
-                    data = torch.from_numpy(data).to(self.device)
-                output = self.model(data)
-                test_loss += self.criterion(output, target.squeeze(1)).item()
-                all_preds = torch.cat(
-                    (all_preds, output),dim=0
-                )
-                all_labels = torch.cat(
-                        (all_labels, target),dim=0
+                    data, target = data.to(self.device), target.to(self.device)
+                    if(self.proceesor != None):
+                        data = self.proceesor.process(activation=data)
+                        data = torch.from_numpy(data).to(self.device)
+                    output = self.model(data)
+                    test_loss += self.criterion(output, target.squeeze(1)).item()
+                    all_preds = torch.cat(
+                        (all_preds, output),dim=0
                     )
+                    all_labels = torch.cat(
+                            (all_labels, target),dim=0
+                        )
+                    pbar.update(1)
         test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
@@ -169,6 +189,10 @@ class IntrospectionOperator(Operator):
         elif loader == self.train_loader:
             wandb.log({'train_loss':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train')
+        else :
+            wandb.log({'val_loss':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='val')
+        return test_loss
     def seprate_multiclass_metrics(self,metric_name):
         multi_class_metric = self.metrics[metric_name]
         try:
@@ -240,6 +264,10 @@ class IntrospectionOperator(Operator):
             if self.config['operation']['type'] == "train":
                 self.train()
             elif self.config['operation']['type'] == "evaluate":
+                self.dataset = DatasetFactory().get(**self.config['dataset'])
+                self.model = generate_model_from_config(self.method_info['model'])
+                self.model.to(self.device)
+                self.initialize_learning_parameters()
                 self.evaluate()
             else:
                 self.train()

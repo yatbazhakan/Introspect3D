@@ -16,6 +16,7 @@ import torchvision
 from pyquaternion import Quaternion
 import torch
 from modules.other import Identity
+from modules.conv_blocks import *
 def load_detection_model(config: Config):
     """Loads the detection model."""
     root_dir = config['model']['root_dir']
@@ -74,10 +75,13 @@ def generate_model_from_config(config):
     layers = []
     num_ftrs = None
     for layer_config in config['layers']:
+        # print(layer_config)
         layer_type = layer_config['type']
         if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
             model = eval(f"{layer_type}(**layer_config['params'])")
+            print(model)
             # Clone the first 3 channels from the original weights
+            # Make this generalizable for other torchvision models like densenet
             original_weight = model.conv1.weight.clone()  # Shape: [64, 3, 7, 7]
             model.conv1 = nn.Conv2d(layer_config['in_channels'], 64,
                                             kernel_size=7, stride=2, padding=3, bias=False)
@@ -106,9 +110,26 @@ def generate_model_from_config(config):
                 print("in_features is set to",num_ftrs,"for layer",layer_type)
                 layer_params['in_features'] = num_ftrs
                 num_ftrs = None
+            elif 'output_size' in layer_params.keys():
+                ouput_size = eval(layer_params['output_size'])
+                layer_params['output_size'] = ouput_size
             layers.append(eval(f"{layer_type}(**layer_params)"))
-    return nn.Sequential(*layers)
+    model = nn.Sequential(*layers)
+    model = weight_init(model)
+    return model
 
+def weight_init(model):
+    #initialize weights for better convergence  
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            nn.init.kaiming_normal_(m.weight, mode='fan_out')
+        elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            nn.init.constant_(m.weight, 1)
+            nn.init.constant_(m.bias, 0)
+        elif isinstance(m,nn.Linear):
+            nn.init.normal_(m.weight, 0, 0.01)
+            nn.init.constant_(m.bias, 0)
+    return model
 def generate_optimizer_from_config(config,model):
     optimizer_type = config['type']
     optimizer_params = config['params']

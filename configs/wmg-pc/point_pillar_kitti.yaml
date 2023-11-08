@@ -65,33 +65,77 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_ash_activations_all_org
+    name: point_pillar_kitti_raw_activations_allwinit
   verbose: True
   method:
     train_test_split: 0.2
+    validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.ASH
+      method: ProcessorEnum.RAW
       params:
-        config:
-          percentile: 0.9
-          method: p
         # config:
-        #   functions:
-        #     - mean
-        #     - max
-        #     - std
+        #   percentile: 0.9
+        #   method: p
+        config:
+          functions:
+            - mean
+            - max
+            - std
     model:
       layers:
-        - type: torchvision.models.resnet18
-          in_channels: 256
+        # - type: torchvision.models.resnet50
+        #   in_channels: 256
+        #   params:
+        #     weights: ResNet50_Weights.IMAGENET1K_V2
+        # - type: "Flatten"
+        #   params: {}
+        - type: "BasicConvBlock"
           params:
-            weights: ResNet18_Weights.IMAGENET1K_V1
+            in_channels: 256
+            out_channels: 128
+            kernel_size: 3
+            stride: 1
+            padding: 1
+        - type: "BasicConvBlock"
+          params:
+            in_channels: 128
+            out_channels: 64
+            kernel_size: 3
+            stride: 1
+            padding: 1
+        - type: "BasicConvBlock"
+          params:
+            in_channels: 64
+            out_channels: 32
+            kernel_size: 1
+            stride: 1
+            padding: 1
+        # - type: "AdaptiveAvgPool2d"
+        #   params:
+        #     output_size: (1)
         - type: "Flatten"
           params: {}
+          # params:
+          #   kernel_size: 2
+          #   stride: 2
+        # - type: "Linear"
+        #   params:
+        #     in_features: 768
+        #     out_features: 512
+        # - type: "Dropout"
+        #   params:
+        #     p: 0.5
         - type: "Linear"
           params:
-            in_features: 768
+            in_features: 114688
+            out_features: 1024
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 1024
             out_features: 512
         - type: "Dropout"
           params:
@@ -106,6 +150,13 @@ introspection:
         - type: "Linear"
           params:
             in_features: 256
+            out_features: 128
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 128
             out_features: 2
     optimizer:
       type: SGD
@@ -126,9 +177,9 @@ introspection:
     log_interval: 1
     save_interval: 1
     early_stop: 10
-    sanity_check: True
+    sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_ash_all.pt
+    save_name: point_pillar_kitti_activations_raw_all.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
@@ -136,6 +187,7 @@ introspection:
       root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
       label_file: kitti_point_pillars_labels_raw.csv
       classes: ['No Error', 'Error']
+      name: kitti
   dataloader:
     all:
       batch_size: 32
@@ -148,4 +200,4 @@ introspection:
       shuffle: False
   operation: 
     type: traineval
-    load_model: False
+    load_model: True
