@@ -39,7 +39,7 @@ extraction:
     process: False
     save_path: /mnt/ssd2/nuscenes/
     save_filename: nuscenes_train.pkl
-    filtering_style: FilterType.ELLIPSE
+    filtering_style: FilterType.NONE
     filter_params:
       a: 15
       b: 25
@@ -58,8 +58,8 @@ extraction:
       layer: pts_backbone
       indexes: []
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered/
-    labels_file_name: nus_centerpoint_labels_filtered.csv
+    save_dir: ../custom_dataset/nus_centerpoint_activations_raw/
+    labels_file_name: nus_centerpoint_labels_raw.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
@@ -78,7 +78,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_raw_activations_filtered
+    name: centerpoint_nus_raw_activations_raw_mymodel
   verbose: True
   method:
     train_test_split: 0.2
@@ -88,7 +88,7 @@ introspection:
       method: ProcessorEnum.RAW
       params:
         config:
-          percentile: 0.7
+          percentile: 0.9
           method: p
         # config:
         #   functions:
@@ -96,7 +96,6 @@ introspection:
         #     - max
         #     - std
     model:
-      layers:
         # - type: torchvision.models.resnet50
         #   in_channels: 256
         #   params:
@@ -114,21 +113,28 @@ introspection:
           params:
             in_channels: 256
             out_channels: 128
-            kernel_size: 3
+            kernel_size: 1
             stride: 1
-            padding: 1
+            padding: 0
         - type: "BasicConvBlock"
           params:
             in_channels: 128
             out_channels: 64
-            kernel_size: 3
+            kernel_size: 1
             stride: 1
-            padding: 1
+            padding: 0
         - type: "BasicConvBlock"
           params:
             in_channels: 64
             out_channels: 32
             kernel_size: 1
+            stride: 1
+            padding: 0
+        - type: "BasicConvBlock"
+          params:
+            in_channels: 32
+            out_channels: 8
+            kernel_size: 3
             stride: 1
             padding: 1
         # - type: "AdaptiveAvgPool2d"
@@ -148,7 +154,14 @@ introspection:
         #     p: 0.5
         - type: "Linear"
           params:
-            in_features: 114688
+            in_features: 64800
+            out_features: 4096
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 4096
             out_features: 1024
         - type: "Dropout"
           params:
@@ -156,13 +169,6 @@ introspection:
         - type: "Linear"
           params:
             in_features: 1024
-            out_features: 512
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 512
             out_features: 256
         - type: "Dropout"
           params:
@@ -196,10 +202,10 @@ introspection:
     epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 20
-    sanity_check: True
+    early_stop: 50
+    sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_filtered_raw.pt
+    save_name: centerpoint_nus_activations_filtered_raw_my.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
@@ -210,10 +216,10 @@ introspection:
       name: nuscenes
   dataloader:
     all:
-      batch_size: 128
+      batch_size: 256
       shuffle: True
     train:
-      batch_size: 128
+      batch_size: 256
       shuffle: True
     test:
       batch_size: 1

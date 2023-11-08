@@ -65,14 +65,14 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_raw_activations_allwinit
+    name: point_pillar_kitti_sf_activations_all_test_gpt
   verbose: True
   method:
     train_test_split: 0.2
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.SF
       params:
         # config:
         #   percentile: 0.9
@@ -84,51 +84,51 @@ introspection:
             - std
     model:
       layers:
-        # - type: torchvision.models.resnet50
-        #   in_channels: 256
+        # - type: "BasicConvBlock"
         #   params:
-        #     weights: ResNet50_Weights.IMAGENET1K_V2
+        #     in_channels: 256
+        #     out_channels: 128
+        #     kernel_size: 3
+        #     stride: 1
+        #     padding: 1
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 128
+        #     out_channels: 128
+        #     kernel_size: 3
+        #     stride: 2
+        #     padding: 1
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 128
+        #     out_channels: 256
+        #     kernel_size: 3
+        #     stride: 1
+        #     padding: 1
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 256
+        #     out_channels: 256
+        #     kernel_size: 3
+        #     stride: 2
+        #     padding: 1
+        # - type: "MaxPool2d"
+        #   params:
+        #     kernel_size: 2
+        #     stride: 2
+        #     padding: 0
         # - type: "Flatten"
         #   params: {}
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 256
-            out_channels: 128
-            kernel_size: 3
-            stride: 1
-            padding: 1
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 128
-            out_channels: 64
-            kernel_size: 3
-            stride: 1
-            padding: 1
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 64
-            out_channels: 32
-            kernel_size: 1
-            stride: 1
-            padding: 1
-        # - type: "AdaptiveAvgPool2d"
-        #   params:
-        #     output_size: (1)
-        - type: "Flatten"
-          params: {}
-          # params:
-          #   kernel_size: 2
-          #   stride: 2
-        # - type: "Linear"
-        #   params:
-        #     in_features: 768
-        #     out_features: 512
-        # - type: "Dropout"
-        #   params:
-        #     p: 0.5
         - type: "Linear"
           params:
-            in_features: 114688
+            in_features: 768 #14336
+            out_features: 4096
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 4096
             out_features: 1024
         - type: "Dropout"
           params:
@@ -136,13 +136,6 @@ introspection:
         - type: "Linear"
           params:
             in_features: 1024
-            out_features: 512
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 512
             out_features: 256
         - type: "Dropout"
           params:
@@ -158,6 +151,88 @@ introspection:
           params:
             in_features: 128
             out_features: 2
+      # layers:
+      #   # - type: torchvision.models.resnet50
+      #   #   in_channels: 256
+      #   #   params:
+      #   #     weights: ResNet50_Weights.IMAGENET1K_V2
+      #   # - type: "Flatten"
+      #   #   params: {}
+      #   - type: "BasicConvBlock"
+      #     params:
+      #       in_channels: 256
+      #       out_channels: 128
+      #       kernel_size: 1
+      #       stride: 1
+      #       padding: 0
+      #   - type: "BasicConvBlock"
+      #     params:
+      #       in_channels: 128
+      #       out_channels: 64
+      #       kernel_size: 1
+      #       stride: 1
+      #       padding: 0
+      #   - type: "BasicConvBlock"
+      #     params:
+      #       in_channels: 64
+      #       out_channels: 32
+      #       kernel_size: 1
+      #       stride: 1
+      #       padding: 0
+      #   - type: "BasicConvBlock"
+      #     params:
+      #       in_channels: 32
+      #       out_channels: 8
+      #       kernel_size: 3
+      #       stride: 1
+      #       padding: 1
+      #   # - type: "AdaptiveAvgPool2d"
+      #   #   params:
+      #   #     output_size: (1)
+      #   - type: "Flatten"
+      #     params: {}
+      #     # params:
+      #     #   kernel_size: 2
+      #     #   stride: 2
+      #   # - type: "Linear"
+      #   #   params:
+      #   #     in_features: 768
+      #   #     out_features: 512
+      #   # - type: "Dropout"
+      #   #   params:
+      #   #     p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 26784
+      #       out_features: 4096
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 4096
+      #       out_features: 1024
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 1024
+      #       out_features: 256
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 256
+      #       out_features: 128
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 128
+      #       out_features: 2
     optimizer:
       type: SGD
       params: 
@@ -179,7 +254,7 @@ introspection:
     early_stop: 10
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_all.pt
+    save_name: point_pillar_kitti_activations_sf_all.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
