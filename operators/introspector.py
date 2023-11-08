@@ -47,10 +47,17 @@ class IntrospectionOperator(Operator):
         self.train_dataset = Subset(self.dataset, train_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
         self.split=True
+        #Provide the class distribution overall
+        values,counts = np.unique(all_labels,return_counts=True)
+        class_dist=  dict(zip(values,counts))
+        
+        class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
+        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+
         if self.verbose:
-            #Provide the class distribution overall
-            values,counts = np.unique(all_labels,return_counts=True)
-            print("Class distribution:",dict(zip(values,counts)))
+
+            print("Class distribution:",class_dist)
+            print("Class weights:",class_weights)
 
     def initialize_learning_parameters(self):
         self.device = self.config['device']
@@ -173,6 +180,8 @@ class IntrospectionOperator(Operator):
     def log_metrics(self,mode):
         #Here I need to separate metrics for each class and log them in wandb
         cm = self.metrics['MulticlassConfusionMatrix']
+        wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
+        wandb.log({f'{mode}_confusion_matrix':wandb_table})
         cm = cm.cpu().numpy()
         cm = cm.astype(int)
         tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
@@ -198,6 +207,7 @@ class IntrospectionOperator(Operator):
         task = 'multiclass'
         pred = torch.tensor(pred).squeeze()
         target = torch.tensor(target,dtype=torch.int64).squeeze()
+        
         metric_collection = MetricCollection([
             ConfusionMatrix(num_classes=num_classes,task=task),
             Accuracy(task=task,num_classes=num_classes,average='none'),
