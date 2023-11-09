@@ -98,8 +98,31 @@ class ExtremelySimpleActivationShaping(ActivationProcessor):
         return x
 
 
-
+class VisualDNA(ActivationProcessor):
+    def __init__(self, config):
+        self.config = config
+    def process(self, **kwargs):
+        processed_activation_list= []
+        activation = kwargs.get('activation')
+        bins = self.config['bins']
+        #if the activation is a tensor, convert it to numpy
+        if isinstance(activation,torch.Tensor):
+            activation = activation.detach().cpu().numpy()
+        #if the activation is a list, convert it to numpy, may be not needed
+        if isinstance(activation,list):
+            activation = np.array(activation)
+        #if the activation is a numpy array, process it
+        #Assumption is that channel is 0th index, which makes the operation global pooling
+        base_histogram = np.zeros((activation.shape[0],bins))
+        for i in range(activation.shape[0]):
+            for j in range(activation.shape[1]):
+                act_map = activation[i,j,:,:]
+                histogram = np.histogram(act_map,bins=bins)[0]
+                base_histogram[i,:] += histogram
+        # print(base_histogram.shape)
+        return base_histogram
 class ProcessorEnum(Enum):
     SF = StatisticalFeatureExtraction
     ASH = ExtremelySimpleActivationShaping
     RAW = NoProcessing
+    VDNA = VisualDNA
