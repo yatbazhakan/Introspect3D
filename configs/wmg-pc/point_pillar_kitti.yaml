@@ -65,23 +65,25 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_sf_activations_all_test_gpt
+    name: point_pillar_kitti_vdna_activations_all_test_gpt
   verbose: True
   method:
     train_test_split: 0.2
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.SF
+      method: ProcessorEnum.VDNA
       params:
         # config:
         #   percentile: 0.9
         #   method: p
+        # config:
+        #   functions:
+        #     - mean
+        #     - max
+        #     - std
         config:
-          functions:
-            - mean
-            - max
-            - std
+          bins: 2000
     model:
       layers:
         # - type: "BasicConvBlock"
@@ -121,7 +123,7 @@ introspection:
         #   params: {}
         - type: "Linear"
           params:
-            in_features: 768 #14336
+            in_features: 2000 #768 #14336
             out_features: 4096
         - type: "Dropout"
           params:
@@ -254,7 +256,7 @@ introspection:
     early_stop: 10
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_sf_all.pt
+    save_name: point_pillar_kitti_activations_vdna_all.pt
   device: cuda:0
   dataset:
     name: ActivationDataset

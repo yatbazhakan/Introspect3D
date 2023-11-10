@@ -119,7 +119,11 @@ class VisualDNA(ActivationProcessor):
                 act_map = activation[i,j,:,:]
                 histogram = np.histogram(act_map,bins=bins)[0]
                 base_histogram[i,:] += histogram
-        # print(base_histogram.shape)
+        #Normalize the histogram as min max
+        base_histogram = base_histogram - np.min(base_histogram,axis=1,keepdims=True)
+        base_histogram = base_histogram / np.max(base_histogram,axis=1,keepdims=True)
+        base_histogram = base_histogram.astype(np.float32)
+
         return base_histogram
 class ProcessorEnum(Enum):
     SF = StatisticalFeatureExtraction

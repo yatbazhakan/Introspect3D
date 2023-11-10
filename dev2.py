@@ -618,6 +618,9 @@ from glob import glob
 import pandas as pd
 from tqdm.auto import tqdm
 import torch
+from definitions import ROOT_DIR
+import open3d as o3d
+counterg = 0
 class ExtremelySimpleActivationShaping():
     def __init__(self, config):
         self.config = config
@@ -651,22 +654,48 @@ class ExtremelySimpleActivationShaping():
 
         assert x.dim() == 4
         assert 0 <= percentile <= 100
+        # print(percentile)
+        original_x = x.detach().clone()
+        # normalize original_x
+        # original_x = original_x / original_x.sum(dim=[1, 2, 3], keepdim=True)
+        #plot histogram of normlized
+        figure = plt.figure()
+        #subplot with 1 row and 2 columns
+        figure.add_subplot(1,2,1)
+        hist, edges = np.histogram(original_x.flatten(),bins=10)
+        print(hist,edges)
+        # plt.bar(range(len(hist)),hist)
+        # plt.title("Org")
+        #put into first plot
+        global counterg
 
         b, c, h, w = x.shape
-
+        #Plot distribution of values of x 
+        percentile_value = np.percentile(original_x.flatten(), 90)  # Replace 65 with your desired percentile
+        # plt.axvline(percentile_value, color='r', linestyle='dashed', linewidth=2)
         n = x.shape[1:].numel()
         k = n - int(np.round(n * percentile / 100.0))
         t = x.view((b, c * h * w))
         v, i = torch.topk(t, k, dim=1)
         t.zero_().scatter_(dim=1, index=i, src=v)
-
+        #normalize x to other variable
+        x_test = x / x.sum(dim=[1, 2, 3], keepdim=True)
+        #plot histogram of normlized
+        figure.add_subplot(1,2,2)
+        hist = np.histogram(x.flatten(),bins=25)[0]
+        # plt.bar(range(len(hist)),hist)
+        # plt.title("Ash")
+        #save the figure
+        # plt.savefig(os.path.join(ROOT_DIR,'debug','histograms',f"ash_{counterg}.png"))
+        # plt.clf()
+        counterg += 1
         return x
 
     def ash_s(self,x, percentile=65):
         assert x.dim() == 4
         assert 0 <= percentile <= 100
         b, c, h, w = x.shape
-
+        original_x = x.clone()
         # calculate the sum of the input per sample
         s1 = x.sum(dim=[1, 2, 3])
         n = x.shape[1:].numel()
@@ -736,44 +765,98 @@ def mapper_for_labels(labels):
     print(np.unique(labels,return_counts=True))
 
     return labels
-
+from definitions import *
 file_path = r"/mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/"
 file_names = glob(os.path.join(file_path,'features','*.npy'))
 files = []
-#params=  {"percentile": 90, "method": "p"}
+params=  {"percentile": 95, "method": "p"}
 # params = {"functions":['mean','std','max']}
-params = {"bins":2000}
-processor = VisualDNA(params)#StatisticalFeatureExtraction(config=params)#ExtremelySimpleActivationShaping(params)
+# params = {"bins":2000}
+processor = ExtremelySimpleActivationShaping(params)#VisualDNA(params)#StatisticalFeatureExtraction(config=params)#
+dist_diff = []
+# o3d.visualization.webrtc_server.enable_webrtc()
 with tqdm(range(len(file_names))) as pbar:
-    for file in file_names:
-        act = np.load(file)
-        files.append(processor.process(activation=act[None,:,:,:]))
-        # files.append(act)
-        pbar.update(1)
+    for i,file in enumerate(file_names):
+        if i <100:
+            act = np.load(file)
+            #get base name for the file
+            base_name = os.path.basename(file)
+            #remove extention
+            base_name = os.path.splitext(base_name)[0]
+            pcd_path = os.path.join(ROOT_DIR,"..","kitti",'training','velodyne',f"{base_name}.bin")
+            loaded_pointcloud = np.fromfile(pcd_path, dtype=np.float32, count=-1).reshape([-1, 4])
+            # pcd = o3d.geometry.PointCloud()
+            # pcd.points = o3d.utility.Vector3dVector(loaded_pointcloud[:, :3])  # X, Y, Z
 
-label_csv= pd.read_csv(os.path.join(file_path,"kitti_point_pillars_labels_raw.csv"))
-# label_csv['missed_ratio'] = label_csv['missed_objects']/label_csv['total_objects']
-# labels = list(map(int,list(label_csv['missed_ratio'] > 0.5)))
-labels = list(mapper_for_labels(label_csv['is_missed'].values))
-# Let's assume 'activations' is your array of activation maps with shape (num_samples, 256, 50, 50)
-# You need to reshape it into (num_samples, 256*50*50)
-activations = np.array(files)
-num_samples = len(activations)  # replace with your actual number of samples
-activations_flattened = activations.reshape(num_samples, -1)
+            # # Normalize intensity data and set it as colors if needed
+            # intensities = loaded_pointcloud[:, 3]  # Assuming the 4th column is intensity
+            # max_intensity = np.max(intensities)
+            # colors = plt.get_cmap("viridis")(intensities / max_intensity)[:, :3]  # Normalize and apply colormap
+            # pcd.colors = o3d.utility.Vector3dVector(colors)
+            # vis = o3d.visualization.Visualizer()
+            # vis.create_window(visible=False)  # We don't want to open a window hence visible=False
+            # vis.add_geometry(pcd)
+            # vis.update_geometry(pcd)
+            # vis.poll_events()
+            # vis.update_renderer()
 
-# Standardize the features (if needed)
-# from sklearn.preprocessing import StandardScaler
-# scaler = StandardScaler()
-# activations_standardized = scaler.fit_transform(activations_flattened)
+            # Capture the image and save
+            # image = vis.capture_screen_float_buffer(do_render=True)
+            # plt.imshow(np.asarray(image))
+            # plt.axis('off')
+            image_path = os.path.join(ROOT_DIR,'debug','pointclouds',f"output_image_{i}.png")
+            # plt.savefig(image_path, bbox_inches='tight', pad_inches=0)
+            # o3d.io.write_image(, image)
+            # vis.destroy_window()
+            ash = processor.process(activation=act[None,:,:,:]).squeeze(0)
+            #Get channelwise mean of the activation
+            # print(act.shape)
+            cam  = np.mean(act,axis=(0))
+            # print(cam.shape)
+            #save this to debug/activations folder as a grayscale image
+            # plt.imsave(os.path.join(ROOT_DIR,"debug","activations",f"acti_{i}.png"),cam,cmap='gray')
+            # plt.clf()
+            pbar.update(1)
+        #absolute difference between ash and raw val
+#         print(ash.shape,act.shape)
+#         diff = np.abs(act - ash)
+#         print(np.sum(diff.flatten()))
+#         exit()
 
-# Use t-SNE to reduce dimensionality
-tsne = TSNE(n_components=4, verbose=1, perplexity=40, n_iter_without_progress=300)
-tsne_results = tsne.fit_transform(activations_flattened)
+#         dist_diff.append(np.sum(diff.flatten()))
+#         # files.append(act)
+#         pbar.update(1)
+# #write the values to file
+# with open(os.path.join(file_path,"dist_diff.txt"),'w') as f:
+#     for item in dist_diff:
+#         f.write("%s\n" % item)
+# hist = np.histogram(dist_diff,bins=10)[0]
+# #Plot histogram
+# plt.bar(range(len(hist)),hist)
+# plt.show()
+# label_csv= pd.read_csv(os.path.join(file_path,"kitti_point_pillars_labels_raw.csv"))
+# # label_csv['missed_ratio'] = label_csv['missed_objects']/label_csv['total_objects']
+# # labels = list(map(int,list(label_csv['missed_ratio'] > 0.5)))
+# labels = list(mapper_for_labels(label_csv['is_missed'].values))
+# # Let's assume 'activations' is your array of activation maps with shape (num_samples, 256, 50, 50)
+# # You need to reshape it into (num_samples, 256*50*50)
+# activations = np.array(files)
+# num_samples = len(activations)  # replace with your actual number of samples
+# activations_flattened = activations.reshape(num_samples, -1)
 
-# Visualize the results
-plt.figure(figsize=(16,10))
-plt.scatter(tsne_results[:,0], tsne_results[:,1], c=labels, cmap='viridis')
-plt.colorbar()  # if 'your_labels' is provided, otherwise omit this line
-plt.xlabel('t-SNE component 1')
-plt.ylabel('t-SNE component 2')
-plt.savefig('dna_multi_label.png')
+# # Standardize the features (if needed)
+# # from sklearn.preprocessing import StandardScaler
+# # scaler = StandardScaler()
+# # activations_standardized = scaler.fit_transform(activations_flattened)
+
+# # Use t-SNE to reduce dimensionality
+# tsne = TSNE(n_components=4, verbose=1, perplexity=40, n_iter_without_progress=300)
+# tsne_results = tsne.fit_transform(activations_flattened)
+
+# # Visualize the results
+# plt.figure(figsize=(16,10))
+# plt.scatter(tsne_results[:,0], tsne_results[:,1], c=labels, cmap='viridis')
+# plt.colorbar()  # if 'your_labels' is provided, otherwise omit this line
+# plt.xlabel('t-SNE component 1')
+# plt.ylabel('t-SNE component 2')
+# plt.savefig('dna_multi_label.png')
