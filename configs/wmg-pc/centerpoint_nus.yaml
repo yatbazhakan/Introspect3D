@@ -78,23 +78,23 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_raw_activations_raw_mymodel
+    name: centerpoint_nus_raw_activations_sf
   verbose: True
   method:
     train_test_split: 0.2
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.SF
       params:
-        config:
-          percentile: 0.9
-          method: p
         # config:
-        #   functions:
-        #     - mean
-        #     - max
-        #     - std
+        #   percentile: 0.9
+        #   method: p
+        config:
+          functions:
+            - mean
+            - max
+            - std
     model:
         # - type: torchvision.models.resnet50
         #   in_channels: 256
@@ -109,39 +109,39 @@ introspection:
         #     weights: ResNet50_Weights.IMAGENET1K_V2
         # - type: "Flatten"
         #   params: {}
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 256
-            out_channels: 128
-            kernel_size: 1
-            stride: 1
-            padding: 0
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 128
-            out_channels: 64
-            kernel_size: 1
-            stride: 1
-            padding: 0
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 64
-            out_channels: 32
-            kernel_size: 1
-            stride: 1
-            padding: 0
-        - type: "BasicConvBlock"
-          params:
-            in_channels: 32
-            out_channels: 8
-            kernel_size: 3
-            stride: 1
-            padding: 1
-        # - type: "AdaptiveAvgPool2d"
+        # - type: "BasicConvBlock"
         #   params:
-        #     output_size: (1)
-        - type: "Flatten"
-          params: {}
+        #     in_channels: 256
+        #     out_channels: 128
+        #     kernel_size: 1
+        #     stride: 1
+        #     padding: 0
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 128
+        #     out_channels: 64
+        #     kernel_size: 1
+        #     stride: 1
+        #     padding: 0
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 64
+        #     out_channels: 32
+        #     kernel_size: 1
+        #     stride: 1
+        #     padding: 0
+        # - type: "BasicConvBlock"
+        #   params:
+        #     in_channels: 32
+        #     out_channels: 8
+        #     kernel_size: 3
+        #     stride: 1
+        #     padding: 1
+        # # - type: "AdaptiveAvgPool2d"
+        # #   params:
+        # #     output_size: (1)
+        # - type: "Flatten"
+        #   params: {}
           # params:
           #   kernel_size: 2
           #   stride: 2
@@ -152,34 +152,34 @@ introspection:
         # - type: "Dropout"
         #   params:
         #     p: 0.5
+        # - type: "Linear"
+        #   params:
+        #     in_features: 64800
+        #     out_features: 4096
+        # - type: "Dropout"
+        #   params:
+        #     p: 0.5
+        # - type: "Linear"
+        #   params:
+        #     in_features: 4096
+        #     out_features: 1024
+        # - type: "Dropout"
+        #   params:
+        #     p: 0.5
         - type: "Linear"
           params:
-            in_features: 64800
-            out_features: 4096
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 4096
-            out_features: 1024
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 1024
+            in_features: 768
             out_features: 256
         - type: "Dropout"
           params:
-            p: 0.5
+            p: 0.3
         - type: "Linear"
           params:
             in_features: 256
             out_features: 128
         - type: "Dropout"
           params:
-            p: 0.5
+            p: 0.3
         - type: "Linear"
           params:
             in_features: 128
@@ -189,7 +189,7 @@ introspection:
       params: 
         lr: 0.001
         momentum: 0.9
-        weight_decay: 0.0001
+        weight_decay: 0.001
     criterion:
       type: CrossEntropyLoss
       params: 
@@ -205,7 +205,7 @@ introspection:
     early_stop: 50
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_filtered_raw_my.pt
+    save_name: centerpoint_nus_activations_filtered_sf.pt
   device: cuda:0
   dataset:
     name: ActivationDataset

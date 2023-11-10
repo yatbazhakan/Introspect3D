@@ -125,8 +125,39 @@ class VisualDNA(ActivationProcessor):
         base_histogram = base_histogram.astype(np.float32)
 
         return base_histogram
+class SpatioChannelReshaping(ActivationProcessor):
+    def __init__(self, config):
+        self.config = config
+    def process(self, **kwargs):
+        processed_activation_list= []
+        activation = kwargs.get('activation')
+        b,c,h,w = activation.shape
+        assert c == 256
+        H,W = h,w
+       
+        if isinstance(activation,torch.Tensor):
+            activation = activation.detach().cpu().numpy()
+        #if the activation is a list, convert it to numpy, may be not needed
+        if isinstance(activation,list):
+            activation = np.array(activation)
+        grid_size = self.config['grid_size']  # since 256 = 16x16
+        Hn = grid_size * H  # new height
+        Wn = grid_size * W  # new width
+
+        # Create an empty array for the new grid
+        output_array = np.zeros((b,1,Hn, Wn))
+
+        # Iterate over each channel and place it in the correct position on the grid
+        for i in range(grid_size):
+            for j in range(grid_size):
+                channel_index = i * grid_size + j
+                # Place the channel's activation map in the correct grid position
+                output_array[:,0,i*H:(i+1)*H, j*W:(j+1)*W] = activation[:,channel_index, :, :]
+        return output_array
+# The output_array is now a single grayscale image of shape (Hn, Wn)
 class ProcessorEnum(Enum):
     SF = StatisticalFeatureExtraction
     ASH = ExtremelySimpleActivationShaping
     RAW = NoProcessing
     VDNA = VisualDNA
+    SCR = SpatioChannelReshaping

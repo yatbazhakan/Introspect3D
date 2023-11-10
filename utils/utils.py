@@ -79,7 +79,6 @@ def generate_model_from_config(config):
         layer_type = layer_config['type']
         if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
             model = eval(f"{layer_type}(**layer_config['params'])")
-            print(model)
             # Clone the first 3 channels from the original weights
             # Make this generalizable for other torchvision models like densenet
             original_weight = model.conv1.weight.clone()  # Shape: [64, 3, 7, 7]
@@ -90,12 +89,14 @@ def generate_model_from_config(config):
 
             # Initialize a new weight tensor filled with zeros
             new_weight = torch.zeros((64, layer_config['in_channels'], 7, 7), dtype=original_weight.dtype, device=original_weight.device)
+            if layer_config['in_channels'] > 3:
+                # Copy the original 3 channels into the new weight tensor
+                new_weight[:, :3, :, :] = original_weight
 
-            # Copy the original 3 channels into the new weight tensor
-            new_weight[:, :3, :, :] = original_weight
-
-            # Fill the remaining 253 channels with the mean channel
-            new_weight[:, 3:, :, :] = mean_weight
+                # Fill the remaining 253 channels with the mean channel
+                new_weight[:, 3:, :, :] = mean_weight
+            else:
+                new_weight[:,:layer_config['in_channels'],:,:] = original_weight[:,:layer_config['in_channels'],:,:]
 
             # Assign the new weight tensor to the conv1 layer
             model.conv1.weight = nn.Parameter(new_weight)

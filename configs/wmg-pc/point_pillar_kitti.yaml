@@ -65,15 +65,18 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_vdna_activations_all_test_gpt
+    name: point_pillar_kitti_scr_activations_all_multiclass
   verbose: True
   method:
+    task: multiclass
     train_test_split: 0.2
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.VDNA
+      method: ProcessorEnum.SCR
       params:
+        config:
+          grid_size: 16
         # config:
         #   percentile: 0.9
         #   method: p
@@ -82,84 +85,84 @@ introspection:
         #     - mean
         #     - max
         #     - std
-        config:
-          bins: 2000
+        # config:
+        #   bins: 2000
     model:
-      layers:
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 256
-        #     out_channels: 128
-        #     kernel_size: 3
-        #     stride: 1
-        #     padding: 1
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 128
-        #     out_channels: 128
-        #     kernel_size: 3
-        #     stride: 2
-        #     padding: 1
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 128
-        #     out_channels: 256
-        #     kernel_size: 3
-        #     stride: 1
-        #     padding: 1
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 256
-        #     out_channels: 256
-        #     kernel_size: 3
-        #     stride: 2
-        #     padding: 1
-        # - type: "MaxPool2d"
-        #   params:
-        #     kernel_size: 2
-        #     stride: 2
-        #     padding: 0
-        # - type: "Flatten"
-        #   params: {}
-        - type: "Linear"
-          params:
-            in_features: 2000 #768 #14336
-            out_features: 4096
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 4096
-            out_features: 1024
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 1024
-            out_features: 256
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 256
-            out_features: 128
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 128
-            out_features: 2
       # layers:
-      #   # - type: torchvision.models.resnet50
-      #   #   in_channels: 256
+      #   # - type: "BasicConvBlock"
       #   #   params:
-      #   #     weights: ResNet50_Weights.IMAGENET1K_V2
+      #   #     in_channels: 256
+      #   #     out_channels: 128
+      #   #     kernel_size: 3
+      #   #     stride: 1
+      #   #     padding: 1
+      #   # - type: "BasicConvBlock"
+      #   #   params:
+      #   #     in_channels: 128
+      #   #     out_channels: 128
+      #   #     kernel_size: 3
+      #   #     stride: 2
+      #   #     padding: 1
+      #   # - type: "BasicConvBlock"
+      #   #   params:
+      #   #     in_channels: 128
+      #   #     out_channels: 256
+      #   #     kernel_size: 3
+      #   #     stride: 1
+      #   #     padding: 1
+      #   # - type: "BasicConvBlock"
+      #   #   params:
+      #   #     in_channels: 256
+      #   #     out_channels: 256
+      #   #     kernel_size: 3
+      #   #     stride: 2
+      #   #     padding: 1
+      #   # - type: "MaxPool2d"
+      #   #   params:
+      #   #     kernel_size: 2
+      #   #     stride: 2
+      #   #     padding: 0
       #   # - type: "Flatten"
       #   #   params: {}
+      #   # - type: "Linear"
+      #   #   params:
+      #   #     in_features: 2000 #768 #14336
+      #   #     out_features: 4096
+      #   # - type: "Dropout"
+      #   #   params:
+      #   #     p: 0.5
+      #   # - type: "Linear"
+      #   #   params:
+      #   #     in_features: 4096
+      #   #     out_features: 1024
+      #   # - type: "Dropout"
+      #   #   params:
+      #   #     p: 0.5
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 768 #1024
+      #       out_features: 256
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.3
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 256
+      #       out_features: 128
+      #   - type: "Dropout"
+      #     params:
+      #       p: 0.3
+      #   - type: "Linear"
+      #     params:
+      #       in_features: 128
+      #       out_features: 2
+      layers:
+        - type: torchvision.models.resnet18
+          in_channels: 1
+          params:
+            weights: ResNet18_Weights.IMAGENET1K_V1
+        - type: "Flatten"
+          params: {}
       #   - type: "BasicConvBlock"
       #     params:
       #       in_channels: 256
@@ -210,31 +213,31 @@ introspection:
       #   - type: "Dropout"
       #     params:
       #       p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 4096
-      #       out_features: 1024
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 1024
-      #       out_features: 256
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 256
-      #       out_features: 128
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 128
-      #       out_features: 2
+        - type: "Linear"
+          params:
+            in_features: 2048
+            out_features: 1024
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 1024
+            out_features: 256
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 256
+            out_features: 128
+        - type: "Dropout"
+          params:
+            p: 0.5
+        - type: "Linear"
+          params:
+            in_features: 128
+            out_features: 2
     optimizer:
       type: SGD
       params: 
@@ -242,9 +245,9 @@ introspection:
         momentum: 0.9
         weight_decay: 0.0001
     criterion:
-      type: CrossEntropyLoss
-      params: 
-        weight: [0.78, 1.39]
+      type: CrossEntropyLoss #BCEWithLogitsLoss
+      params: {}
+      #   weight: [0.78, 1.39]
     scheduler:
       type: ReduceLROnPlateau
       params:
@@ -256,7 +259,7 @@ introspection:
     early_stop: 10
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_vdna_all.pt
+    save_name: point_pillar_kitti_activations_raw_all_scr.pt
   device: cuda:0
   dataset:
     name: ActivationDataset

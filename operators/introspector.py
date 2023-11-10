@@ -57,7 +57,8 @@ class IntrospectionOperator(Operator):
         class_dist=  dict(zip(values,counts))
         
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
-        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+        if self.method_info['criterion']['type'] != 'BCEWithLogitsLoss':
+            self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
 
         if self.verbose:
 
@@ -90,10 +91,17 @@ class IntrospectionOperator(Operator):
             if(self.proceesor != None):
                 data = self.proceesor.process(activation=data)
                 data = torch.from_numpy(data).to(self.device)
+                data = data.float()
             output = self.model(data)
-            output= output.float()
-            target = target.long()
-            loss = self.criterion(output, target.squeeze())
+
+            if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
+                # print(target.shape, output.shape)
+                loss = self.criterion(output, target.float())
+            else:
+                output= output.float()
+                target = target.long()
+                loss = self.criterion(output, target.squeeze())
+
             loss.backward()
             self.optimizer.step()
             self.total_loss += loss.item()
@@ -173,7 +181,10 @@ class IntrospectionOperator(Operator):
                         data = self.proceesor.process(activation=data)
                         data = torch.from_numpy(data).to(self.device)
                     output = self.model(data)
-                    test_loss += self.criterion(output, target.squeeze(1)).item()
+                    if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
+                        test_loss = self.criterion(output, target.float()).item()
+                    else:
+                        test_loss += self.criterion(output, target.squeeze(1)).item()
                     all_preds = torch.cat(
                         (all_preds, output),dim=0
                     )
@@ -185,13 +196,13 @@ class IntrospectionOperator(Operator):
         
         if loader == self.test_loader:
             wandb.log({'test_loss':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='test')
+            self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
             wandb.log({'train_loss':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='train')
+            self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
             wandb.log({'val_loss':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='val')
+            self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
         return test_loss
     def seprate_multiclass_metrics(self,metric_name):
         multi_class_metric = self.metrics[metric_name]
@@ -201,34 +212,38 @@ class IntrospectionOperator(Operator):
         except:
             print(metric_name,multi_class_metric)
         return positive_metric,negative_metric
-    def log_metrics(self,mode):
+    def log_metrics(self,mode,task):
         #Here I need to separate metrics for each class and log them in wandb
-        cm = self.metrics['MulticlassConfusionMatrix']
-        wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
-        wandb.log({f'{mode}_confusion_matrix':wandb_table})
-        cm = cm.cpu().numpy()
-        cm = cm.astype(int)
-        tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
-        wandb.log({f'{mode}_tp':tp,f'{mode}_fp':fp,f'{mode}_fn':fn,f'{mode}_tn':tn})
+    
+
 
         for metric_name in self.metrics.keys():
-            if metric_name == 'MulticlassConfusionMatrix':
-                continue
-            positive_metric,negative_metric = self.seprate_multiclass_metrics(metric_name)
-            # print(positive_metric)
-            try:
-                for i in range(positive_metric.shape[0]):
-                    wandb.log({f'{mode}_{metric_name}_positive_{i}':positive_metric[i]})
-                for i in range(negative_metric.shape[0]):
-                    wandb.log({f'{mode}_{metric_name}_negative_{i}':negative_metric[i]})
-            except:
-                wandb.log({f'{mode}_{metric_name}_positive':positive_metric})
-                wandb.log({f'{mode}_{metric_name}_negative':negative_metric})
+            if 'ConfusionMatrix' in metric_name:
+                cm = self.metrics[metric_name]
+                wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
+                wandb.log({f'{mode}_confusion_matrix':wandb_table})
+                cm = cm.cpu().numpy()
+                cm = cm.astype(int)
+                tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
+                wandb.log({f'{mode}_tp':tp,f'{mode}_fp':fp,f'{mode}_fn':fn,f'{mode}_tn':tn})
+            else:
+                if task == 'multiclass':
+                    positive_metric,negative_metric = self.seprate_multiclass_metrics(metric_name)
+                    # print(positive_metric)
+                    try:
+                        for i in range(positive_metric.shape[0]):
+                            wandb.log({f'{mode}_{metric_name}_positive_{i}':positive_metric[i]})
+                        for i in range(negative_metric.shape[0]):
+                            wandb.log({f'{mode}_{metric_name}_negative_{i}':negative_metric[i]})
+                    except:
+                        wandb.log({f'{mode}_{metric_name}_positive':positive_metric})
+                        wandb.log({f'{mode}_{metric_name}_negative':negative_metric})
+                else:
+                    wandb.log({f'{mode}_{metric_name}':self.metrics[metric_name].cpu().numpy()})
 
 
-    def calculate_torchmetrics(self,pred,target,mode = 'train'):
+    def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass'):
         num_classes = 2
-        task = 'multiclass'
         pred = torch.tensor(pred).squeeze()
         target = torch.tensor(target,dtype=torch.int64).squeeze()
         
@@ -247,7 +262,7 @@ class IntrospectionOperator(Operator):
         from pprint import pprint
         # pprint(self.metrics)
         #This is messy but to try
-        self.log_metrics(mode)
+        self.log_metrics(mode,task)
         
 
     def execute(self, **kwargs):
