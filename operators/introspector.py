@@ -180,6 +180,7 @@ class IntrospectionOperator(Operator):
                     if(self.proceesor != None):
                         data = self.proceesor.process(activation=data)
                         data = torch.from_numpy(data).to(self.device)
+                        data = data.float()
                     output = self.model(data)
                     if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                         test_loss = self.criterion(output, target.float()).item()
