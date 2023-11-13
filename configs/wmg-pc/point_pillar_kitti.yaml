@@ -64,7 +64,7 @@ introspection:
     sweep_configuration: {}
     project: introspect3D
     entity: yatbazhakan
-    mode: online
+    mode: disabled
     name: point_pillar_kitti_scr_activations_all_multiclass
   verbose: True
   method:
@@ -73,7 +73,7 @@ introspection:
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.SCR
+      method: ProcessorEnum.RAW
       params:
         config:
           grid_size: 16
@@ -87,157 +87,8 @@ introspection:
         #     - std
         # config:
         #   bins: 2000
-    model:
-      # layers:
-      #   # - type: "BasicConvBlock"
-      #   #   params:
-      #   #     in_channels: 256
-      #   #     out_channels: 128
-      #   #     kernel_size: 3
-      #   #     stride: 1
-      #   #     padding: 1
-      #   # - type: "BasicConvBlock"
-      #   #   params:
-      #   #     in_channels: 128
-      #   #     out_channels: 128
-      #   #     kernel_size: 3
-      #   #     stride: 2
-      #   #     padding: 1
-      #   # - type: "BasicConvBlock"
-      #   #   params:
-      #   #     in_channels: 128
-      #   #     out_channels: 256
-      #   #     kernel_size: 3
-      #   #     stride: 1
-      #   #     padding: 1
-      #   # - type: "BasicConvBlock"
-      #   #   params:
-      #   #     in_channels: 256
-      #   #     out_channels: 256
-      #   #     kernel_size: 3
-      #   #     stride: 2
-      #   #     padding: 1
-      #   # - type: "MaxPool2d"
-      #   #   params:
-      #   #     kernel_size: 2
-      #   #     stride: 2
-      #   #     padding: 0
-      #   # - type: "Flatten"
-      #   #   params: {}
-      #   # - type: "Linear"
-      #   #   params:
-      #   #     in_features: 2000 #768 #14336
-      #   #     out_features: 4096
-      #   # - type: "Dropout"
-      #   #   params:
-      #   #     p: 0.5
-      #   # - type: "Linear"
-      #   #   params:
-      #   #     in_features: 4096
-      #   #     out_features: 1024
-      #   # - type: "Dropout"
-      #   #   params:
-      #   #     p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 768 #1024
-      #       out_features: 256
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.3
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 256
-      #       out_features: 128
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.3
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 128
-      #       out_features: 2
-      layers:
-        - type: torchvision.models.resnet18
-          in_channels: 1
-          params:
-            weights: ResNet18_Weights.IMAGENET1K_V1
-        - type: "Flatten"
-          params: {}
-      #   - type: "BasicConvBlock"
-      #     params:
-      #       in_channels: 256
-      #       out_channels: 128
-      #       kernel_size: 1
-      #       stride: 1
-      #       padding: 0
-      #   - type: "BasicConvBlock"
-      #     params:
-      #       in_channels: 128
-      #       out_channels: 64
-      #       kernel_size: 1
-      #       stride: 1
-      #       padding: 0
-      #   - type: "BasicConvBlock"
-      #     params:
-      #       in_channels: 64
-      #       out_channels: 32
-      #       kernel_size: 1
-      #       stride: 1
-      #       padding: 0
-      #   - type: "BasicConvBlock"
-      #     params:
-      #       in_channels: 32
-      #       out_channels: 8
-      #       kernel_size: 3
-      #       stride: 1
-      #       padding: 1
-      #   # - type: "AdaptiveAvgPool2d"
-      #   #   params:
-      #   #     output_size: (1)
-      #   - type: "Flatten"
-      #     params: {}
-      #     # params:
-      #     #   kernel_size: 2
-      #     #   stride: 2
-      #   # - type: "Linear"
-      #   #   params:
-      #   #     in_features: 768
-      #   #     out_features: 512
-      #   # - type: "Dropout"
-      #   #   params:
-      #   #     p: 0.5
-      #   - type: "Linear"
-      #     params:
-      #       in_features: 26784
-      #       out_features: 4096
-      #   - type: "Dropout"
-      #     params:
-      #       p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 2048
-            out_features: 1024
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 1024
-            out_features: 256
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 256
-            out_features: 128
-        - type: "Dropout"
-          params:
-            p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 128
-            out_features: 2
+    model: 
+      layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
       type: SGD
       params: 

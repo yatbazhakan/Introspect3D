@@ -1,6 +1,7 @@
 from mmdet3d.utils import register_all_modules
 from mmdet3d.apis import inference_detector, init_model
 import os
+from definitions import ROOT_DIR
 from utils.config import Config
 from utils.boundingbox import BoundingBox
 import numpy as np
@@ -15,6 +16,7 @@ from torchvision.models import *
 import torchvision
 from pyquaternion import Quaternion
 import torch
+import yaml
 from modules.other import Identity
 from modules.conv_blocks import *
 def load_detection_model(config: Config):
@@ -68,42 +70,47 @@ def check_detection_matches(ground_truth_boxes, predicted_boxes, iou_threshold:f
 
     return matches, unmatched_ground_truths, unmatched_predictions
 
+def clone_weights(model,layer_type,layer_config):
+    if "resnet" in layer_type:
+        # Clone the first 3 channels from the original weights
+        # Make this generalizable for other torchvision models like densenet
+        original_weight = model.conv1.weight.clone()  # Shape: [64, 3, 7, 7]
+        model.conv1 = nn.Conv2d(layer_config['in_channels'], 64,
+                                        kernel_size=7, stride=2, padding=3, bias=False)
+        # Calculate the mean across the channel dimension
+        mean_weight = torch.mean(original_weight, dim=1, keepdim=True)  # Shape: [64, 1, 7, 7]
+
+        # Initialize a new weight tensor filled with zeros
+        new_weight = torch.zeros((64, layer_config['in_channels'], 7, 7), dtype=original_weight.dtype, device=original_weight.device)
+        if layer_config['in_channels'] > 3:
+            # Copy the original 3 channels into the new weight tensor
+            new_weight[:, :3, :, :] = original_weight
+
+            # Fill the remaining 253 channels with the mean channel
+            new_weight[:, 3:, :, :] = mean_weight
+        else:
+            new_weight[:,:layer_config['in_channels'],:,:] = original_weight[:,:layer_config['in_channels'],:,:]
+
+        # Assign the new weight tensor to the conv1 layer
+        model.conv1.weight = nn.Parameter(new_weight)
+
+
+        num_ftrs = model.fc.in_features 
+        model.fc = Identity()
+
+    return model,num_ftrs
 
 def generate_model_from_config(config):
-
-    
+    path = os.path.join(ROOT_DIR,config['layer_config'])
+    layer_data = yaml.load(open(path),Loader=yaml.FullLoader)
     layers = []
     num_ftrs = None
-    for layer_config in config['layers']:
+    for layer_config in layer_data['layers']:
         # print(layer_config)
         layer_type = layer_config['type']
         if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
             model = eval(f"{layer_type}(**layer_config['params'])")
-            # Clone the first 3 channels from the original weights
-            # Make this generalizable for other torchvision models like densenet
-            original_weight = model.conv1.weight.clone()  # Shape: [64, 3, 7, 7]
-            model.conv1 = nn.Conv2d(layer_config['in_channels'], 64,
-                                            kernel_size=7, stride=2, padding=3, bias=False)
-            # Calculate the mean across the channel dimension
-            mean_weight = torch.mean(original_weight, dim=1, keepdim=True)  # Shape: [64, 1, 7, 7]
-
-            # Initialize a new weight tensor filled with zeros
-            new_weight = torch.zeros((64, layer_config['in_channels'], 7, 7), dtype=original_weight.dtype, device=original_weight.device)
-            if layer_config['in_channels'] > 3:
-                # Copy the original 3 channels into the new weight tensor
-                new_weight[:, :3, :, :] = original_weight
-
-                # Fill the remaining 253 channels with the mean channel
-                new_weight[:, 3:, :, :] = mean_weight
-            else:
-                new_weight[:,:layer_config['in_channels'],:,:] = original_weight[:,:layer_config['in_channels'],:,:]
-
-            # Assign the new weight tensor to the conv1 layer
-            model.conv1.weight = nn.Parameter(new_weight)
-
-
-            num_ftrs = model.fc.in_features 
-            model.fc = Identity()
+            model,num_ftrs = clone_weights(model,layer_type,layer_config)
             layers.append(model)
         else:
             layer_params = layer_config['params']

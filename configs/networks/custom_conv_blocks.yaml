@@ -1,0 +1,73 @@
+layers:  
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 256
+      out_channels: 128
+      kernel_size: 1
+      stride: 1
+      padding: 0
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 128
+      out_channels: 64
+      kernel_size: 1
+      stride: 1
+      padding: 0
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 64
+      out_channels: 32
+      kernel_size: 1
+      stride: 1
+      padding: 0
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 32
+      out_channels: 8
+      kernel_size: 3
+      stride: 1
+      padding: 1
+  - type: "Flatten"
+    params: {}
+    params:
+      kernel_size: 2
+      stride: 2
+  - type: "Linear"
+    params:
+      in_features: 768
+      out_features: 512
+  - type: "Dropout"
+    params:
+      p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 64800
+      out_features: 4096
+  - type: "Dropout"
+    params:
+      p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 4096
+      out_features: 1024
+  - type: "Dropout"
+    params:
+      p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 768
+      out_features: 256
+  - type: "Dropout"
+    params:
+      p: 0.3
+  - type: "Linear"
+    params:
+      in_features: 256
+      out_features: 128
+  - type: "Dropout"
+    params:
+      p: 0.3
+  - type: "Linear"
+    params:
+      in_features: 128
+      out_features: 2
