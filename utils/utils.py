@@ -1,24 +1,37 @@
-from mmdet3d.utils import register_all_modules
-from mmdet3d.apis import inference_detector, init_model
+try: 
+    from mmdet3d.utils import register_all_modules
+    from mmdet3d.apis import inference_detector, init_model
+    from pyquaternion import Quaternion
+    import open3d as o3d
+    from nuscenes.utils.data_classes import LidarPointCloud,Box
+except:
+    print("DIfferent environment, some packages will be missing")
+    pass
+
 import os
 from definitions import ROOT_DIR
 from utils.config import Config
 from utils.boundingbox import BoundingBox
 import numpy as np
-import open3d as o3d
-from nuscenes.utils.data_classes import LidarPointCloud,Box
 import matplotlib.pyplot as plt
 import torch.nn as nn
 from torch.optim import *
 from torch.optim.lr_scheduler import *
 from torch.nn import *
 from torchvision.models import *
+from modules.loss import *
 import torchvision
-from pyquaternion import Quaternion
 import torch
 import yaml
 from modules.other import Identity
 from modules.conv_blocks import *
+try:
+    from torch_geometric.nn import *
+    from torch_geometric.data import *
+    from torch_geometric.nn import GCNConv
+except:
+    print("torch_geometric not installed")
+    pass
 def load_detection_model(config: Config):
     """Loads the detection model."""
     root_dir = config['model']['root_dir']
@@ -149,6 +162,7 @@ def generate_scheduler_from_config(config,optimizer):
     return eval(f"{scheduler_type}(optimizer,**scheduler_params)")
 
 def generate_criterion_from_config(config):
+    print(config)
     loss_type = config['type']
     loss_params = config['params']
     if "weight" in loss_params.keys():

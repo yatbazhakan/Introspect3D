@@ -154,6 +154,64 @@ class SpatioChannelReshaping(ActivationProcessor):
                 # Place the channel's activation map in the correct grid position
                 output_array[:,0,i*H:(i+1)*H, j*W:(j+1)*W] = activation[:,channel_index, :, :]
         return output_array
+import numpy as np
+
+class GraphActivationProcessor(ActivationProcessor):
+    def __init__(self, config):
+        self.config = config
+
+    def process(self, **kwargs):
+        def index_to_1d(index, c, h):
+            return (index[0] * h + index[1]) * c + index[2]
+
+        # Extract 'activation' from kwargs and assume it's a 4D numpy array.
+        activation = kwargs.get('activation')  # activation shape is (batch_size, channel, height, width)
+        if isinstance(activation, torch.Tensor):
+            activation = activation.detach().cpu().numpy()
+        # Process each activation in the batch separately.
+        batch_edge_indices = []
+        batch_node_features = []
+
+        for batch in range(activation.shape[0]):  # Loop over the batch dimension
+            single_activation = activation[batch]  # Get the single activation map for the current batch
+            c, h, w = single_activation.shape[-3:]
+            c_h_product = c * h
+            non_zero_indices = np.transpose(np.nonzero(single_activation))
+
+            # Compute linear indices for non-zero elements.
+            linear_indices = c_h_product * non_zero_indices[:, 0] + c * non_zero_indices[:, 1] + non_zero_indices[:, 2]
+
+            # Pad the array with zeros to avoid boundary checks.
+            padded_arr = np.pad(single_activation, ((1, 1), (1, 1), (1, 1)), mode='constant')
+
+            # Find connections by shifting the padded array and checking non-zero overlaps.
+            shift_i = padded_arr[2:, 1:-1, 1:-1] != 0
+            shift_j = padded_arr[1:-1, 2:, 1:-1] != 0
+            shift_k = padded_arr[1:-1, 1:-1, 2:] != 0
+
+            # Calculate edges based on shifted indices.
+            edges_i = np.argwhere(shift_i & (single_activation != 0))
+            edges_j = np.argwhere(shift_j & (single_activation != 0))
+            edges_k = np.argwhere(shift_k & (single_activation != 0))
+
+            # Calculate edge connections.
+            edge_index = [[index_to_1d(idx, c, h), index_to_1d(idx + [1, 0, 0], c, h)] for idx in edges_i] + \
+                         [[index_to_1d(idx, c, h), index_to_1d(idx + [0, 1, 0], c, h)] for idx in edges_j] + \
+                         [[index_to_1d(idx, c, h), index_to_1d(idx + [0, 0, 1], c, h)] for idx in edges_k]
+
+            edge_index = np.unique(edge_index, axis=0)  # Remove duplicate edges.
+
+            # Collect node features.
+            node_features = [[*idx, single_activation[tuple(idx)]] for idx in non_zero_indices]
+
+            # Append results to the batch lists.
+            batch_edge_indices.append(edge_index)
+            batch_node_features.append(node_features)
+
+        # Depending on the use case, you might want to return a list of batch results,
+        # or aggregate them into a single structure.
+        return batch_edge_indices, batch_node_features
+
 # The output_array is now a single grayscale image of shape (Hn, Wn)
 class ProcessorEnum(Enum):
     SF = StatisticalFeatureExtraction
@@ -161,3 +219,4 @@ class ProcessorEnum(Enum):
     RAW = NoProcessing
     VDNA = VisualDNA
     SCR = SpatioChannelReshaping
+    GAP = GraphActivationProcessor

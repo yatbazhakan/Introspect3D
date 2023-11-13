@@ -1,9 +1,14 @@
 from typing import List, Union, Tuple, Dict, Any
 import numpy as np
 import os
-from mmdet3d.apis import inference_detector, init_model
-from utils.utils import load_detection_model, check_and_create_folder
+
 from definitions import ROOT_DIR
+try:
+    from mmdet3d.apis import inference_detector, init_model
+    from utils.utils import load_detection_model, check_and_create_folder
+except:
+    print("DIfferent environment, some packages will be missing")
+    pass
 class Activations:
 
     def __init__(self,

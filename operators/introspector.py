@@ -57,8 +57,15 @@ class IntrospectionOperator(Operator):
         class_dist=  dict(zip(values,counts))
         
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
-        if self.method_info['criterion']['type'] != 'BCEWithLogitsLoss':
+
+        if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
             self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+        elif self.method_info['criterion']['type'] == "FocalLoss":
+            #Getting second element of class weights since it is the error class (positive class is 1)
+            #Scale weights between 0 and 1 using sum
+            class_weights = [float(i)/sum(class_weights) for i in class_weights]
+
+            self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
 
         if self.verbose:
 
@@ -88,10 +95,21 @@ class IntrospectionOperator(Operator):
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
-            if(self.proceesor != None):
+            if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
                 data = self.proceesor.process(activation=data)
                 data = torch.from_numpy(data).to(self.device)
                 data = data.float()
+            elif "GAP" in self.method_info['processing']['method']:
+                batched_data = []
+                edge_indexes,node_features = self.proceesor.process(activation=data)
+                from torch_geometric.data import Data
+                for i in range(len(node_features)):
+                    print(len(node_features[i]),len(edge_indexes[i]))
+                    data = Data(x=node_features[i], edge_index=edge_indexes[i])
+                    data = data.to(self.device)
+                    batched_data.append(data)
+                data = batched_data
+                print(data)
             output = self.model(data)
 
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':

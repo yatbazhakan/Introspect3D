@@ -78,14 +78,15 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_raw_activations_sf
+    name: centerpoint_nus_raw_activations_all_resnet18
   verbose: True
   method:
     train_test_split: 0.2
     validation_split: 0.2
+    task: multiclass
     processing:
       active: True
-      method: ProcessorEnum.SF
+      method: ProcessorEnum.RAW
       params:
         # config:
         #   percentile: 0.9
@@ -96,94 +97,8 @@ introspection:
             - max
             - std
     model:
-        # - type: torchvision.models.resnet50
-        #   in_channels: 256
-        #   params:
-        #     weights: ResNet50_Weights.IMAGENET1K_V2
-        # - type: "Flatten"
-        #   params: {}
-      layers:
-        # - type: torchvision.models.resnet50
-        #   in_channels: 256
-        #   params:
-        #     weights: ResNet50_Weights.IMAGENET1K_V2
-        # - type: "Flatten"
-        #   params: {}
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 256
-        #     out_channels: 128
-        #     kernel_size: 1
-        #     stride: 1
-        #     padding: 0
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 128
-        #     out_channels: 64
-        #     kernel_size: 1
-        #     stride: 1
-        #     padding: 0
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 64
-        #     out_channels: 32
-        #     kernel_size: 1
-        #     stride: 1
-        #     padding: 0
-        # - type: "BasicConvBlock"
-        #   params:
-        #     in_channels: 32
-        #     out_channels: 8
-        #     kernel_size: 3
-        #     stride: 1
-        #     padding: 1
-        # # - type: "AdaptiveAvgPool2d"
-        # #   params:
-        # #     output_size: (1)
-        # - type: "Flatten"
-        #   params: {}
-          # params:
-          #   kernel_size: 2
-          #   stride: 2
-        # - type: "Linear"
-        #   params:
-        #     in_features: 768
-        #     out_features: 512
-        # - type: "Dropout"
-        #   params:
-        #     p: 0.5
-        # - type: "Linear"
-        #   params:
-        #     in_features: 64800
-        #     out_features: 4096
-        # - type: "Dropout"
-        #   params:
-        #     p: 0.5
-        # - type: "Linear"
-        #   params:
-        #     in_features: 4096
-        #     out_features: 1024
-        # - type: "Dropout"
-        #   params:
-        #     p: 0.5
-        - type: "Linear"
-          params:
-            in_features: 768
-            out_features: 256
-        - type: "Dropout"
-          params:
-            p: 0.3
-        - type: "Linear"
-          params:
-            in_features: 256
-            out_features: 128
-        - type: "Dropout"
-          params:
-            p: 0.3
-        - type: "Linear"
-          params:
-            in_features: 128
-            out_features: 2
+      layer_config: configs/networks/resnet18_fcn.yaml
+
     optimizer:
       type: SGD
       params: 
@@ -197,7 +112,7 @@ introspection:
     scheduler:
       type: ReduceLROnPlateau
       params:
-        patience : 15
+        patience : 20
         factor: 0.7
     epochs: 100
     log_interval: 1
@@ -205,13 +120,13 @@ introspection:
     early_stop: 50
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_filtered_sf.pt
+    save_name: centerpoint_nus_activations_raw.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/
-      label_file: nus_centerpoint_labels_filtered.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_raw/
+      label_file: nus_centerpoint_labels_raw.csv
       classes: ['No Error', 'Error']
       name: nuscenes
   dataloader:

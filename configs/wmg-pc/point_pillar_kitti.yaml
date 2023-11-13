@@ -65,7 +65,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: disabled
-    name: point_pillar_kitti_scr_activations_all_multiclass
+    name: point_pillar_kitti_raw_activations_all_focalloss
   verbose: True
   method:
     task: multiclass
@@ -73,7 +73,7 @@ introspection:
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.GAP
       params:
         config:
           grid_size: 16
@@ -88,7 +88,7 @@ introspection:
         # config:
         #   bins: 2000
     model: 
-      layer_config: configs/networks/resnet18_fcn.yaml
+      layer_config: configs/networks/gcn.yaml
     optimizer:
       type: SGD
       params: 
@@ -96,9 +96,12 @@ introspection:
         momentum: 0.9
         weight_decay: 0.0001
     criterion:
-      type: CrossEntropyLoss #BCEWithLogitsLoss
-      params: {}
-      #   weight: [0.78, 1.39]
+      type: FocalLoss #BCEWithLogitsLoss
+      params:
+        gamma: 1
+        alpha: None
+        mode: softmax
+        reduction: mean
     scheduler:
       type: ReduceLROnPlateau
       params:
@@ -110,7 +113,7 @@ introspection:
     early_stop: 10
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_all_scr.pt
+    save_name: point_pillar_kitti_activations_raw_all_raw_fcs.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
