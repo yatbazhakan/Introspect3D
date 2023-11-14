@@ -29,6 +29,8 @@ try:
     from torch_geometric.nn import *
     from torch_geometric.data import *
     from torch_geometric.nn import GCNConv
+    from torch_geometric.nn import global_mean_pool
+
 except:
     print("torch_geometric not installed")
     pass

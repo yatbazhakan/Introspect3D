@@ -10,6 +10,7 @@ from definitions import ROOT_DIR
 from utils.process import *
 import wandb
 import torch
+from modules.graph_networks import GCN
 from pprint import pprint
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 class IntrospectionOperator(Operator):
@@ -99,18 +100,27 @@ class IntrospectionOperator(Operator):
                 data = self.proceesor.process(activation=data)
                 data = torch.from_numpy(data).to(self.device)
                 data = data.float()
+                output = self.model(data)
             elif "GAP" in self.method_info['processing']['method']:
                 batched_data = []
                 edge_indexes,node_features = self.proceesor.process(activation=data)
-                from torch_geometric.data import Data
+                from torch_geometric.data import Data,Batch
                 for i in range(len(node_features)):
-                    print(len(node_features[i]),len(edge_indexes[i]))
-                    data = Data(x=node_features[i], edge_index=edge_indexes[i])
-                    data = data.to(self.device)
+                    features = torch.from_numpy(node_features[i])
+                    features = features.float()
+                    indexes = torch.from_numpy(edge_indexes[i])
+                    indexes = indexes.long()
+                    data = Data(x=features, edge_index=indexes).to(self.device)
                     batched_data.append(data)
-                data = batched_data
-                print(data)
-            output = self.model(data)
+                # batched_data = torch.from_numpy(np.array(batched_data))
+                batch = Batch.from_data_list(batched_data)
+                data = batch.to(self.device)#batched_data
+                # data = batched_data
+                # print(data)
+                # data = data.to('cpu')
+                self.model = self.model.to(self.device)
+                output = self.model(data)
+                # print(output.shape)
 
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                 # print(target.shape, output.shape)
@@ -131,9 +141,11 @@ class IntrospectionOperator(Operator):
     def train(self):
         #MNot very OOP of me but this might improve earlier waiting times
         self.dataset = DatasetFactory().get(**self.config['dataset'])
-        self.model = generate_model_from_config(self.method_info['model'])
-        
-        
+        if "GAP" not in self.method_info['processing']['method']: #TODO: requires generalization
+            self.model = generate_model_from_config(self.method_info['model'])
+        else:
+            self.model = GCN(self.method_info['model'])
+            print(self.model)
 
         early_stop_threshold = self.method_info['early_stop']
         no_improvement_count = 0
@@ -193,13 +205,31 @@ class IntrospectionOperator(Operator):
                 pbar.set_description(f'Evaluating at Epoch {epoch}')
                 pbar.refresh()
                 for data, target, name in loader:
-
                     data, target = data.to(self.device), target.to(self.device)
-                    if(self.proceesor != None):
+                    if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
                         data = self.proceesor.process(activation=data)
                         data = torch.from_numpy(data).to(self.device)
                         data = data.float()
+                    elif "GAP" in self.method_info['processing']['method']:
+                        batched_data = []
+                        edge_indexes,node_features = self.proceesor.process(activation=data)
+                        from torch_geometric.data import Data,Batch
+                        for i in range(len(node_features)):
+                            features = torch.from_numpy(node_features[i])
+                            features = features.float()
+                            indexes = torch.from_numpy(edge_indexes[i])
+                            indexes = indexes.long()
+                            data = Data(x=features, edge_index=indexes).to(self.device)
+                            batched_data.append(data)
+                        batch = Batch.from_data_list(batched_data)
+                        data = batch.to(self.device)#batched_data
+                        # data = batched_data
+                        # print(data)
+                        # data = data.to('cpu')
+                        self.model = self.model.to(self.device)
+                        
                     output = self.model(data)
+
                     if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                         test_loss = self.criterion(output, target.float()).item()
                     else:

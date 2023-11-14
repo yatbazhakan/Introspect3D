@@ -177,10 +177,10 @@ class GraphActivationProcessor(ActivationProcessor):
             c, h, w = single_activation.shape[-3:]
             c_h_product = c * h
             non_zero_indices = np.transpose(np.nonzero(single_activation))
-
             # Compute linear indices for non-zero elements.
             linear_indices = c_h_product * non_zero_indices[:, 0] + c * non_zero_indices[:, 1] + non_zero_indices[:, 2]
-
+            node_features = [[*idx, single_activation[tuple(idx)]] for idx in non_zero_indices]
+            node_index_dict = {tuple(idx): i for i, idx in enumerate(non_zero_indices)}
             # Pad the array with zeros to avoid boundary checks.
             padded_arr = np.pad(single_activation, ((1, 1), (1, 1), (1, 1)), mode='constant')
 
@@ -193,16 +193,22 @@ class GraphActivationProcessor(ActivationProcessor):
             edges_i = np.argwhere(shift_i & (single_activation != 0))
             edges_j = np.argwhere(shift_j & (single_activation != 0))
             edges_k = np.argwhere(shift_k & (single_activation != 0))
-
+            # print(edges_i.shape, edges_j.shape, edges_k.shape)
             # Calculate edge connections.
-            edge_index = [[index_to_1d(idx, c, h), index_to_1d(idx + [1, 0, 0], c, h)] for idx in edges_i] + \
-                         [[index_to_1d(idx, c, h), index_to_1d(idx + [0, 1, 0], c, h)] for idx in edges_j] + \
-                         [[index_to_1d(idx, c, h), index_to_1d(idx + [0, 0, 1], c, h)] for idx in edges_k]
+            edge_index = [[node_index_dict[tuple(idx)], node_index_dict[tuple(idx+[1,0,0])]] for idx in edges_i] + \
+                         [[node_index_dict[tuple(idx)], node_index_dict[tuple(idx+[0,1,0])]] for idx in edges_j] + \
+                         [[node_index_dict[tuple(idx)], node_index_dict[tuple(idx+[0,0,1])]] for idx in edges_k]
 
-            edge_index = np.unique(edge_index, axis=0)  # Remove duplicate edges.
+            edge_index = np.unique(edge_index, axis=0).T  # Remove duplicate edges., transpose to get 2, as the first dimension.
 
             # Collect node features.
-            node_features = [[*idx, single_activation[tuple(idx)]] for idx in non_zero_indices]
+            
+            # print("--",*non_zero_indices[0])
+            # print(node_features[0])
+            #create an n dimensional numpy array out of the list of lists
+            node_features = np.array(node_features)
+            # print("Number of nodes (size of x):", node_features.shape)
+            # print("Number of edges:", edge_index.max())
 
             # Append results to the batch lists.
             batch_edge_indices.append(edge_index)

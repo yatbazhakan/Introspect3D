@@ -64,8 +64,8 @@ introspection:
     sweep_configuration: {}
     project: introspect3D
     entity: yatbazhakan
-    mode: disabled
-    name: point_pillar_kitti_raw_activations_all_focalloss
+    mode: online
+    name: point_pillar_kitti_gap_activations_all_focalloss
   verbose: True
   method:
     task: multiclass
@@ -113,7 +113,7 @@ introspection:
     early_stop: 10
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_all_raw_fcs.pt
+    save_name: point_pillar_kitti_activations_gap_all_raw_fcs.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
@@ -124,10 +124,10 @@ introspection:
       name: kitti
   dataloader:
     all:
-      batch_size: 32
+      batch_size: 8
       shuffle: True
     train:
-      batch_size: 32
+      batch_size: 8
       shuffle: True
     test:
       batch_size: 1
