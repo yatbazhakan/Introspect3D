@@ -1,6 +1,8 @@
 project_dir: D:/Introspect3D
 datasets:
-    - Kitti
+    - Kitti3D
+    - Kitti2D
+    - BDD100K
     - NuScenesDataset
     - ActivationDataset
 models: {}

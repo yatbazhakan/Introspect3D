@@ -96,12 +96,14 @@ introspection:
         momentum: 0.9
         weight_decay: 0.0001
     criterion:
-      type: FocalLoss #BCEWithLogitsLoss
-      params:
-        gamma: 1
-        alpha: None
-        mode: softmax
-        reduction: mean
+      type: CrossEntropyLoss
+      params: 
+        weight: [0.78, 1.39]
+      # params:
+      #   gamma: 1
+      #   alpha: None
+      #   mode: softmax
+      #   reduction: mean
     scheduler:
       type: ReduceLROnPlateau
       params:

@@ -231,3 +231,73 @@ class BoundingBox:
         st += "Rotation: " + str(self.rotation) + "\n"
         return st
 
+
+
+
+class BoundingBox2D:
+    def __init__(self,**kwargs) -> None:
+        self.box_encoding = kwargs.get('box_encoding',"xyxy")
+        self.box_values = kwargs.get('box_values',None)
+        self.image_size = kwargs.get('image_size',None)
+        self.label = kwargs.get('label',None)
+        self.img_width = self.image_size[0]
+        self.img_height = self.image_size[1]
+
+    def get_box_values(self,encoding = "xyxy"):
+        if encoding != self.box_encoding:
+            box = self.convert(encoding)
+        return box
+    def get_label(self):
+        return self.label
+    
+    def __str__(self) -> str:
+        if self.box_encoding == "xyxy":
+            return f"X1: {self.box_values[0]}, Y1: {self.box_values[1]}, X2: {self.box_values[2]}, Y2: {self.box_values[3]}"
+        elif self.box_encoding == "xywh":
+            return f"X: {self.box_values[0]}, Y: {self.box_values[1]}, W: {self.box_values[2]}, H: {self.box_values[3]}"
+    def convert(self, encoding="xyxy"):
+        if self.box_encoding == encoding:
+            return self.box_values
+        elif encoding == "xywh":
+            if self.box_encoding == "xyxy":
+                x1, y1, x2, y2 = self.box_values
+                w = x2 - x1
+                h = y2 - y1
+                return [x1, y1, w, h]
+            elif self.box_encoding == "yolo":
+                cx, cy, w, h = self.box_values
+                if self.img_width is None or self.img_height is None:
+                    raise ValueError("Image dimensions are required for YOLO conversion")
+                x = cx * self.img_width - w * self.img_width / 2
+                y = cy * self.img_height - h * self.img_height / 2
+                return [x, y, w * self.img_w, h * self.img_height]
+        elif encoding == "xyxy":
+            if self.box_encoding == "xywh":
+                x, y, w, h = self.box_values
+                x2 = x + w
+                y2 = y + h
+                return [x, y, x2, y2]
+            elif encoding == "yolo":
+                if self.img_width is None or self.img_height is None:
+                    raise ValueError("Image dimensions are required for YOLO conversion")
+                w = x2 - x1
+                h = y2 - y1
+                xc = x1 + w / 2
+                yc = y1 + h / 2
+                return [xc / self.img_width, yc / self.img_height, w / self.img_width, h / self.img_height]
+        elif self.box_encoding == "yolo":
+                    xc, yc, w, h = self.box_values
+                    if encoding == "xyxy":
+                        if self.img_width is None or self.img_height is None:
+                            raise ValueError("Image dimensions are required for XYXY conversion")
+                        x1 = xc * self.img_width - w * self.img_width / 2
+                        y1 = yc * self.img_height - h * self.img_height / 2
+                        x2 = x1 + w * self.img_width
+                        y2 = y1 + h * self.img_height
+                        return [x1, y1, x2, y2]
+                    elif encoding == "xywh":
+                        if self.img_width is None or self.img_height is None:
+                            raise ValueError("Image dimensions are required for XYWH conversion")
+                        x = xc * self.img_width - w * self.img_width / 2
+                        y = yc * self.img_height - h * self.img_height / 2
+                        return [x, y, w * self.img_width, h * self.img_height]

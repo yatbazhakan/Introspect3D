@@ -3,14 +3,14 @@ from typing import Union, List
 import os 
 from glob import glob
 import numpy as np
-from utils.boundingbox import BoundingBox
+from utils.boundingbox import BoundingBox, BoundingBox2D
 from utils.pointcloud import PointCloud
 import open3d as o3d
 from math import cos,sin
 import cv2 
 from utils.filter import *
 import open3d as o3d
-class Kitti(DrivingDataset):
+class Kitti3D(DrivingDataset):
 
     def __init__(self,
                  root_dir: str,
@@ -127,3 +127,63 @@ class Kitti(DrivingDataset):
                             label=obj_type)
         box.corners = translated_corners.T
         return box
+
+class Kitti2D(DrivingDataset):
+    def __init__(self, root_dir: str,
+                 class_names: Union[None, List],
+                 load_image:bool =True,
+                 image_size=(1242,375)) -> None:
+        self.root_dir = root_dir
+        self.classes = class_names
+        self.image_size = image_size
+        self.image_paths = self.get_image_paths()
+        self.label_paths = self.get_label_paths()
+        self.dataset_dict = { os.basename(image_path.split('/')[-1]):{'image':image_path,'label':label_path}
+                                for image_path,label_path in zip(self.image_paths,self.label_paths)}
+        self.load_image = load_image
+    def __len__(self):
+        return len(self.image_paths)
+    def __getitem__(self, idx):
+        kitti_string_format = list(self.dataset_dict.keys())[idx]
+        image_path = self.dataset_dict[kitti_string_format]['image']
+        label_path = self.dataset_dict[kitti_string_format]['label']
+        image = image_path
+        label = self.read_labels(label_path,classes=self.classes)
+        if self.load_image:
+            image = self.read_image(image_path,resolution=(1242,375))
+
+            item_dict = {'image': image, 'labels': label,'file_name':image_path}
+        else:
+            item_dict = {'image': image_path, 'labels': label,'file_name':image_path}
+
+        return item_dict 
+
+    def read_labels(self, **kwargs):
+        path = kwargs['path']
+        classes = kwargs['classes']
+        with open(path, 'r') as f:
+            content = f.readlines()
+
+        objects = []
+        for line in content:
+            line = line.replace(","," ")
+            data = line.strip().split()
+            class_name = data[0]
+    # 
+            # print(class_name in classes)
+            if(str(class_name) in str(classes)):
+                x1, y1, x2, y2 = float(data[4]), float(data[5]), float(data[6]), float(data[7])
+                bbox = (x1, y1, x2, y2)
+                objects.append({'bbox':bbox, 'label':class_name})
+                # print(objects)
+
+        
+    def get_image_paths(self):
+        return sorted(glob(os.path.join(self.root_dir,'image_2', '*.png')))
+    def get_calibration_paths(self):
+        return sorted(glob(os.path.join(self.root_dir,'calib', '*.txt')))
+    def get_lidar_paths(self):
+        return sorted(glob(os.path.join(self.root_dir, 'velodyne',  '*.bin')))
+    def get_label_paths(self):
+        return sorted(glob(os.path.join(self.root_dir, 'label_2', '*.txt')))
+    
