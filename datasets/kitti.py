@@ -10,6 +10,7 @@ from math import cos,sin
 import cv2 
 from utils.filter import *
 import open3d as o3d
+from definitions import KITTI_CLASSES
 class Kitti3D(DrivingDataset):
 
     def __init__(self,
@@ -135,6 +136,7 @@ class Kitti2D(DrivingDataset):
                  image_size=(1242,375)) -> None:
         self.root_dir = root_dir
         self.classes = class_names
+        self.class_name_to_idx = {class_name:KITTI_CLASSES[class_name] for idx,class_name in enumerate(self.classes)}
         self.image_size = image_size
         self.image_paths = self.get_image_paths()
         self.label_paths = self.get_label_paths()

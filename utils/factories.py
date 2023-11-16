@@ -1,4 +1,4 @@
-from datasets.kitti import Kitti
+from datasets.kitti import Kitti2D, Kitti3D
 from datasets.nuscenes import NuScenesDataset
 from datasets.activation_dataset import ActivationDataset
 import os
