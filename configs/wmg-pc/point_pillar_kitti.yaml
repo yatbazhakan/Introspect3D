@@ -65,7 +65,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_gap_activations_all_focalloss
+    name: point_pillar_kitti_raw_activations_filtered_attentionc_resnet18_fcn
   verbose: True
   method:
     task: multiclass
@@ -73,13 +73,14 @@ introspection:
     validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.GAP
+      method: ProcessorEnum.RAW
       params:
         config:
           grid_size: 16
+          pad : 0
         # config:
-        #   percentile: 0.9
-        #   method: p
+        #   percentile: 0.6
+        #   method: pn
         # config:
         #   functions:
         #     - mean
@@ -88,15 +89,17 @@ introspection:
         # config:
         #   bins: 2000
     model: 
-      layer_config: configs/networks/gcn.yaml
+      layer_config: configs/networks/attention_resnet18_fcn.yaml
     optimizer:
       type: SGD
       params: 
-        lr: 0.001
+        lr: 0.0001
         momentum: 0.9
         weight_decay: 0.0001
     criterion:
-      type: CrossEntropyLoss
+      type: CrossEntropyLoss #FocalLossCustom #
+      # params:
+      #   gamma: 4
       params: 
         weight: [0.78, 1.39]
       # params:
@@ -112,16 +115,16 @@ introspection:
     epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 10
+    early_stop: 20
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_gap_all_raw_fcs.pt
+    save_name: point_pillar_kitti_activations_raw_filtered_atc.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
-      label_file: kitti_point_pillars_labels_raw.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/
+      label_file: kitti_point_pillars_labels_filtered.csv
       classes: ['No Error', 'Error']
       name: kitti
   dataloader:

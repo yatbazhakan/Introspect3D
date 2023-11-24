@@ -1,0 +1,32 @@
+layers:
+  - type: torchvision.models.swin_t
+    # in_channels: 1
+    params:
+      weights: Swin_T_Weights.DEFAULT
+  # - type: "Flatten"
+  #   params: {}
+  # - type: "Linear"
+  #   params:
+  #     in_features: 2048
+  #     out_features: 1024
+  # - type: "Dropout"
+  #   params:
+  #     p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 1000
+      out_features: 256
+  - type: "Dropout"
+    params:
+      p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 256
+      out_features: 128
+  - type: "Dropout"
+    params:
+      p: 0.5
+  - type: "Linear"
+    params:
+      in_features: 128
+      out_features: 2

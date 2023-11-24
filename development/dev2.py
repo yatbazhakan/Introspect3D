@@ -22,7 +22,11 @@ from mmdet3d.datasets import NuScenesDataset
 from mmdet3d.structures import Det3DDataSample, LiDARInstance3DBoxes
 from mmdet3d.visualization import Det3DLocalVisualizer
 from mmdet3d.structures import LiDARInstance3DBoxes
-from mmseg.apis import init_model as init_segmentor
+try:
+    from mmseg.apis import init_model as init_segmentor
+except:
+    print("MMsegmentation not installed or crashed")
+    pass
 CITYSCAPES_COLORS={
     "road": (128, 64, 128), #0
     "sidewalk": (244, 35, 232),#1
@@ -47,7 +51,7 @@ CITYSCAPES_COLORS={
 
 CITYSCAPES_INDEX_TO_COLOR= {i:color for i,(name,color) in enumerate(CITYSCAPES_COLORS.items())}
 
-from mmseg.apis import inference_model
+# from mmseg.apis import inference_model
 print("Open3D Version: " + o3d.__version__)
 # o3d.visualization.webrtc_server.enable_webrtc()
 
@@ -329,7 +333,7 @@ def create_oriented_bounding_box(box_params,offset=100,axis=0,calib=None,color=(
     center += offset_array
     R_empty = np.eye(3)
     obb = o3d.geometry.OrientedBoundingBox(center=center, R=R, extent=extent)
-    obb.color = (1, 0, 0)  # Red color
+    obb.color = color # Red color
     return obb
 def create_oriented_bounding_box_nuscenes(detection, offset=100, axis=0, color=(1, 0, 0),calib=None):
     offset_array = np.zeros(3)
@@ -445,6 +449,22 @@ def is_point_inside_obb(obb, point):
     
     # Check if the transformed point is inside the axis-aligned box
     return np.all(np.abs(point_local) <= (obb.extent / 2))
+def is_point_inside_obb_2d(obb, point):
+    """
+    Check if a point is inside an oriented bounding box (OBB) in the x-y plane.
+    
+    Parameters:
+    - obb: Open3D OrientedBoundingBox object.
+    - point: NumPy array of shape (3,) representing the point.
+    
+    Returns:
+    - bool: True if the point is inside the OBB in the x-y plane, False otherwise.
+    """
+    # Transform the point to the OBB's local coordinate system
+    point_local = np.linalg.inv(obb.R).dot((point[:3] - obb.center))
+
+    # Ignore the z-coordinate in the check
+    return np.all(np.abs(point_local[:2]) <= (obb.extent[:2] / 2))
 
 def remove_points_inside_obbs(point_cloud, obbs):
     """
@@ -457,26 +477,29 @@ def remove_points_inside_obbs(point_cloud, obbs):
     Returns:
     - filtered_point_cloud: NumPy array containing points outside the bounding boxes.
     """
+    #let's make this independent from z and remove all z if box is in x plane
+
     mask = np.ones(point_cloud.shape[0], dtype=bool)
     
     for obb in obbs:
         for i, point in enumerate(point_cloud):
-            if is_point_inside_obb(obb, point):
+            if is_point_inside_obb_2d(obb, point):
                 mask[i] = False
     
     filtered_point_cloud = point_cloud[mask]
     
     return filtered_point_cloud
 def backbone_extraction_hook(ins,inp,out):
-    global image_name, save_dir,flag
+    global image_name, save_dir,flag,test
+    test = inp[0].detach().cpu().numpy()
     last_output = out[2].detach().cpu().numpy()
-    last_output = np.squeeze(last_output)
-    if(flag):
-        np.save(os.path.join(save_dir,"features" ,save_name + '.npy'), last_output)
-    else:
-        np.save(os.path.join(save_dir,"removed_features" ,save_name + '.npy'), last_output)
+    # last_output = np.squeeze(last_output)
+    # if(flag):
+    #     np.save(os.path.join(save_dir,"features" ,save_name + '.npy'), last_output)
+    # else:
+    #     np.save(os.path.join(save_dir,"removed_features" ,save_name + '.npy'), last_output)
 
-
+test = None
 if __name__ == '__main__':
     import random
     from tqdm.auto import tqdm
@@ -499,7 +522,11 @@ if __name__ == '__main__':
     sem_checkpoint=r"/mnt/ssd2/mmsegmentation/ckpts/mask2former_r50_8xb2-90k_cityscapes-512x1024_20221202_140802-ffd9d750.pth"
     save_path = f"./custom_dataset/{used_model}_{training_set}_class{str(num_classes)}/labels/"
     model = init_3ddetector(config_file, checkpoint, device='cuda:0')
-    seg_model = init_segmentor(sem_config_file, sem_checkpoint, device='cuda:0')
+    from torchsummary import summary
+
+    processor_hook  = model.backbone.register_forward_hook(backbone_extraction_hook)
+    # exit()
+    # seg_model = init_segmentor(sem_config_file, sem_checkpoint, device='cuda:0')
     # seg_model = 
     os.makedirs(save_path,exist_ok=True)
     new_dataset = pd.DataFrame(columns=['image_path', 'is_missed','missed_objects','total_objects'])
@@ -522,89 +549,89 @@ if __name__ == '__main__':
             image = cv2.imread(path)
             print(image.shape)
             rgb_image= cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            segmentation_result = inference_model(seg_model, rgb_image)
+            # segmentation_result = inference_model(seg_model, rgb_image)
             # print(segmentation_result)
             # best_class = np.argmax(segmentation_result[0],axis=0)
             #Overlay with the original image
-            pred_seg_mask = segmentation_result.pred_sem_seg.data.cpu().numpy()
-            print(np.unique(pred_seg_mask), pred_seg_mask.shape)
+            # pred_seg_mask = segmentation_result.pred_sem_seg.data.cpu().numpy()
+            # print(np.unique(pred_seg_mask), pred_seg_mask.shape)
 
-            # Reshape pred_seg_mask to add a singleton third dimension
-            pred_seg_mask = pred_seg_mask.reshape(pred_seg_mask.shape[1], pred_seg_mask.shape[2], 1)
-            print(pred_seg_mask.shape)
+            # # Reshape pred_seg_mask to add a singleton third dimension
+            # pred_seg_mask = pred_seg_mask.reshape(pred_seg_mask.shape[1], pred_seg_mask.shape[2], 1)
+            # print(pred_seg_mask.shape)
 
-            # Create colorified_mask with three channels
-            colorified_mask = np.zeros((pred_seg_mask.shape[0], pred_seg_mask.shape[1], 3), dtype=np.uint8)
-            print(colorified_mask.shape)
+            # # Create colorified_mask with three channels
+            # colorified_mask = np.zeros((pred_seg_mask.shape[0], pred_seg_mask.shape[1], 3), dtype=np.uint8)
+            # print(colorified_mask.shape)
 
-            # Iterate over the CITYSCAPES_INDEX_TO_COLOR items
-            for idx, color in CITYSCAPES_INDEX_TO_COLOR.items():
-                mask = (pred_seg_mask == idx).squeeze()  # Squeeze to make it a 2D mask
-                colorified_mask[mask] = color  # Assign the color
+            # # Iterate over the CITYSCAPES_INDEX_TO_COLOR items
+            # for idx, color in CITYSCAPES_INDEX_TO_COLOR.items():
+            #     mask = (pred_seg_mask == idx).squeeze()  # Squeeze to make it a 2D mask
+            #     colorified_mask[mask] = color  # Assign the color
 
 
             
             calib_data = read_calib_file(filename.replace('.bin', '.txt').replace("velodyne","calib"))
             points = load_velodyne_points(filename)
-            project_points = points.copy()
-            # Transformation matrix is in (3x4) shape, so we extend it to (4x4) by adding a row of [0,0,0,1] for homogeneous coordinates
-            Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape(3, 4)
-            Tr_velo_to_cam_extended = np.eye(4)  # Create a 4x4 identity matrix
-            Tr_velo_to_cam_extended[:3, :] = Tr_velo_to_cam  # Replace the top-left 3x4 block
+            # project_points = points.copy()
+            # # Transformation matrix is in (3x4) shape, so we extend it to (4x4) by adding a row of [0,0,0,1] for homogeneous coordinates
+            # Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape(3, 4)
+            # Tr_velo_to_cam_extended = np.eye(4)  # Create a 4x4 identity matrix
+            # Tr_velo_to_cam_extended[:3, :] = Tr_velo_to_cam  # Replace the top-left 3x4 block
 
-            rect = calib_data['R0_rect'].reshape(3, 3)
-            extend_rect = np.eye(4)
-            extend_rect[:3,:3] = rect
+            # rect = calib_data['R0_rect'].reshape(3, 3)
+            # extend_rect = np.eye(4)
+            # extend_rect[:3,:3] = rect
 
-            P0 = calib_data['P0'].reshape(3, 4)
-            P0_extended = np.zeros((4, 4))
-            P0_extended[:3, :] = P0
-            P0_extended[3, 3] = 1
+            # P0 = calib_data['P0'].reshape(3, 4)
+            # P0_extended = np.zeros((4, 4))
+            # P0_extended[:3, :] = P0
+            # P0_extended[3, 3] = 1
 
-            points_in_camera = np.matmul(Tr_velo_to_cam_extended, points.T)
-            points_in_camera = np.matmul(extend_rect, points_in_camera)
-            points_in_camera = np.matmul(P0, points_in_camera).T
+            # points_in_camera = np.matmul(Tr_velo_to_cam_extended, points.T)
+            # points_in_camera = np.matmul(extend_rect, points_in_camera)
+            # points_in_camera = np.matmul(P0, points_in_camera).T
 
-            rescale = points_in_camera[:, 2].copy()
-            points_in_camera[:, 0] /= points_in_camera[:, 2]
-            points_in_camera[:, 1] /= points_in_camera[:, 2]
+            # rescale = points_in_camera[:, 2].copy()
+            # points_in_camera[:, 0] /= points_in_camera[:, 2]
+            # points_in_camera[:, 1] /= points_in_camera[:, 2]
 
-            image_width = image.shape[1]
-            image_height = image.shape[0]
-            # Filter out points that are behind the camera or outside the image dimensions
-            valid_indices = (points_in_camera[:, 2] > 0) & \
-                            (points_in_camera[:, 0] >= 0) & (points_in_camera[:, 0] < image_width) & \
-                            (points_in_camera[:, 1] >= 0) & (points_in_camera[:, 1] < image_height)
-            print(valid_indices.shape)
-            colorified_mask2 = colorified_mask.copy()
-            projected_points = points_in_camera[valid_indices, :2]
-            org_depths = points[valid_indices, 2]
-            for point in projected_points:
-                cv2.circle(colorified_mask, (int(point[0]), int(point[1])), radius=1, color=(0, 255, 255), thickness=-1)
-            overlayed_image = cv2.addWeighted(image,0.5,colorified_mask,0.5,0)
+            # image_width = image.shape[1]
+            # image_height = image.shape[0]
+            # # Filter out points that are behind the camera or outside the image dimensions
+            # valid_indices = (points_in_camera[:, 2] > 0) & \
+            #                 (points_in_camera[:, 0] >= 0) & (points_in_camera[:, 0] < image_width) & \
+            #                 (points_in_camera[:, 1] >= 0) & (points_in_camera[:, 1] < image_height)
+            # print(valid_indices.shape)
+            # colorified_mask2 = colorified_mask.copy()
+            # projected_points = points_in_camera[valid_indices, :2]
+            # org_depths = points[valid_indices, 2]
+            # for point in projected_points:
+            #     cv2.circle(colorified_mask, (int(point[0]), int(point[1])), radius=1, color=(0, 255, 255), thickness=-1)
+            # overlayed_image = cv2.addWeighted(image,0.5,colorified_mask,0.5,0)
 
-            # # Display the image with the points
-            bol= cv2.imwrite('/mnt/ssd2/Introspect3D/debug/points_projected.png', overlayed_image)
-            print("Saved",bol)
+            # # # # Display the image with the points
+            # bol= cv2.imwrite('/mnt/ssd2/Introspect3D/debug/points_projected.png', overlayed_image)
+            # print("Saved",bol)
 
-            unwanted_points = np.zeros(len(points), dtype=bool)
-            filtered_projected_points = []
-            index_to_colors = [CITYSCAPES_INDEX_TO_COLOR[idx] for idx in range(9) ]
+            # unwanted_points = np.zeros(len(points), dtype=bool)
+            # filtered_projected_points = []
+            # index_to_colors = [CITYSCAPES_INDEX_TO_COLOR[idx] for idx in range(9) ]
             
-            for i,point in enumerate(projected_points):
-                original_idx = np.where(valid_indices)[0][i]  # Index in the original 'points' array
-                mask_class = tuple(colorified_mask2[int(point[1]), int(point[0])])
+            # for i,point in enumerate(projected_points):
+            #     original_idx = np.where(valid_indices)[0][i]  # Index in the original 'points' array
+            #     mask_class = tuple(colorified_mask2[int(point[1]), int(point[0])])
 
-                if mask_class not in index_to_colors:
-                    unwanted_points[original_idx] = True
-                    filtered_projected_points.append(point)
-                    cv2.circle(colorified_mask2, (int(point[0]), int(point[1])), radius=1, color=(0, 255, 255), thickness=-1)
+            #     if mask_class not in index_to_colors:
+            #         unwanted_points[original_idx] = True
+            #         filtered_projected_points.append(point)
+            #         cv2.circle(colorified_mask2, (int(point[0]), int(point[1])), radius=1, color=(0, 255, 255), thickness=-1)
             
             # Now filtered_projected_points contains only the points you want to keep
             # Overlay the modified colorified_mask on the original image
-            overlayed_image2 = cv2.addWeighted(image, 0.5, colorified_mask2, 0.5, 0)
-            bol = cv2.imwrite('/mnt/ssd2/Introspect3D/debug/points_projected_filtered.png', overlayed_image2)
-            print("Saved",bol)
+            # overlayed_image2 = cv2.addWeighted(image, 0.5, colorified_mask2, 0.5, 0)
+            # bol = cv2.imwrite('/mnt/ssd2/Introspect3D/debug/points_projected_filtered.png', overlayed_image2)
+            # print("Saved",bol)
             # sliced_depts=  np.array(filtered_depths[unwanted_points])
             # print("Sliced",sliced_depts.shape)
             # rescaled_filtered_points = np.zeros((len(filtered_projected_points),4))
@@ -622,11 +649,11 @@ if __name__ == '__main__':
             # points_in_camera_3d_fov = rescaled_filtered_points @ P0_inv @ extend_rect_inv @ Tr_velo_to_cam_inv
             # points_in_camera_3d_fov[:,2] = org_depths[valid_indices][unwanted_points]
             # print(points_in_camera_3d_fov.shape)
-            points_in_camera_3d_fov = points[unwanted_points]
-            points_in_camera_3d_non_fov =points[~valid_indices]
-            total_pc = np.vstack([points_in_camera_3d_fov, points_in_camera_3d_non_fov])
-            print(total_pc.shape)
-            print(points_in_camera_3d_non_fov.shape,points_in_camera_3d_fov.shape)
+            # points_in_camera_3d_fov = points[unwanted_points]
+            # points_in_camera_3d_non_fov =points[~valid_indices]
+            # total_pc = np.vstack([points_in_camera_3d_fov, points_in_camera_3d_non_fov])
+            # print(total_pc.shape)
+            # print(points_in_camera_3d_non_fov.shape,points_in_camera_3d_fov.shape)
 
             # Apply inverse transformations to points in FOV
             
@@ -644,13 +671,13 @@ if __name__ == '__main__':
             # extend_rect_inv = np.linalg.inv(extend_rect)
 
             # # Apply inverse transformations to get points in original coordinates
-            # points_in_original_coords = np.matmul(Tr_velo_to_cam_inv, np.matmul(extend_rect_inv, points_in_camera_3d.T)).T
-            # print(points_in_original_coords.shape)
-            max_distance = np.max(np.linalg.norm(total_pc[:, :3], axis=1))
-            transated_original = points + np.array([0,-50,0,0])
-            # original_pcd = create_point_cloud(points,distance=max_distance)
-            filtered_pcd = create_point_cloud(total_pc,distance=max_distance)
-            translated_pcd = create_point_cloud(points,distance=max_distance)
+            # # points_in_original_coords = np.matmul(Tr_velo_to_cam_inv, np.matmul(extend_rect_inv, points_in_camera_3d.T)).T
+            # # print(points_in_original_coords.shape)
+            # max_distance = np.max(np.linalg.norm(total_pc[:, :3], axis=1))
+            # transated_original = points + np.array([0,-50,0,0])
+            # # original_pcd = create_point_cloud(points,distance=max_distance)
+            # filtered_pcd = create_point_cloud(total_pc,distance=max_distance)
+            # translated_pcd = create_point_cloud(points,distance=max_distance)
             # # filtered_pcd.translate([0,0, 100], relative=False)
             # radian_from_degree = lambda x: x * np.pi / 180
             # R = o3d.geometry.get_rotation_matrix_from_xyz((radian_from_degree(0),radian_from_degree(90),radian_from_degree(0)))
@@ -671,8 +698,8 @@ if __name__ == '__main__':
 
             
             # #Create a Open3D point cloud from the points for visualization
-            # max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
-            # original_pcd = create_point_cloud(points,distance=max_distance)    
+            max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
+            original_pcd = create_point_cloud(points,distance=max_distance)    
             
             
             # nuscenes_compatible_points = np.ones((points.shape[0],5))
@@ -683,7 +710,7 @@ if __name__ == '__main__':
             # a, b = 25, 15  # Semi-major and semi-minor axes
             # print("Before filtering",points.shape[0],"points")
             # filtered_points = filter_points_inside_ellipse(points, a, b,offset=-10) #filter_points_inside_pyramid(points, min_x, max_x, min_y,max_y ) #
-            # print("After filtering",filtered_points.shape[0],"points")
+            # print("After filtering",filtered_points.shape[0],"pointsfrom torchsummary import summary")
             # filtered_pcd = create_point_cloud(filtered_points,distance=max_distance)
             # outside_points = filter_points_outside_ellipse(filtered_points, a, b,offset=-10)
             # outside_pcd = create_point_cloud(outside_points)
@@ -698,72 +725,110 @@ if __name__ == '__main__':
             score_threshold = 0.5 #Threshold for filtering detections with low confidence
             
             # Run inference on the raw point cloud, and create oriented bounding boxes for visualization
-            # res,data = inference_detector(model, points)
-            # pred_boxes_box = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-            # pred_boxes_score = res.pred_instances_3d.scores_3d.cpu().numpy()
-            # filtered_indices = np.where(pred_boxes_score >= score_threshold)[0]
-            # filtered_boxes = pred_boxes_box[filtered_indicesdev2.py]
-            # obb_list = [create_oriented_bounding_box(box,offset=100,axis=1,calib=calib_data) for box in filtered_boxes]
+            res,data = inference_detector(model, points)
+            pred_boxes_box = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            pred_boxes_score = res.pred_instances_3d.scores_3d.cpu().numpy()
+            filtered_indices = np.where(pred_boxes_score >= score_threshold)[0]
+            filtered_boxes = pred_boxes_box[filtered_indices]
+            outed_boxes = pred_boxes_box[~filtered_indices]
+            outed_scores = pred_boxes_score[~filtered_indices]
+            #get maximum score box 
+            max_score_idx = np.argmax(outed_scores)
+            max_score_box = outed_boxes[max_score_idx]
+            print(pred_boxes_score)
+            obb_list = [create_oriented_bounding_box(box,offset=0,axis=1,calib=calib_data,color=(1,1,0)) for box in filtered_boxes]
+            print(len(obb_list))
             print("Running inference")
             flag = 1
             
             # Run inference on the filtered point cloud, and create oriented bounding boxes for visualization, filter detections with low confidence
             # print(filtered_points.shape)
-            print(total_pc.shape)
+            # print(total_pc.shape)
             register_all_modules()
-            res_f,data_f = inference_detector(model, total_pc)
-            pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
-            pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
-            print(pred_boxes_score_f)
-            filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
-            filtered_boxes = pred_boxes_box_f[filtered_indices]
-            obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
+            # res_f,data_f = inference_detector(model, points)
+            # pred_boxes_box_f = res_f.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
+            # pred_boxes_score_f = res_f.pred_instances_3d.scores_3d.cpu().numpy()
+            # print(pred_boxes_score_f)
+            # filtered_indices = np.where(pred_boxes_score_f >= score_threshold)[0]
+            # filtered_boxes = pred_boxes_box_f[filtered_indices]
+            # #Get mean across channels from test
+            test1 = test.squeeze(0)
+            test_mean = np.max(test1,axis=0)
+            #save image 
+            plt.imsave(f"./{test_num:06}.png",test_mean,cmap='gray')
+            #show grahscale image
+            # plt.imshow(test_mean,cmap='gray')
+            # plt.show()
+            # obb_list_f = [create_oriented_bounding_box(box,offset=0,calib=calib_data) for box in filtered_boxes]
             # # print("Object shapes",len(obb_list_f),"Prediction shape", filtered_boxes.shape,filtered_boxes[0])
             # #Remove points from the filtered point cloud that are inside the predicted bounding boxes
-            # removed_object_points = remove_points_inside_obbs(filtered_points, obb_list_f)
+            removed_object_points = remove_points_inside_obbs(points, obb_list)
+            removed_pc = create_point_cloud(removed_object_points,distance=max_distance)
+            print("Removed points",removed_object_points.shape)
+            print("Original points",points.shape)
             # # removed_pcd = create_point_cloud(removed_object_points,distance=max_distance)
             print("Running inference on the removed points")
-
+            test = None
             # flag = 0
-            one_more_chance_res, one_more_chance_data = inference_detector(model, points)
+            one_more_chance_res, one_more_chance_data = inference_detector(model, removed_object_points)
+            test2 = test.squeeze(0)
+            print("Diff" , np.sum(test1 - test2))
+            test_mean = np.max(test2,axis=0)
+            plt.imsave(f"./{test_num:06}_.png",test_mean,cmap='gray')
+
             one_more_chance_pred_boxes_box = one_more_chance_res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             one_more_chance_pred_boxes_score = one_more_chance_res.pred_instances_3d.scores_3d.cpu().numpy()
-            filtered_indices = np.where(one_more_chance_pred_boxes_score >= score_threshold)[0]
-            one_more_chance_filtered_boxes = one_more_chance_pred_boxes_box[filtered_indices]
-            one_more_chance_obb_list_f = [create_oriented_bounding_box(box,offset=-50,axis=1,calib=calib_data,color=(1,0,0)) for box in one_more_chance_filtered_boxes]
+            print(one_more_chance_pred_boxes_score)
+            max_score_index = np.argmax(one_more_chance_pred_boxes_score)
+            max_score_box = one_more_chance_pred_boxes_box[max_score_index]
+            boxes = [max_score_box]
+            print("One more chance boxes",boxes[0])
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=str(test_num))
+            vis.add_geometry(removed_pc)
+            obb_box = [create_oriented_bounding_box(box,offset=0,axis=1,calib=calib_data) for box in boxes]
+            for gt_obb in obb_list:
+                vis.add_geometry(gt_obb)
+            for gt_obb in obb_box:
+                vis.add_geometry(gt_obb)
+            set_custom_view(vis)
+            vis.run()
+            # filtered_indices = np.where(one_more_chance_pred_boxes_score >= score_threshold)[0]
+            # one_more_chance_filtered_boxes = one_more_chance_pred_boxes_box[filtered_indices]
+            # one_more_chance_obb_list_f = [create_oriented_bounding_box(box,offset=-50,axis=1,calib=calib_data,color=(1,0,0)) for box in one_more_chance_filtered_boxes]
             
             # coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1, origin=[0, 0, 0])
 
             
 
-            # #Visualize the results
-            vis = o3d.visualization.Visualizer()
-            vis.create_window(window_name=str(test_num)) 
-            # original_pcd.translate([0,50, 0], relative=False)
-            translated_pcd.translate([0,-50, 0], relative=False)
-            vis.add_geometry(filtered_pcd)
-            # vis.add_geometry(original_pcd)
-            vis.add_geometry(translated_pcd)
-            # #
-            # # original_pcd.translate([0,100, 0], relative=False)
-            # vis.add_geometry(outside_pcd)
+            # # #Visualize the results
+            # vis = o3d.visualization.Visualizer()
+            # vis.create_window(window_name=str(test_num)) 
+            # # original_pcd.translate([0,50, 0], relative=False)
+            # translated_pcd.translate([0,-50, 0], relative=False)
             # vis.add_geometry(filtered_pcd)
-            # # vis.add_geometry(removed_pcd)
+            # # vis.add_geometry(original_pcd)
+            # vis.add_geometry(translated_pcd)
+            # # #
+            # # # original_pcd.translate([0,100, 0], relative=False)
+            # # vis.add_geometry(outside_pcd)
+            # # vis.add_geometry(filtered_pcd)
+            # # # vis.add_geometry(removed_pcd)
             
-            # render_option = vis.get_render_option()
-            # render_option.point_size = 2.0
-            # # print("Difference between orj and regular gt boxes",len(gt_oriented_boxes_orj),len(gt_oriented_boxes))
-            # for gt_obb in gt_oriented_boxes_orj:
+            # # render_option = vis.get_render_option()
+            # # render_option.point_size = 2.0
+            # # # print("Difference between orj and regular gt boxes",len(gt_oriented_boxes_orj),len(gt_oriented_boxes))
+            # # for gt_obb in gt_oriented_boxes_orj:
+            # #     vis.add_geometry(gt_obb)
+            # for gt_obb in gt_oriented_boxes:
             #     vis.add_geometry(gt_obb)
-            for gt_obb in gt_oriented_boxes:
-                vis.add_geometry(gt_obb)
-            for obb in obb_list_f:
-                vis.add_geometry(obb) 
-            for obb in one_more_chance_obb_list_f:
-                vis.add_geometry(obb)
-            set_custom_view(vis)
-            # vis.add_geometry(coordinate_frame)
-            vis.run()
+            # for obb in obb_list_f:
+            #     vis.add_geometry(obb) 
+            # for obb in one_more_chance_obb_list_f:
+            #     vis.add_geometry(obb)
+            # set_custom_view(vis)
+            # # vis.add_geometry(coordinate_frame)
+            # vis.run()
 
             # # Close the visualizer window
             # vis.destroy_window()
@@ -800,9 +865,9 @@ if __name__ == '__main__':
 # import pandas as pd
 # from tqdm.auto import tqdm
 # import torch
-# from definitions import ROOT_DIR
 # import open3d as o3d
 # counterg = 0
+# ROOT_DIR = '/mnt/ssd2/Introspect3D'
 # class ExtremelySimpleActivationShaping():
 #     def __init__(self, config):
 #         self.config = config
@@ -894,6 +959,29 @@ if __name__ == '__main__':
 #         x = x * torch.exp(scale[:, None, None, None])
 
 #         return x
+#     def ash_pn(self, x, percentile=65):
+#         assert x.dim() == 4
+#         assert 0 <= percentile <= 100
+#         b, c, h, w = x.shape
+#         org_x = x.clone()
+#         # Reshape x and filter out zero activations
+#         t = x.view((b, c * h * w))
+#         t_non_zero = t[t > 0]
+
+#         # Find the percentile value in the non-zero distribution
+#         if t_non_zero.numel() > 0:
+#             threshold = torch.quantile(t_non_zero, percentile / 100.0)
+#         else:
+#             threshold = 0
+
+#         # Zero out values in the original activation below the threshold
+#         mask = t < threshold
+#         t[mask] = 0
+
+#         # Reshape back to original shape
+#         x = t.view((b, c, h, w))
+
+#         return x
 # class StatisticalFeatureExtraction():
 #     def __init__(self, config):
 #         self.config = config
@@ -947,16 +1035,50 @@ if __name__ == '__main__':
 #     print(np.unique(labels,return_counts=True))
 
 #     return labels
-# from definitions import *
 # file_path = r"/mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/"
 # file_names = glob(os.path.join(file_path,'features','*.npy'))
 # files = []
-# params=  {"percentile": 95, "method": "p"}
+# params=  {"percentile": 95, "method": "pn"}
 # # params = {"functions":['mean','std','max']}
 # # params = {"bins":2000}
 # processor = ExtremelySimpleActivationShaping(params)#VisualDNA(params)#StatisticalFeatureExtraction(config=params)#
 # dist_diff = []
-# # o3d.visualization.webrtc_server.enable_webrtc()
+# file = file_names[0]
+# act = np.load(file)
+# #plot histogram of resact
+# #get outliers based on z score
+# from scipy import stats
+# z = np.abs(stats.zscore(act))
+# z = np.nan_to_num(z)
+# #set z < 3 to 0
+# print((z<3).sum())
+# act[z < 3] = 0
+# t_non_zero = act[act > 0]
+# t_zero = act[act == 0]
+# print(len(t_non_zero),len(t_zero))
+# figure = plt.figure()
+
+# hist, edges = np.histogram(t_non_zero,bins=10)
+# print(len(hist),len(edges))
+# #Alsso plot a line to 90th percentile
+# percentile_value = np.percentile(t_non_zero, 90)  # Replace 65 with your desired percentile
+# plt.axvline(percentile_value, color='r', linestyle='dashed', linewidth=2)
+# plt.bar(range(len(hist)),hist)
+# plt.title("Org")
+# #write bin edges as x ticks, and make sizes compatible
+# edges_new = []
+# for i in range(len(edges)-1):
+#     edges_new.append(f"{edges[i]:.2f}-{edges[i+1]:.2f}")
+# print(len(edges_new))
+# plt.xticks(range(len(hist)),edges_new)
+# #make ticks vertical and fit into the figure
+# #put counts on top of barsAdam
+# for i in range(len(hist)):
+#     plt.text(i,hist[i],hist[i],ha='center',va='bottom')
+# plt.xticks(rotation=90)
+# plt.tight_layout()
+# plt.savefig(os.path.join(ROOT_DIR,'debug','histograms',f"act_{0}.png"))
+# # # o3d.visualization.webrtc_server.enable_webrtc()
 # with tqdm(range(len(file_names))) as pbar:
 #     for i,file in enumerate(file_names):
 #         if i <100:

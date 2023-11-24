@@ -1,44 +1,37 @@
 layers:  
-  - type: "BasicConvBlock"
+  - type: "Conv3DBlock"
     params:
-      in_channels: 256
-      out_channels: 128
-      kernel_size: 1
-      stride: 1
-      padding: 0
-  - type: "BasicConvBlock"
-    params:
-      in_channels: 128
-      out_channels: 64
-      kernel_size: 1
-      stride: 1
-      padding: 0
-  - type: "BasicConvBlock"
-    params:
-      in_channels: 64
+      in_channels: 1
       out_channels: 32
-      kernel_size: 1
-      stride: 1
-      padding: 0
-  - type: "BasicConvBlock"
+      kernel_size: 3
+  - type: "MaxPool3d"
+    params:
+      kernel_size: 2
+      stride: 2
+  - type: "Conv3DBlock"
     params:
       in_channels: 32
-      out_channels: 8
+      out_channels: 64
       kernel_size: 3
-      stride: 1
-      padding: 1
+  - type: "MaxPool3d"
+    params:
+      kernel_size: 2
+      stride: 2
+  - type: "Conv3DBlock"
+    params:
+      in_channels: 64
+      out_channels: 64
+      kernel_size: 3
+  - type: "MaxPool3d"
+    params:
+      kernel_size: 2
+      stride: 2
   - type: "Flatten"
     params: {}
+
   - type: "Linear"
     params:
-      in_features: 768
-      out_features: 512
-  - type: "Dropout"
-    params:
-      p: 0.5
-  - type: "Linear"
-    params:
-      in_features: 64800
+      in_features: 86016
       out_features: 4096
   - type: "Dropout"
     params:
@@ -52,7 +45,7 @@ layers:
       p: 0.5
   - type: "Linear"
     params:
-      in_features: 768
+      in_features: 1024
       out_features: 256
   - type: "Dropout"
     params:

@@ -1,5 +1,21 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+class Conv3DBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, use_batchnorm=True):
+        super(Conv3DBlock, self).__init__()
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size, stride, padding)
+        self.batchnorm = nn.BatchNorm3d(out_channels) if use_batchnorm else None
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv(x)
+        if self.batchnorm is not None:
+            x = self.batchnorm(x)
+        x = self.relu(x)
+        return x
+
 
 class BasicConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):

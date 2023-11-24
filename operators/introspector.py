@@ -60,14 +60,16 @@ class IntrospectionOperator(Operator):
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
 
         if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
+            # class_weights = [float(i)/sum(class_weights) for i in class_weights]
             self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
-        elif self.method_info['criterion']['type'] == "FocalLoss":
+        elif self.method_info['criterion']['type'].startswith("FocalLoss"):
             #Getting second element of class weights since it is the error class (positive class is 1)
             #Scale weights between 0 and 1 using sum
-            class_weights = [float(i)/sum(class_weights) for i in class_weights]
-
-            self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
-
+            # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+            if "Custom" not in self.method_info['criterion']['type']:
+                self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
+            else:
+                self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
         if self.verbose:
 
             print("Class distribution:",class_dist)
@@ -95,6 +97,7 @@ class IntrospectionOperator(Operator):
         pbar.set_description(f'Training at Epoch {epoch} with learning rate {self.optimizer.param_groups[0]["lr"]:.2E} and No improvement count {self.scheduler.num_bad_epochs}')
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
+            # print(data.shape)
             self.optimizer.zero_grad()
             if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
                 data = self.proceesor.process(activation=data)
@@ -161,6 +164,9 @@ class IntrospectionOperator(Operator):
         self.model.train()
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(epoch)
+            if epoch_loss < 0.001:
+                print("Train loss is converged")
+                break
             if self.verbose:
                 print("Epoch loss:",epoch_loss)
             wandb.log({'epoch_loss':epoch_loss})
@@ -208,7 +214,8 @@ class IntrospectionOperator(Operator):
                     data, target = data.to(self.device), target.to(self.device)
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
                         data = self.proceesor.process(activation=data)
-                        data = torch.from_numpy(data).to(self.device)
+                        print(type(data))
+                        data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
                         data = data.float()
                     elif "GAP" in self.method_info['processing']['method']:
                         batched_data = []
@@ -298,12 +305,12 @@ class IntrospectionOperator(Operator):
         
         metric_collection = MetricCollection([
             ConfusionMatrix(num_classes=num_classes,task=task),
-            Accuracy(task=task,num_classes=num_classes,average='none'),
-            Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
+            # Accuracy(task=task,num_classes=num_classes,average='none'),
+            # Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
             Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
             F1Score(task=task,num_classes=num_classes,average='none'),
             AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
-            StatScores(num_classes=num_classes,task=task,average='none'),
+            # StatScores(num_classes=num_classes,task=task,average='none'),
             AveragePrecision(num_classes=num_classes,task=task,average='none'),
         ])
         metric_collection.to(self.device)
@@ -312,7 +319,13 @@ class IntrospectionOperator(Operator):
         # pprint(self.metrics)
         #This is messy but to try
         self.log_metrics(mode,task)
-        
+    def execute_sweep(self):
+        sweep_configuration = self.wandb['sweep_configuration']
+        sweep_id = wandb.sweep(sweep=sweep_configuration, project='introspectionBase')
+        if self.verbose:
+            print("Sweep id:",sweep_id)
+            print("="*100,"\n",wandb.config,"\n","="*100)
+        wandb.agent(sweep_id, function=self.train,count=1)  
 
     def execute(self, **kwargs):
         if self.is_sweep:

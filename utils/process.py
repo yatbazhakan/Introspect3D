@@ -96,6 +96,29 @@ class ExtremelySimpleActivationShaping(ActivationProcessor):
         x = x * torch.exp(scale[:, None, None, None])
 
         return x
+    def ash_pn(self, x, percentile=65):
+        assert x.dim() == 4
+        assert 0 <= percentile <= 100
+        b, c, h, w = x.shape
+        org_x = x.clone()
+        # Reshape x and filter out zero activations
+        t = x.view((b, c * h * w))
+        t_non_zero = t[t > 0]
+
+        # Find the percentile value in the non-zero distribution
+        if t_non_zero.numel() > 0:
+            threshold = torch.quantile(t_non_zero, percentile / 100.0)
+        else:
+            threshold = 0
+
+        # Zero out values in the original activation below the threshold
+        mask = t < threshold
+        t[mask] = 0
+
+        # Reshape back to original shape
+        x = t.view((b, c, h, w))
+
+        return x
 
 
 class VisualDNA(ActivationProcessor):
@@ -125,12 +148,23 @@ class VisualDNA(ActivationProcessor):
         base_histogram = base_histogram.astype(np.float32)
 
         return base_histogram
+class ThreeDimensionalConvolution(ActivationProcessor):
+    def __init__(self, config):
+        self.config = config
+    def process(self, **kwargs):
+        activation = kwargs.get('activation')
+        np_activation = activation.detach().cpu().numpy()
+
+        #add 1 dimension after batch  and return
+        activation = np_activation[:,None,:,:,:]
+        return activation
 class SpatioChannelReshaping(ActivationProcessor):
     def __init__(self, config):
         self.config = config
     def process(self, **kwargs):
         processed_activation_list= []
         activation = kwargs.get('activation')
+        pad = self.config['pad']
         b,c,h,w = activation.shape
         assert c == 256
         H,W = h,w
@@ -145,7 +179,7 @@ class SpatioChannelReshaping(ActivationProcessor):
         Wn = grid_size * W  # new width
 
         # Create an empty array for the new grid
-        output_array = np.zeros((b,1,Hn, Wn))
+        output_array = np.zeros((b,3,Hn, Wn))
 
         # Iterate over each channel and place it in the correct position on the grid
         for i in range(grid_size):
@@ -153,6 +187,10 @@ class SpatioChannelReshaping(ActivationProcessor):
                 channel_index = i * grid_size + j
                 # Place the channel's activation map in the correct grid position
                 output_array[:,0,i*H:(i+1)*H, j*W:(j+1)*W] = activation[:,channel_index, :, :]
+                output_array[:,1,i*H:(i+1)*H, j*W:(j+1)*W] = activation[:,channel_index, :, :]
+                output_array[:,2,i*H:(i+1)*H, j*W:(j+1)*W] = activation[:,channel_index, :, :]
+        #Pad to the multiple of 14 for vit
+
         return output_array
 import numpy as np
 
@@ -226,3 +264,4 @@ class ProcessorEnum(Enum):
     VDNA = VisualDNA
     SCR = SpatioChannelReshaping
     GAP = GraphActivationProcessor
+    TDP = ThreeDimensionalConvolution

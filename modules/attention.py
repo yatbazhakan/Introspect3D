@@ -10,11 +10,13 @@ class SpatialAttention(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
+        x_org = x.clone()
         avg_out = torch.mean(x, dim=1, keepdim=True)
         max_out, _ = torch.max(x, dim=1, keepdim=True)
         x = torch.cat([avg_out, max_out], dim=1)
         x = self.conv1(x)
-        return self.sigmoid(x)*x if self.apply else self.sigmoid(x)
+        # print((self.sigmoid(x)*x_org).shape)
+        return self.sigmoid(x)*x_org if self.apply else self.sigmoid(x)
     
 class ChannelAttention(nn.Module):
     def __init__(self, in_channels, reduction=16,apply=True):

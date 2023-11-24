@@ -20,6 +20,7 @@ from torch.optim.lr_scheduler import *
 from torch.nn import *
 from torchvision.models import *
 from modules.loss import *
+from modules.attention import *
 import torchvision
 import torch
 import yaml
@@ -119,13 +120,18 @@ def generate_model_from_config(config):
     path = os.path.join(ROOT_DIR,config['layer_config'])
     layer_data = yaml.load(open(path),Loader=yaml.FullLoader)
     layers = []
+    pretrained = False
     num_ftrs = None
+    print(layer_data)
     for layer_config in layer_data['layers']:
         # print(layer_config)
         layer_type = layer_config['type']
         if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
+            pretrained=True
             model = eval(f"{layer_type}(**layer_config['params'])")
-            model,num_ftrs = clone_weights(model,layer_type,layer_config)
+            if not "swin" in layer_type:   
+                model,num_ftrs = clone_weights(model,layer_type,layer_config)
+            # print(model)
             layers.append(model)
         else:
             layer_params = layer_config['params']
@@ -136,14 +142,22 @@ def generate_model_from_config(config):
             elif 'output_size' in layer_params.keys():
                 ouput_size = eval(layer_params['output_size'])
                 layer_params['output_size'] = ouput_size
+            # print(layer_type,layer_params)
             layers.append(eval(f"{layer_type}(**layer_params)"))
-    model = nn.Sequential(*layers)
-    model = weight_init(model)
+    if pretrained:
+        pt_model = layers[0]
+        layers = layers[1:]
+        layers = weight_init(Sequential(*layers))
+        model = Sequential(pt_model,*layers)
+    else:
+        model = Sequential(*layers)
+        model = weight_init(model)
     return model
 
 def weight_init(model):
     #initialize weights for better convergence  
     for m in model.modules():
+        
         if isinstance(m, nn.Conv2d):
             nn.init.kaiming_normal_(m.weight, mode='fan_out')
         elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
@@ -163,7 +177,7 @@ def generate_scheduler_from_config(config,optimizer):
     scheduler_params = config['params']
     return eval(f"{scheduler_type}(optimizer,**scheduler_params)")
 
-def generate_criterion_from_config(config):
+def generate_criterion_from_config(config,**kwargs):
     print(config)
     loss_type = config['type']
     loss_params = config['params']

@@ -78,7 +78,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_raw_activations_all_resnet18
+    name: centerpoint_nus_raw_activations_filtered_resnet18
   verbose: True
   method:
     train_test_split: 0.2
@@ -97,8 +97,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn.yaml
-
+      layer_config: configs/networks/resnet18_fcn.yaml # fcn_only.yaml#
     optimizer:
       type: SGD
       params: 
@@ -120,13 +119,13 @@ introspection:
     early_stop: 50
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_raw.pt
+    save_name: centerpoint_nus_activations_raw_filteredds.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_raw/
-      label_file: nus_centerpoint_labels_raw.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/
+      label_file: nus_centerpoint_labels_filtered.csv
       classes: ['No Error', 'Error']
       name: nuscenes
   dataloader:
