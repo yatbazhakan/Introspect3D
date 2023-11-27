@@ -69,8 +69,11 @@ introspection:
   verbose: True
   method:
     task: multiclass
-    train_test_split: 0.2
-    validation_split: 0.2
+    cross_validation:
+      type: holdout
+      iteration: 1
+      train_test_split: 0.2
+      validation_split: 0.2
     processing:
       active: True
       method: ProcessorEnum.RAW
@@ -122,6 +125,7 @@ introspection:
   device: cuda:0
   dataset:
     name: ActivationDataset
+    filtering: none
     config:
       root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/
       label_file: kitti_point_pillars_labels_filtered.csv

@@ -12,6 +12,7 @@ import wandb
 import torch
 from modules.graph_networks import GCN
 from pprint import pprint
+import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
@@ -24,13 +25,17 @@ class IntrospectionOperator(Operator):
         self.is_sweep = self.wandb['is_sweep']
         self.device = self.config['device']
         os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
-        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name'])
         if self.method_info['processing']['active']:
             print(self.method_info['processing']['method'])
             self.proceesor = eval(self.method_info['processing']['method']).value(**self.method_info['processing']['params'])
         else:
             self.proceesor = None
-
+    def name_builder(self):
+        dataset = self.config['dataset']['config']['name'].lower()
+        network = os.path.splitext(os.path.basename(self.method_info['model']))[0]
+        procesing = self.method_info['processing']['method'].split(".")[-1].lower()
+        filtering = self.config['dataset']['filtering'].lower()
+        self.method_info['save_name'] = f"{dataset}_{filtering}_{network}_{procesing}"
     def get_dataloader(self):
         if self.split:
             train_loader = DataLoader(self.train_dataset, **self.config['dataloader']['train'])
@@ -46,9 +51,11 @@ class IntrospectionOperator(Operator):
     def train_test_split(self):
         indices = list(range(len(self.dataset)))
         all_labels= self.dataset.get_all_labels()
-        train_indices, test_indices = train_test_split(indices, test_size=self.method_info['train_test_split'],stratify=all_labels,random_state=1024)
+        validation = self.method_info['cross_validation']
+        random_state = random.randint(0,2048) if validation['type'] == "montecarlo" else 1024
+        train_indices, test_indices = train_test_split(indices, test_size=validation['train_test_split'],stratify=all_labels,random_state=random_state)
         self.train_dataset = Subset(self.dataset, train_indices)
-        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=self.method_info['validation_split'],stratify=all_labels[train_indices],random_state=1024)
+        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],stratify=all_labels[train_indices],random_state=random_state)
         self.train_dataset = Subset(self.dataset, after_val_train_indices)
         self.val_dataset = Subset(self.dataset, val_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
@@ -78,18 +85,21 @@ class IntrospectionOperator(Operator):
 
     def initialize_learning_parameters(self):
         self.device = self.config['device']
-
+        #DEBUG*  Possible that we just need to get the values or names, and get the built info from regular config
+        optimizer_info = self.method_info['optimizer']
+        criterion_info = self.method_info['criterion']
         self.split = False
         if self.method_info['train_test_split'] != None:
             self.train_test_split()
         self.get_dataloader()
 
-        self.optimizer = generate_optimizer_from_config(self.method_info['optimizer'],self.model)
-        self.criterion = generate_criterion_from_config(self.method_info['criterion'])
+        self.optimizer = generate_optimizer_from_config(optimizer_info,self.model)
+        self.criterion = generate_criterion_from_config(criterion_info)
         self.scheduler = generate_scheduler_from_config(self.method_info['scheduler'],self.optimizer)
         self.epochs = self.method_info['epochs']
         self.log_interval = self.method_info['log_interval']
         self.save_interval = self.method_info['save_interval']
+        
     def train_epoch(self,epoch):
         epoch_loss = 0
         if self.verbose:
@@ -125,7 +135,7 @@ class IntrospectionOperator(Operator):
                 self.model = self.model.to(self.device)
                 output = self.model(data)
                 # print(output.shape)
-
+                
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                 # print(target.shape, output.shape)
                 loss = self.criterion(output, target.float())
@@ -141,14 +151,25 @@ class IntrospectionOperator(Operator):
             pbar.update(1)
         #TODO: check if this division is correct way to do so
         return epoch_loss/len(self.train_loader.dataset)
+    def update_config_from_wandb(self):
+        self.method_info['model'] = wandb.config.model
+        self.method_info['optimizer']['type'] = wandb.config.optimizer
+        self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
+        self.method_info['criterion']['type'] = wandb.config.criterion
+        self.config['dataloader']['train']['batch_size'] = wandb.config.batch_size
+    def train(self,iteration=1):
+        #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
+        if self.is_sweep:
+            self.update_config_from_wandb()
+        self.name_builder()
 
-    def train(self):
-        #MNot very OOP of me but this might improve earlier waiting times
+        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+f"{iteration}.pth")
         self.dataset = DatasetFactory().get(**self.config['dataset'])
+        model_info = self.method_info['model']
         if "GAP" not in self.method_info['processing']['method']: #TODO: requires generalization
-            self.model = generate_model_from_config(self.method_info['model'])
+            self.model = generate_model_from_config(model_info)
         else:
-            self.model = GCN(self.method_info['model'])
+            self.model = GCN(model_info)
             print(self.model)
 
         early_stop_threshold = self.method_info['early_stop']
@@ -194,7 +215,7 @@ class IntrospectionOperator(Operator):
                         print("Early stopping")
                     break        
 
-    def evaluate(self,loader=None,epoch=None):
+    def evaluate(self,iteration=1,loader=None,epoch=None):
         if loader == None:
             
             loader = self.test_loader
@@ -252,13 +273,13 @@ class IntrospectionOperator(Operator):
         test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
-            wandb.log({'test_loss':test_loss})
+            wandb.log({f'test_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
-            wandb.log({'train_loss':test_loss})
+            wandb.log({f'train_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
-            wandb.log({'val_loss':test_loss})
+            wandb.log({f'val_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
         return test_loss
     def seprate_multiclass_metrics(self,metric_name):
@@ -269,16 +290,13 @@ class IntrospectionOperator(Operator):
         except:
             print(metric_name,multi_class_metric)
         return positive_metric,negative_metric
-    def log_metrics(self,mode,task):
+    def log_metrics(self,mode,task,iteration=1):
         #Here I need to separate metrics for each class and log them in wandb
-    
-
-
         for metric_name in self.metrics.keys():
             if 'ConfusionMatrix' in metric_name:
                 cm = self.metrics[metric_name]
                 wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
-                wandb.log({f'{mode}_confusion_matrix':wandb_table})
+                wandb.log({f'{mode}_confusion_matrix_{iteration}':wandb_table})
                 cm = cm.cpu().numpy()
                 cm = cm.astype(int)
                 tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
@@ -289,17 +307,17 @@ class IntrospectionOperator(Operator):
                     # print(positive_metric)
                     try:
                         for i in range(positive_metric.shape[0]):
-                            wandb.log({f'{mode}_{metric_name}_positive_{i}':positive_metric[i]})
+                            wandb.log({f'{mode}_{metric_name}_positive_{i}_{iteration}':positive_metric[i]})
                         for i in range(negative_metric.shape[0]):
-                            wandb.log({f'{mode}_{metric_name}_negative_{i}':negative_metric[i]})
+                            wandb.log({f'{mode}_{metric_name}_negative_{i}_{iteration}':negative_metric[i]})
                     except:
-                        wandb.log({f'{mode}_{metric_name}_positive':positive_metric})
-                        wandb.log({f'{mode}_{metric_name}_negative':negative_metric})
+                        wandb.log({f'{mode}_{metric_name}_positive_{iteration}':positive_metric})
+                        wandb.log({f'{mode}_{metric_name}_negative_{iteration}':negative_metric})
                 else:
-                    wandb.log({f'{mode}_{metric_name}':self.metrics[metric_name].cpu().numpy()})
+                    wandb.log({f'{mode}_{metric_name}_{iteration}':self.metrics[metric_name].cpu().numpy()})
 
 
-    def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass'):
+    def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass',iteration=1):
         num_classes = 2
         pred = torch.tensor(pred).squeeze()
         target = torch.tensor(target,dtype=torch.int64).squeeze()
@@ -319,10 +337,11 @@ class IntrospectionOperator(Operator):
         from pprint import pprint
         # pprint(self.metrics)
         #This is messy but to try
-        self.log_metrics(mode,task)
+        self.log_metrics(mode,task,iteration)
+        
     def execute_sweep(self):
         sweep_configuration = self.wandb['sweep_configuration']
-        sweep_id = wandb.sweep(sweep=sweep_configuration, project='introspectionBase')
+        sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
         if self.verbose:
             print("Sweep id:",sweep_id)
             print("="*100,"\n",wandb.config,"\n","="*100)
@@ -339,8 +358,10 @@ class IntrospectionOperator(Operator):
         else:
             #Some management will be needed here
             wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
+            
             if self.config['operation']['type'] == "train":
-                self.train()
+                for i in range(self.method_info['cross_validation']['iteration']):
+                    self.train(i)
             elif self.config['operation']['type'] == "evaluate":
                 self.dataset = DatasetFactory().get(**self.config['dataset'])
                 self.model = generate_model_from_config(self.method_info['model'])
@@ -348,5 +369,6 @@ class IntrospectionOperator(Operator):
                 self.initialize_learning_parameters()
                 self.evaluate()
             else:
-                self.train()
-                self.evaluate()
+                for i in range(self.method_info['cross_validation']['iteration']):
+                    self.train(i)
+                    self.evaluate(i)
