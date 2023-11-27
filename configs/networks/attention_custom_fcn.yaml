@@ -1,28 +1,28 @@
 layers: 
-  # - type: ChannelAttention
-  #   params:
-  #     in_channels: 256
-  # - type: "SpatialAttention"
-  #   params: {}
+  - type: ChannelAttention
+    params:
+      in_channels: 256
+  - type: "SpatialAttention"
+    params: {}
   - type: "BasicConvBlock"
     params:
       in_channels: 256
       out_channels: 128
-      kernel_size: 1
+      kernel_size: 11
       stride: 1
       padding: 0
   - type: "BasicConvBlock"
     params:
       in_channels: 128
       out_channels: 64
-      kernel_size: 1
+      kernel_size: 7
       stride: 1
       padding: 0
   - type: "BasicConvBlock"
     params:
       in_channels: 64
       out_channels: 32
-      kernel_size: 1
+      kernel_size: 5
       stride: 1
       padding: 0
   - type: "BasicConvBlock"
@@ -34,10 +34,9 @@ layers:
       padding: 1
   - type: "Flatten"
     params: {}
-
   - type: "Linear"
     params:
-      in_features: 26784
+      in_features: 39200 #11424
       out_features: 4096
   - type: "Dropout"
     params:
@@ -51,7 +50,7 @@ layers:
       p: 0.5
   - type: "Linear"
     params:
-      in_features: 768
+      in_features: 1024
       out_features: 256
   - type: "Dropout"
     params:

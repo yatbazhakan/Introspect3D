@@ -56,8 +56,9 @@ class IntrospectionOperator(Operator):
         #Provide the class distribution overall
         values,counts = np.unique(all_labels,return_counts=True)
         class_dist=  dict(zip(values,counts))
-        
+        c = 1e-3
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
+        # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
 
         if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
             # class_weights = [float(i)/sum(class_weights) for i in class_weights]
@@ -214,7 +215,7 @@ class IntrospectionOperator(Operator):
                     data, target = data.to(self.device), target.to(self.device)
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
                         data = self.proceesor.process(activation=data)
-                        print(type(data))
+                        # print(type(data))
                         data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
                         data = data.float()
                     elif "GAP" in self.method_info['processing']['method']:

@@ -65,7 +65,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_raw_activations_filtered_attentionc_resnet18_fcn
+    name: point_pillar_kitti_raw_activations_filtered_cbam_loss_log
   verbose: True
   method:
     task: multiclass
@@ -89,7 +89,7 @@ introspection:
         # config:
         #   bins: 2000
     model: 
-      layer_config: configs/networks/attention_resnet18_fcn.yaml
+      layer_config: configs/networks/attention_custom_fcn.yaml
     optimizer:
       type: SGD
       params: 
@@ -118,7 +118,7 @@ introspection:
     early_stop: 20
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_filtered_atc.pt
+    save_name: point_pillar_kitti_activations_raw_filtered_losslog.pt
   device: cuda:0
   dataset:
     name: ActivationDataset
@@ -129,10 +129,10 @@ introspection:
       name: kitti
   dataloader:
     all:
-      batch_size: 8
+      batch_size: 128
       shuffle: True
     train:
-      batch_size: 8
+      batch_size: 128
       shuffle: True
     test:
       batch_size: 1
