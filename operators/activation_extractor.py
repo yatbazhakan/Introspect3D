@@ -32,6 +32,10 @@ class ActivationExractionOperator(Operator):
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
             file_name = file_name.replace(self.config['method']['extension'],'')
             result, data = self.activation(cloud.points,file_name)
+            # for activation in self.activation.activation_list:
+            #     print(activation.shape)
+            # exit()
+            self.activation.save_multi_layer_activation()
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later

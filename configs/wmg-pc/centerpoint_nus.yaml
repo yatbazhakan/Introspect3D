@@ -55,11 +55,12 @@ extraction:
   method:
     name: raw_activations
     hook:
-      layer: pts_backbone
-      indexes: []
+      layer: pts_backbone.blocks #pts_backbone
+      indexes: [0,0,1]
+      extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_raw/
-    labels_file_name: nus_centerpoint_labels_raw.csv
+    save_dir: ../custom_dataset/nus_centerpoint_activations_aggregated_raw/
+    labels_file_name: nus_centerpoint_labels_aggregated_raw.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
