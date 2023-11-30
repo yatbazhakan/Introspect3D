@@ -7,8 +7,8 @@ def run_in_tmux(config_path, operator_type, session_name):
     existing_session = subprocess.run(["tmux", "has-session", "-t", session_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     if existing_session.returncode == 0:
-        # If session exists, create a new window in that session
-        subprocess.run(["tmux", "new-window", "-t", session_name])
+        # If session exists, split the current window
+        subprocess.run(["tmux", "split-window", "-v", "-t", session_name])
     else:
         # If session does not exist, create a new session
         subprocess.run(["tmux", "new-session", "-d", "-s", session_name])
@@ -28,11 +28,12 @@ def run_in_tmux(config_path, operator_type, session_name):
     python_cmd = f"python main.py -c {config_path} -o {operator_type}"
     subprocess.run(["tmux", "send-keys", "-t", session_name, python_cmd, "C-m"])
 
+
 def get_session_name():
     return simpledialog.askstring("Session Name", "Enter the tmux session name:")
 
 def run():
-    session_name = get_session_name()
+    session_name = session_name_entry.get()
     if session_name:
         run_in_tmux(config_path_entry.get(), operator_var.get(), session_name)
 
@@ -44,7 +45,8 @@ def browse_file():
 
 app = tk.Tk()
 app.title("Experiment Runner")
-
+app.bind('<Return>', (lambda event: run()))
+app.bind('<Escape>', (lambda event: app.destroy()))
 # Config file selection
 tk.Label(app, text="Config File:").grid(row=0, column=0)
 config_path_entry = tk.Entry(app, width=50)
