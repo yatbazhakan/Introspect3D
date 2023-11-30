@@ -61,8 +61,34 @@ extraction:
 introspection:
   experiment_name: point_pillar_kitti_activations
   wandb:
-    is_sweep: False
-    sweep_configuration: {}
+    is_sweep: True
+    sweep_configuration:
+      method: "grid"
+      name: "point_pillar_kitti_activations_test"
+      metric:
+        name: "val_loss"
+        goal: "minimize"
+      parameters:
+        model_yaml:
+          values:
+            - configs/networks/attention_custom_fcn.yaml
+            - configs/networks/attention_resnet18_fcn.yaml
+        optimizer:
+          values:
+            - SGD
+            - Adam
+        criterion:
+          values:
+            - CrossEntropyLoss
+            - FocalLoss
+        lr:
+          values:
+            - 0.0001
+            - 0.001
+        batch_size:
+          values:
+            - 128
+            - 256
     project: introspect3D
     entity: yatbazhakan
     mode: online
@@ -96,10 +122,10 @@ introspection:
       layer_config: configs/networks/attention_custom_fcn.yaml
     optimizer:
       type: SGD
-      params: 
-        lr: 0.0001
-        momentum: 0.9
-        weight_decay: 0.0001
+      params: {}
+        # lr: 0.0001
+        # momentum: 0.9
+        # weight_decay: 0.0001
     criterion:
       type: CrossEntropyLoss #FocalLossCustom #
       # params:
@@ -124,9 +150,9 @@ introspection:
     save_path: outputs/ckpts
     save_name: point_pillar_kitti_activations_raw_filtered_losslog.pt
   device: cuda:0
+  filtering: none
   dataset:
     name: ActivationDataset
-    filtering: none
     config:
       root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/
       label_file: kitti_point_pillars_labels_filtered.csv

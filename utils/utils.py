@@ -117,8 +117,11 @@ def clone_weights(model,layer_type,layer_config):
     return model,num_ftrs
 
 def generate_model_from_config(config):
+    print("Loading model yaml")
     path = os.path.join(ROOT_DIR,config['layer_config'])
+    print(path)
     layer_data = yaml.load(open(path),Loader=yaml.FullLoader)
+    print("Model yaml loaded")
     layers = []
     pretrained = False
     num_ftrs = None

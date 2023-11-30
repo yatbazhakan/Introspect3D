@@ -31,10 +31,11 @@ class IntrospectionOperator(Operator):
         else:
             self.proceesor = None
     def name_builder(self):
+
         dataset = self.config['dataset']['config']['name'].lower()
-        network = os.path.splitext(os.path.basename(self.method_info['model']))[0]
+        network = os.path.splitext(os.path.basename(self.method_info['model']['layer_config']))[0]
         procesing = self.method_info['processing']['method'].split(".")[-1].lower()
-        filtering = self.config['dataset']['filtering'].lower()
+        filtering = self.config ['filtering'].lower()
         self.method_info['save_name'] = f"{dataset}_{filtering}_{network}_{procesing}"
     def get_dataloader(self):
         if self.split:
@@ -89,7 +90,8 @@ class IntrospectionOperator(Operator):
         optimizer_info = self.method_info['optimizer']
         criterion_info = self.method_info['criterion']
         self.split = False
-        if self.method_info['train_test_split'] != None:
+        
+        if self.method_info['cross_validation']['type'] != None:
             self.train_test_split()
         self.get_dataloader()
 
@@ -151,8 +153,9 @@ class IntrospectionOperator(Operator):
             pbar.update(1)
         #TODO: check if this division is correct way to do so
         return epoch_loss/len(self.train_loader.dataset)
-    def update_config_from_wandb(self):
-        self.method_info['model'] = wandb.config.model
+    def update_config_from_wandb(self,conf):
+        print(wandb.config)
+        self.method_info['model']['layer_config'] = wandb.config.model_yaml
         self.method_info['optimizer']['type'] = wandb.config.optimizer
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
         self.method_info['criterion']['type'] = wandb.config.criterion
@@ -160,7 +163,11 @@ class IntrospectionOperator(Operator):
     def train(self,iteration=1):
         #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
         if self.is_sweep:
-            self.update_config_from_wandb()
+            run = wandb.init(project=self.wandb['project'], entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
+            run_config = run.config
+            print("="*100,"\n",run_config,run_config.keys(),"\n","="*100)
+            self.update_config_from_wandb(run_config)
+        print("Name Builder")
         self.name_builder()
 
         self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+f"{iteration}.pth")
@@ -171,18 +178,18 @@ class IntrospectionOperator(Operator):
         else:
             self.model = GCN(model_info)
             print(self.model)
-
+        print("Model loaded")
         early_stop_threshold = self.method_info['early_stop']
         no_improvement_count = 0
 
         self.model = self.model.to(self.device)
-        
+        print("Learning parameters initialized")
         self.initialize_learning_parameters()
         self.criterion.to(self.device)
         self.total_loss = np.inf
         previous_val_loss = np.inf
         val_loss = np.inf
-        
+        print("Training started")
         self.model.train()
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(epoch)
@@ -341,20 +348,23 @@ class IntrospectionOperator(Operator):
         
     def execute_sweep(self):
         sweep_configuration = self.wandb['sweep_configuration']
+        print(sweep_configuration)
         sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
         if self.verbose:
             print("Sweep id:",sweep_id)
             print("="*100,"\n",wandb.config,"\n","="*100)
-        wandb.agent(sweep_id, function=self.train,count=1)  
+        wandb.agent(sweep_id, function=self.train)
 
     def execute(self, **kwargs):
         if self.is_sweep:
             sweep_configuration = self.wandb['sweep_configuration']
-            # sweep_id = wandb.sweep(sweep=sweep_configuration, project='introspectionBase')
+            sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
             if self.verbose:
                 print("Sweep id:",None)
-                # print("="*100,"\n",wandb.config,"\n","="*100)
-            # wandb.agent(sweep_id, function=self.train,count=1)
+                print("="*100,"\n",wandb.config,"\n","="*100)
+            wandb.agent(sweep_id, function=self.train,count=1)
+
+                
         else:
             #Some management will be needed here
             wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])

@@ -36,7 +36,7 @@ layers:
     params: {}
   - type: "Linear"
     params:
-      in_features: 39200 #11424
+      in_features: 11424 #39200 #
       out_features: 4096
   - type: "Dropout"
     params:

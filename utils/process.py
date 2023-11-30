@@ -11,6 +11,26 @@ class NoProcessing(ActivationProcessor):
         if isinstance(activation,torch.Tensor):
             activation = activation.detach().cpu().numpy()
         return activation
+class Padding(ActivationProcessor):
+    def __init__(self,config) -> None:
+        self.config = config
+    def process(self,**kwargs):
+        activation = kwargs.get('activation')
+        final_shape = self.config['pad']
+        if isinstance(activation,torch.Tensor):
+            arr = activation.detach().cpu().numpy()
+        elif isinstance(activation,list):
+            arr = np.array(activation)
+        else:
+            arr = activation
+        # Calculate the padding required for   each dimension
+        padding = tuple((max((final_shape[i] - arr.shape[i]) // 2, 0), 
+                     max((final_shape[i] - arr.shape[i] + 1) // 2, 0))
+                    for i in range(len(arr.shape)))
+        
+        return np.pad(arr, padding, mode='edge')
+
+
 class StatisticalFeatureExtraction(ActivationProcessor):
     def __init__(self, config):
         self.config = config
@@ -265,3 +285,4 @@ class ProcessorEnum(Enum):
     SCR = SpatioChannelReshaping
     GAP = GraphActivationProcessor
     TDP = ThreeDimensionalConvolution
+    PAD = Padding
