@@ -53,32 +53,56 @@ class IntrospectionOperator(Operator):
         indices = list(range(len(self.dataset)))
         all_labels= self.dataset.get_all_labels()
         validation = self.method_info['cross_validation']
-        random_state = random.randint(0,2048) if validation['type'] == "montecarlo" else 1024
+        random_state = random.randint(0,2048) if validation['type'] == "montecarlo" and  not self.is_sweep else 1024
         train_indices, test_indices = train_test_split(indices, test_size=validation['train_test_split'],stratify=all_labels,random_state=random_state)
         self.train_dataset = Subset(self.dataset, train_indices)
         after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],stratify=all_labels[train_indices],random_state=random_state)
-        self.train_dataset = Subset(self.dataset, after_val_train_indices)
-        self.val_dataset = Subset(self.dataset, val_indices)
-        self.test_dataset = Subset(self.dataset, test_indices)
-        self.split=True
-        #Provide the class distribution overall
         values,counts = np.unique(all_labels,return_counts=True)
         class_dist=  dict(zip(values,counts))
         c = 1e-3
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
-        # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
+        if validation['balanced']:
+            train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
+            class_counts = np.bincount(train_labels_after_val)
+            min_class_count = np.min(class_counts)
+            print("Min class count:",min_class_count,"Class counts:",class_counts)
+            balanced_train_indices = []
+            for cls in np.unique(train_labels_after_val):
+                cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
+                balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
+                balanced_train_indices.extend(balanced_cls_indices)
+            after_val_train_indices = balanced_train_indices
+            balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
+            values, counts = np.unique(balanced_train_labels, return_counts=True)
+            new_class_dist = dict(zip(values, counts))
+            total_samples = len(balanced_train_indices)
+            class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
+            class_dist = new_class_dist
+        
+        
+        
+        self.train_dataset = Subset(self.dataset, after_val_train_indices)
+        self.val_dataset = Subset(self.dataset, val_indices)
+        self.test_dataset = Subset(self.dataset, test_indices)
 
-        if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
-            # class_weights = [float(i)/sum(class_weights) for i in class_weights]
-            self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
-        elif self.method_info['criterion']['type'].startswith("FocalLoss"):
-            #Getting second element of class weights since it is the error class (positive class is 1)
-            #Scale weights between 0 and 1 using sum
-            # class_weights = [float(i)/sum(class_weights) for i in class_weights]
-            if "Custom" not in self.method_info['criterion']['type']:
-                self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
-            else:
-                self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
+
+        self.split=True
+        #Provide the class distribution overall
+
+        # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
+        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+
+        # if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
+        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+        #     self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+        # elif self.method_info['criterion']['type'].startswith("FocalLoss"):
+        #     #Getting second element of class weights since it is the error class (positive class is 1)
+        #     #Scale weights between 0 and 1 using sum
+        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+        #     if "Custom" not in self.method_info['criterion']['type']:
+        #         self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
+        #     else:
+        #         self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
         if self.verbose:
 
             print("Class distribution:",class_dist)
@@ -152,7 +176,7 @@ class IntrospectionOperator(Operator):
             epoch_loss += loss.item()
             pbar.update(1)
         #TODO: check if this division is correct way to do so
-        return epoch_loss/len(self.train_loader.dataset)
+        return epoch_loss
     def update_config_from_wandb(self,conf):
         print(wandb.config)
         self.method_info['model']['layer_config'] = wandb.config.model_yaml
@@ -277,7 +301,7 @@ class IntrospectionOperator(Operator):
                             (all_labels, target),dim=0
                         )
                     pbar.update(1)
-        test_loss /= len(loader.dataset)       
+        # test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
             wandb.log({f'test_loss_{iteration}':test_loss})

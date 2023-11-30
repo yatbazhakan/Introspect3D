@@ -61,7 +61,7 @@ extraction:
 introspection:
   experiment_name: point_pillar_kitti_activations
   wandb:
-    is_sweep: True
+    is_sweep: False
     sweep_configuration:
       method: "grid"
       name: "point_pillar_kitti_activations_test"
@@ -92,13 +92,14 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_raw_activations_filtered_cbam_loss_log
+    name: point_pillar_kitti_raw_activations_all
   verbose: True
   method:
     task: multiclass
     cross_validation:
       type: holdout
       iteration: 1
+      balanced: False
       train_test_split: 0.2
       validation_split: 0.2
     processing:
@@ -121,16 +122,18 @@ introspection:
     model: 
       layer_config: configs/networks/attention_custom_fcn.yaml
     optimizer:
-      type: SGD
-      params: {}
-        # lr: 0.0001
+      type: Adam
+      params: 
+        lr: 0.001
         # momentum: 0.9
-        # weight_decay: 0.0001
+        weight_decay: 0.0001
     criterion:
-      type: CrossEntropyLoss #FocalLossCustom #
+      type: FocalLoss #CrossEntropyLoss #
       # params:
       #   gamma: 4
       params: 
+        reduction: sum
+        gamma: 4
         weight: [0.78, 1.39]
       # params:
       #   gamma: 1
@@ -148,22 +151,22 @@ introspection:
     early_stop: 20
     sanity_check: False
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_filtered_losslog.pt
+    save_name: point_pillar_kitti_activations_raw_filtered_losslog2.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/
-      label_file: kitti_point_pillars_labels_filtered.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
+      label_file: kitti_point_pillars_labels_raw.csv
       classes: ['No Error', 'Error']
       name: kitti
   dataloader:
     all:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     train:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     test:
       batch_size: 1
