@@ -15,7 +15,7 @@ class YAMLGUI:
 
         self.tree_frame = tk.Frame(root)
         self.tree_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.tree = ttk.Treeview(self.tree_frame, columns=('Value',), style="Bold.Treeview")
+        self.tree = ttk.Treeview(self.tree_frame, columns=('value',), style="Bold.Treeview")
 
         self.tree.column('#0', width=150)
         self.tree.column('value', width=400, anchor='w')
@@ -24,6 +24,7 @@ class YAMLGUI:
         self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.tree.bind('<Double-1>', self.edit_tree_item)
         self.root.bind('<Configure>', self.on_resize)
+        self.tree.bind('<Delete>', self.delete_tree_item)
         self.collapse_button = tk.Button(self.tree_frame, text="Collapse All", command=self.collapse_all)
         self.collapse_button.pack(side=tk.BOTTOM)
         self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -127,6 +128,24 @@ class YAMLGUI:
             data = data.setdefault(key, {})
         data[path[-1]] = value
 
+    def delete_tree_item(self, event):
+        selected_item = self.tree.selection()
+        if selected_item:  # If there is a selection
+            selected_item = selected_item[0]
+            path = self.get_path(selected_item)
+            if path:  # If the path is not the root
+                parent_id = self.tree.parent(selected_item)
+                parent_path = self.get_path(parent_id)
+
+                # Update yaml_data
+                data = self.get_nested_value(self.yaml_data, parent_path)
+                if isinstance(data, dict):
+                    key_to_delete = path[-1]
+                    if key_to_delete in data:
+                        del data[key_to_delete]  # Delete from yaml_data
+
+                # Update treeview
+                self.tree.delete(selected_item)
     # def export_file(self):
     #     file_path = filedialog.asksaveasfilename(defaultextension=".yaml", filetypes=[("YAML files", "*.yaml")])
     #     if file_path and self.yaml_data:

@@ -18,6 +18,7 @@ class Activations:
         method = config['method']
         self.save_dir = method['save_dir']
         self.extension =  method['extension']
+    
         self.hooks = []
         self.activation_list= []
         #TODO: better way to do this, indexes are not used right now, save activation must be generalized

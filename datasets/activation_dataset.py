@@ -13,6 +13,8 @@ class ActivationDataset:
         self.classes = config['classes']
         self.feature_paths = self.get_feature_paths()
         self.label_file = self.get_label_file()
+        self.label_field = config['label_field']
+        self.threshold = config.get('threshold',None)
         self.labels = pd.read_csv(self.label_file)
         self.labels['name'] = self.labels['name'].astype(str)
         #remove if any leading path is there in self labels['name']
@@ -41,8 +43,12 @@ class ActivationDataset:
         # name_from_idx = int(self.feature_paths[idx].split('/')[-1].replace('.npy',''))
         # print(idx,self.labels['name'].values)
         # print(idx in self.labels['name'].values)
-        label = self.labels[self.labels['name']==idx]['is_missed'].values[0]
-        label = 1 if label else 0
+        if self.threshold == None:
+            label = self.labels[self.labels['name']==idx]['is_missed'].values[0]
+            label = 1 if label else 0
+            return label
+        label = self.labels[self.labels['name']==idx][self.label_field].values[0]
+        label = 1 if label > self.threshold else 0
         return label
     def __getitem__(self, idx):
         feature_path = self.feature_paths[idx]
@@ -51,9 +57,19 @@ class ActivationDataset:
         label = self.get_label(feature_name)
         tensor_feature = torch.from_numpy(feature)
         tensor_label = torch.LongTensor([label])
+
         # print(tensor_label)
         return tensor_feature, tensor_label, feature_name
     def __len__(self):
         return len(self.feature_paths)
     def get_all_labels(self):
-        return self.labels['is_missed'].values
+        if self.threshold == None:
+            return self.labels['is_missed'].values
+        map_values = self.labels[self.label_field].values
+        bool_values = map_values > self.threshold
+        return bool_values.astype(int)
+    
+class ActivationDatasetLegacy:
+    def __init__(self) -> None:
+        pass
+    #Init to be used for legacy code if needed

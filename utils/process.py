@@ -16,17 +16,23 @@ class Padding(ActivationProcessor):
         self.config = config
     def process(self,**kwargs):
         activation = kwargs.get('activation')
+        # print(activation.shape)
         final_shape = self.config['pad']
+        final_shape = np.array(final_shape)
+        final_shape = (activation.shape[0],*final_shape)
+        # print("FInal shape",final_shape)
+
         if isinstance(activation,torch.Tensor):
             arr = activation.detach().cpu().numpy()
         elif isinstance(activation,list):
             arr = np.array(activation)
         else:
             arr = activation
+        
         # Calculate the padding required for   each dimension
         padding = tuple((max((final_shape[i] - arr.shape[i]) // 2, 0), 
                      max((final_shape[i] - arr.shape[i] + 1) // 2, 0))
-                    for i in range(len(arr.shape)))
+                    for i in range(0,len(arr.shape)))
         
         return np.pad(arr, padding, mode='edge')
 
