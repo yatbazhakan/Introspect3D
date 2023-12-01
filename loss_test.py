@@ -6,8 +6,61 @@ import os
 import pandas as pd
 from glob import glob
 from definitions import ROOT_DIR
+from utils.metrics import TPRatFPR, FPRatTPR
+
+# Simple deterministi
+
+y_true_multiclass = torch.tensor([0, 0, 1, 1, 1, 0, 0, 1])
+y_scores_multiclass = torch.tensor([
+    [0.9, 0.1],  # High probability for class 0
+    [0.8, 0.2],  # High probability for class 0
+    [0.2, 0.8],  # High probability for class 1
+    [0.6, 0.4],  # Higher probability for class 0
+    [0.1, 0.9],  # High probability for class 1
+    [0.7, 0.3],  # Higher probability for class 0
+    [0.4, 0.6],  # Higher probability for class 1
+    [0.3, 0.7]   # Higher probability for class 1
+])
+
+tpratfpr = TPRatFPR()
+tpratfpr.update(y_true_multiclass, y_scores_multiclass)
+print(tpratfpr.compute())
+fprattpr = FPRatTPR()
+fprattpr.update(y_true_multiclass, y_scores_multiclass)
+print(fprattpr.compute())
 
 
+import torch
+from sklearn.metrics import roc_curve
+
+# Provided data
+y_true_multiclass = torch.tensor([0, 0, 1, 1, 1, 0, 0, 1])
+y_scores_multiclass = torch.tensor([
+    [0.9, 0.1],
+    [0.8, 0.2],
+    [0.2, 0.8],
+    [0.6, 0.4],
+    [0.1, 0.9],
+    [0.7, 0.3],
+    [0.4, 0.6],
+    [0.3, 0.7]
+])
+
+# We will focus on the scores for class 1 (the second column)
+y_scores_class1 = y_scores_multiclass[:, 1]
+
+# Calculate ROC curve
+fpr, tpr, thresholds = roc_curve(y_true_multiclass, y_scores_class1)
+
+# Find the closest point on the ROC curve with TPR>=0.95
+closest_tpr_index = np.where(tpr >= 0.95)[0][0]
+fpr_at_95tpr = fpr[closest_tpr_index]
+
+# Find the closest point on the ROC curve with FPR<=0.05
+closest_fpr_index = np.where(fpr <= 0.05)[0][-1]  # Get the last index where FPR is below 0.05
+tpr_at_05fpr = tpr[closest_fpr_index]
+
+print(fpr_at_95tpr, tpr_at_05fpr)
 # For binary classification, there are 2 classes
 # num_classes = 2
 
