@@ -1,4 +1,4 @@
-experiment_name: yolov8_kitti_test
+experiment_name: point_pillar_kitti_activations
 experiment_path: ./
 device: cuda:0
 method: activations
@@ -65,9 +65,9 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: yolov8_kitti_activations
+  experiment_name: point_pillar_kitti_activations
   wandb:
-    is_sweep: True
+    is_sweep: true
     sweep_configuration:
       method: grid
       name: point_pillar_kitti_activations_test
@@ -77,57 +77,55 @@ introspection:
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn.yaml
-          # - configs/networks/attention_custom_fcn.yaml
-          # - configs/networks/attention_resnet18_fcn.yaml
+          - configs/networks/attention_custom_fcn.yaml
+          - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
           - SGD
           - Adam
         criterion:
           values:
+          - CrossEntropyLoss
           - FocalLoss
         lr:
           values:
           - 0.0001
           - 0.001
-          - 0.01
         batch_size:
           values:
-          - 16
-          - 32
-          - 64
-    project: introspection-legacy
+          - 128
+          - 256
+    project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: yolov8_kitti_activations
+    name: point_pillar_kitti_raw_activations_all
   verbose: true
   method:
     task: multiclass
     cross_validation:
-      type: holdout
-      iteration: 1
+      type: montecarlo
+      iteration: 5
       balanced: false
       train_test_split: 0.2
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.PAD
+      method: ProcessorEnum.RAW
       params:
         config:
           grid_size: 16
-          pad: [256,40,40]
+          pad: 0
     model:
-      layer_config: configs/networks/resnet18_fcn.yaml
+      layer_config: configs/networks/attention_custom_fcn.yaml
     optimizer:
-      type: SGD
+      type: Adam
       params:
         lr: 0.001
         weight_decay: 0.0001
     criterion:
       type: FocalLoss
       params:
-        reduction: mean
+        reduction: sum
         gamma: 5
         weight:
         - 0.78
@@ -143,26 +141,25 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: yolov8_kitti_custom.pt
+    save_name: point_pillar_kitti_activations_raw_filtered_losslog2.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/error_datasets/yolov8n/version-proposed-yolov8-kitti/training/
-      label_file: labels_kitti_raw.csv
-      label_field: map50
-      threshold: 0.5
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
+      label_file: kitti_point_pillars_labels_raw.csv
+      label_field: is_missed
       classes:
       - No Error
       - Error
       name: kitti
   dataloader:
     all:
-      batch_size: 16
+      batch_size: 64
       shuffle: true
     train:
-      batch_size: 16
+      batch_size: 64
       shuffle: true
     test:
       batch_size: 1

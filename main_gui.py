@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog
 import subprocess
 from definitions import CONFIG_DIR
+from tkinter import messagebox  # Add this import at the top
+
 def run_in_tmux(config_path, operator_type, session_name):
     # Check if the session already exists
     existing_session = subprocess.run(["tmux", "has-session", "-t", session_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -25,8 +27,13 @@ def run_in_tmux(config_path, operator_type, session_name):
         subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "C-m"])
 
     # Run the Python script
-    python_cmd = f"python main.py -c {config_path} -o {operator_type}"
-    subprocess.run(["tmux", "send-keys", "-t", session_name, python_cmd, "C-m"])
+    python_cmd = f"python -W ignore main.py -c {config_path} -o {operator_type}"
+    result = subprocess.run(["tmux", "send-keys", "-t", session_name, python_cmd, "C-m"])
+
+    if result.returncode == 0:
+        return "Operation started successfully in tmux."
+    else:
+        return "Operation failed to start in tmux."
 
 
 def get_session_name():
@@ -35,7 +42,8 @@ def get_session_name():
 def run():
     session_name = session_name_entry.get()
     if session_name:
-        run_in_tmux(config_path_entry.get(), operator_var.get(), session_name)
+        message = run_in_tmux(config_path_entry.get(), operator_var.get(), session_name)
+        messagebox.showinfo("Run Status", message)
 
 def browse_file():
     filename = filedialog.askopenfilename(initialdir=CONFIG_DIR, title="Select Config File",

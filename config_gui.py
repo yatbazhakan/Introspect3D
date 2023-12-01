@@ -57,6 +57,7 @@ class YAMLGUI:
             self.bold_font.configure(size=self.font_size)
             self.style.configure("Bold.Treeview", font=self.bold_font)
 
+
     def edit_tree_item(self, event):
         column = self.tree.identify_column(event.x)
         item = self.tree.identify_row(event.y)
@@ -66,10 +67,20 @@ class YAMLGUI:
             current_value = self.get_nested_value(self.yaml_data, path)
 
             if not isinstance(current_value, dict):  # We don't allow editing dict values directly
-                new_value = simpledialog.askstring("Edit Value", "Edit the value:", initialvalue=current_value)
+                new_value = simpledialog.askstring("Edit Value", "Edit the value:", initialvalue=str(current_value))
                 if new_value is not None:
+                    # Attempt to preserve the original data type
+                    try:
+                        if isinstance(current_value, int):
+                            new_value = int(new_value)
+                        elif isinstance(current_value, float):
+                            new_value = float(new_value)
+                        # Add other data types as necessary
+                    except ValueError:
+                        pass  # If conversion fails, keep new_value as string
+
                     self.set_nested_value(self.yaml_data, path, new_value)
-                    self.tree.set(item, column=column, value=new_value)
+                    self.tree.set(item, column=column, value=str(new_value))
 
     def open_file(self):
         file_path = filedialog.askopenfilename(initialdir=CONFIG_DIR,filetypes=[("YAML files", "*.yaml")])

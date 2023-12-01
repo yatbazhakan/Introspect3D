@@ -370,15 +370,12 @@ class IntrospectionOperator(Operator):
         #This is messy but to try
         self.log_metrics(mode,task,iteration)
         
-    def execute_sweep(self):
-        sweep_configuration = self.wandb['sweep_configuration']
-        print(sweep_configuration)
-        sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
-        if self.verbose:
-            print("Sweep id:",sweep_id)
-            print("="*100,"\n",wandb.config,"\n","="*100)
-        wandb.agent(sweep_id, function=self.train)
-
+    def train_sweep(self): #Basic wrapper for wandb sweep with montecarlo cross validation
+        print("Wrapper initialized")
+        for i in range(self.method_info['cross_validation']['iteration']):
+            self.train(i)
+            self.evaluate(i)
+        
     def execute(self, **kwargs):
         if self.is_sweep:
             sweep_configuration = self.wandb['sweep_configuration']
@@ -386,7 +383,10 @@ class IntrospectionOperator(Operator):
             if self.verbose:
                 print("Sweep id:",None)
                 print("="*100,"\n",wandb.config,"\n","="*100)
-            wandb.agent(sweep_id, function=self.train,count=1)
+            if self.method_info['cross_validation']['type'] != "montecarlo":
+                wandb.agent(sweep_id, function=self.train)
+            else:
+                wandb.agent(sweep_id, function=self.train_sweep)
 
                 
         else:

@@ -7,22 +7,7 @@ import pandas as pd
 from glob import glob
 from definitions import ROOT_DIR
 
-pth = "/mnt/ssd2/error_datasets/yolov8n/version-proposed-yolov8-kitti"
-print(pth)
-labels=  pd.read_csv(os.path.join(pth,"training","labels_kitti_raw.csv"))
-# files = glob(os.path.join(pth,"version-proposed-yolov8-kitti","training","features","*.npy"))
-files = glob(os.path.join(pth,"training","features","*.npy"))
 
-shapes = []
-for file in files:
-	t = np.load(file)
-	if t.shape[1] == t.shape[2]:
-		print(file)
-        
-shapes = np.array(shapes)
-#Unique shapes and counts 
-unique, counts = np.unique(shapes, return_counts=True, axis=0)
-print(unique,counts)
 # For binary classification, there are 2 classes
 # num_classes = 2
 
