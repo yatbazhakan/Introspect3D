@@ -36,7 +36,15 @@ class Padding(ActivationProcessor):
         
         return np.pad(arr, padding, mode='edge')
 
-class 
+class PadAndASH(ActivationProcessor):
+    def __init__(self,config) -> None:
+        self.config = config
+        self.pad = Padding(config)
+        self.ash = ExtremelySimpleActivationShaping(config)
+    def process(self,**kwargs):
+        pad_activation = self.pad.process(**kwargs)
+        ash_activation = self.ash.process(activation=pad_activation)
+        return ash_activation
 class StatisticalFeatureExtraction(ActivationProcessor):
     def __init__(self, config):
         self.config = config
@@ -292,3 +300,4 @@ class ProcessorEnum(Enum):
     GAP = GraphActivationProcessor
     TDP = ThreeDimensionalConvolution
     PAD = Padding
+    PADASH = PadAndASH

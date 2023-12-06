@@ -114,6 +114,7 @@ introspection:
       method: ProcessorEnum.PADASH
       params:
         config:
+          method: p
           percentile: 90
           grid_size: 16
           pad: [256,40,40]
