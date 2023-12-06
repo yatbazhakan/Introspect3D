@@ -83,7 +83,6 @@ introspection:
         optimizer:
           values:
           - SGD
-          - Adam
         criterion:
           values:
           - FocalLoss
@@ -112,9 +111,10 @@ introspection:
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.PAD
+      method: ProcessorEnum.PADASH
       params:
         config:
+          percentile: 90
           grid_size: 16
           pad: [256,40,40]
     model:

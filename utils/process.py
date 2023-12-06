@@ -36,7 +36,7 @@ class Padding(ActivationProcessor):
         
         return np.pad(arr, padding, mode='edge')
 
-
+class 
 class StatisticalFeatureExtraction(ActivationProcessor):
     def __init__(self, config):
         self.config = config

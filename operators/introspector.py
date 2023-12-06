@@ -326,8 +326,8 @@ class IntrospectionOperator(Operator):
         for metric_name in self.metrics.keys():
             if 'ConfusionMatrix' in metric_name:
                 cm = self.metrics[metric_name]
-                wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
-                wandb.log({f'{mode}_confusion_matrix_{iteration}':wandb_table})
+                # wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
+                # wandb.log({f'{mode}_confusion_matrix_{iteration}':wandb_table})
                 cm = cm.cpu().numpy()
                 cm = cm.astype(int)
                 tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
@@ -373,6 +373,7 @@ class IntrospectionOperator(Operator):
     def train_sweep(self): #Basic wrapper for wandb sweep with montecarlo cross validation
         print("Wrapper initialized")
         for i in range(self.method_info['cross_validation']['iteration']):
+            print("Iteration:",i)
             self.train(i)
             self.evaluate(i)
         
