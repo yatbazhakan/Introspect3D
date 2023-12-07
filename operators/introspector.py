@@ -187,6 +187,7 @@ class IntrospectionOperator(Operator):
     def train(self,iteration=1):
         #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
         if self.is_sweep:
+            print("Sweep configuration")
             run = wandb.init(project=self.wandb['project'], entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
             run_config = run.config
             print("="*100,"\n",run_config,run_config.keys(),"\n","="*100)

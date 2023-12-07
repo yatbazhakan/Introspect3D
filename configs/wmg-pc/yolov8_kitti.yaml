@@ -82,6 +82,7 @@ introspection:
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
+          - Adam
           - SGD
         criterion:
           values:
@@ -104,8 +105,8 @@ introspection:
   method:
     task: multiclass
     cross_validation:
-      type: holdout
-      iteration: 1
+      type: montecarlo
+      iteration: 5
       balanced: false
       train_test_split: 0.2
       validation_split: 0.2
