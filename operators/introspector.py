@@ -244,7 +244,8 @@ class IntrospectionOperator(Operator):
                 if no_improvement_count >= early_stop_threshold:
                     if self.verbose:
                         print("Early stopping")
-                    break        
+                    break
+
 
     def evaluate(self,iteration=1,loader=None,epoch=None):
         if loader == None:
@@ -384,10 +385,7 @@ class IntrospectionOperator(Operator):
             if self.verbose:
                 print("Sweep id:",None)
                 print("="*100,"\n",wandb.config,"\n","="*100)
-            if self.method_info['cross_validation']['type'] != "montecarlo":
-                wandb.agent(sweep_id, function=self.train)
-            else:
-                wandb.agent(sweep_id, function=self.train_sweep)
+            wandb.agent(sweep_id, function=self.train_sweep)
 
                 
         else:
