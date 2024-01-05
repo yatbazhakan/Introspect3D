@@ -65,7 +65,7 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: yolov8_bdd_activations
+  experiment_name: yolov8_bdd_activations_sf
   wandb:
     is_sweep: True
     sweep_configuration:
@@ -77,7 +77,7 @@ introspection:
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn.yaml
+          - configs/networks/fcn_only.yaml
         optimizer:
           values:
           - SGD
@@ -98,7 +98,7 @@ introspection:
     project: introspection-legacy
     entity: yatbazhakan
     mode: online
-    name: yolov8_bdd_activations
+    name: yolov8_bdd_activations_SF
   verbose: true
   method:
     task: multiclass
@@ -110,11 +110,17 @@ introspection:
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.PAD
+      method: ProcessorEnum.SF
       params:
         config:
-          grid_size: 16
-          pad: [256,40,40]
+          functions:          
+            - mean
+            - max
+            - std
+          # method: p
+          # percentile: 90
+          # grid_size: 16
+          # pad: [256,40,40]
     model:
       layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
@@ -141,7 +147,7 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: yolov8_bdd_custom.pt
+    save_name: yolov8_bdd_sf.pt
   device: cuda:0
   filtering: none
   dataset:

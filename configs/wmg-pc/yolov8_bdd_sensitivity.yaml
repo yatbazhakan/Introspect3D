@@ -1,4 +1,4 @@
-experiment_name: yolov8_kitti_test
+experiment_name: yolov8_bdd_test
 experiment_path: ./
 device: cuda:0
 method: activations
@@ -65,25 +65,23 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: yolov8_kitti_activations
+  experiment_name: yolov8_bdd_activations
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: yolo_kitti_sf_sweep
+      name: bdd_sensitivity_test_04
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          # - configs/networks/resnet18_fcn.yaml
-          - configs/networks/fcn_only.yaml
-          # - configs/networks/attention_resnet18_fcn.yaml
+          - configs/networks/resnet18_fcn.yaml
         optimizer:
           values:
-          - Adam
           - SGD
+          - Adam
         criterion:
           values:
           - FocalLoss
@@ -94,35 +92,31 @@ introspection:
           - 0.01
         batch_size:
           values:
-          - 16
+          - 18
           - 32
           - 64
     project: introspection-legacy
     entity: yatbazhakan
     mode: online
-    name: yolov8_kitti_activations_sf
+    name: yolov8_bdd_activations_sensitivity_04
   verbose: true
   method:
     task: multiclass
     cross_validation:
-      type: montecarlo
-      iteration: 5
+      type: holdout
+      iteration: 1
       balanced: false
       train_test_split: 0.2
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.SF
+      method: ProcessorEnum.PADASH
       params:
         config:
-          # method: p
-          # percentile: 90
-          # grid_size: 16
-          # pad: [256,40,40]
-          functions:
-          - mean
-          - max
-          - std
+          method: p
+          percentile: 90
+          grid_size: 16
+          pad: [256,40,40]
     model:
       layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
@@ -149,20 +143,20 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: yolov8_kitti_sf.pt
+    save_name: yolov8_bdd_pad_senst04.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/error_datasets/yolov8n/version-proposed-yolov8-kitti/training/
-      label_file: labels_kitti_raw.csv
+      root_dir: /mnt/ssd2/error_datasets/yolov8n/version-proposed-yolov8-bdd-raw/training/
+      label_file: labels_bdd_raw.csv
       label_field: map50
-      threshold: 0.5
+      threshold: 0.4
       classes:
       - No Error
       - Error
-      name: kitti
+      name: bdd
   dataloader:
     all:
       batch_size: 16

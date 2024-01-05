@@ -15,6 +15,7 @@ class ActivationDataset:
         self.label_file = self.get_label_file()
         self.label_field = config['label_field']
         self.threshold = config.get('threshold',None)
+        print("Threshold is ",self.threshold)
         self.labels = pd.read_csv(self.label_file)
         self.labels['name'] = self.labels['name'].astype(str)
         #remove if any leading path is there in self labels['name']
