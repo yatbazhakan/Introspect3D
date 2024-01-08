@@ -1,17 +1,42 @@
 import json
 import os
 from PIL import Image
+from sklearn.model_selection import train_test_split
 
 class DatasetConverter:
     def __init__(self, **kwargs):
-        self.configs = kwargs['image_dir']
+        self.configs = kwargs
         self.coco = {
             "images": [],
             "annotations": [],
             "categories": []
         }
         self.ann_id = 1
+        if self.configs['dataset_type'] == 'KITTI':
+            self.image_dir = os.path.join(self.configs['root_dir'], 'training', 'image_2')
+            self.label_dir = os.path.join(self.configs['root_dir'], 'training', 'label_2')
+        elif self.configs['dataset_type'] == 'BDD':
+            self.image_dir = os.path.join(self.configs['root_dir'], 'images', '100k', 'train')
+            self.label_dir = os.path.join(self.configs['root_dir'], 'labels')
+    def split_dataset(self,split_ratio=0.2):
+        self.output_dir = self.configs['output_dir']
+        dataset_type = self.configs['dataset_type']
+        annotation_file =  os.path.join(self.output_dir, f'{dataset_type}_coco_format.json')
+        # Load the entire dataset
+        with open(os.path.join(self.label_dir, annotation_file), 'r') as file:
+            data = json.load(file)
 
+        # Split the data into training and validation sets
+        train_data, val_data = train_test_split(data['images'], test_size=split_ratio, random_state=42)
+        print(len(train_data), len(val_data))
+        # Save the new annotation files
+        with open(os.path.join(self.output_dir, 'instances_train.json'), 'w') as file:
+            json.dump({'images': train_data, 'annotations': data['annotations'], 'categories': data['categories']}, file)
+
+        with open(os.path.join(self.output_dir, 'instances_val.json'), 'w') as file:
+            json.dump({'images': val_data, 'annotations': data['annotations'], 'categories': data['categories']}, file)
+
+        print("Dataset split into training and validation sets and saved.")
     def add_category(self, name, id_):
         self.coco['categories'].append({
             'id': id_,
