@@ -47,6 +47,7 @@ extraction:
     checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
   method:
     name: raw_activations
+    save_input: true
     hook:
       layer: backbone.blocks
       indexes:
@@ -65,9 +66,9 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: point_pillar_kitti_activations
+  experiment_name: point_pillar_kitti_multi_feature
   wandb:
-    is_sweep: true
+    is_sweep: True
     sweep_configuration:
       method: grid
       name: point_pillar_kitti_activations_test
@@ -77,15 +78,14 @@ introspection:
       parameters:
         model_yaml:
           values:
-          - configs/networks/attention_custom_fcn.yaml
-          - configs/networks/attention_resnet18_fcn.yaml
+          - configs/networks/resnet18_fcn.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
           - SGD
           - Adam
         criterion:
           values:
-          - CrossEntropyLoss
           - FocalLoss
         lr:
           values:
@@ -98,7 +98,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_raw_activations_all
+    name: point_pillar_kitti_multi_feature_test
   verbose: true
   method:
     task: multiclass
@@ -110,13 +110,13 @@ introspection:
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.MULTI
       params:
         config:
           grid_size: 16
           pad: 0
     model:
-      layer_config: configs/networks/attention_custom_fcn.yaml
+      layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
       type: Adam
       params:
@@ -147,19 +147,20 @@ introspection:
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_raw/
-      label_file: kitti_point_pillars_labels_raw.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+      label_file: kitti_point_pillars_labels_aggregated_raw.csv
       label_field: is_missed
+      is_multi_feature: True
       classes:
       - No Error
       - Error
       name: kitti
   dataloader:
     all:
-      batch_size: 64
+      batch_size: 4
       shuffle: true
     train:
-      batch_size: 64
+      batch_size: 4
       shuffle: true
     test:
       batch_size: 1

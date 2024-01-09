@@ -74,7 +74,7 @@ class DatasetConverter:
                 "file_name": image_id + '.png',
                 "height": image_height,
                 "width": image_width,
-                "id": image_id
+                "id": int(image_id)
             })
 
             # Annotations
@@ -91,7 +91,7 @@ class DatasetConverter:
                         # COCO bounding box format: [min_x, min_y, width, height]
                         self.coco['annotations'].append({
                             "id": self.ann_id,
-                            "image_id": image_id,
+                            "image_id": int(image_id),
                             "category_id": next(cat['id'] for cat in self.coco['categories'] if cat['name'] == category_name),
                             "bbox": [left, top, width, height],
                             "area": width * height,

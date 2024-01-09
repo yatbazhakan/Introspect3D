@@ -35,7 +35,7 @@ class ActivationExractionOperator(Operator):
             # for activation in self.activation.activation_list:
             #     print(activation.shape)
             # exit()
-            self.activation.save_multi_layer_activation()
+            # self.activation.save_multi_layer_activation()
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later

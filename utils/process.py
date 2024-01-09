@@ -192,6 +192,13 @@ class ThreeDimensionalConvolution(ActivationProcessor):
         #add 1 dimension after batch  and return
         activation = np_activation[:,None,:,:,:]
         return activation
+class MultiFeatureActivation(ActivationProcessor): #Just an identity function for now
+    def __init__(self, config):
+        self.config = config
+    def process(self, **kwargs):
+        activation = kwargs.get('activation')
+        return activation
+
 class SpatioChannelReshaping(ActivationProcessor):
     def __init__(self, config):
         self.config = config
@@ -301,3 +308,4 @@ class ProcessorEnum(Enum):
     TDP = ThreeDimensionalConvolution
     PAD = Padding
     PADASH = PadAndASH
+    MULTI = MultiFeatureActivation

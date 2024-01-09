@@ -1,7 +1,7 @@
 # dataset settings
 dataset_type = 'CocoDataset'
-classes = ('car', 'pedestrian', 'truck','bus', 'train')  # Update the class names based on your dataset
-data_root = '/mnt/ssd2/bdd100k/'  # Update this path
+classes = ('Car', 'Pedestrian', 'Cyclist')  # Update the class names based on your dataset
+data_root = '/mnt/ssd2/kitti/'  # Update this path
 n_classes = len(classes)
 # Example to use different file client
 # Method 1: simply set the data root and let the file I/O module
@@ -37,7 +37,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
     num_workers=2,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -48,7 +48,7 @@ train_dataloader = dict(
         metainfo=dict(classes=classes),
         data_root=data_root,
         ann_file='coco/instances_train.json',
-        data_prefix=dict(img='images/100k/train'),
+        data_prefix=dict(img='training/image_2'),
         filter_cfg=dict(filter_empty_gt=True, min_size=32),
         pipeline=train_pipeline,
         backend_args=backend_args))
@@ -63,7 +63,7 @@ val_dataloader = dict(
         metainfo=dict(classes=classes),
         data_root=data_root,
         ann_file='coco/instances_val.json',
-        data_prefix=dict(img='images/100k/train'),
+        data_prefix=dict(img='training/image_2'),
         test_mode=True,
         pipeline=test_pipeline,
         backend_args=backend_args))

@@ -5,12 +5,14 @@ import pandas as pd
 from utils.process import *
 from glob import glob
 import os
-
+import pickle
 class ActivationDataset:
-    def __init__(self,config) -> None:
+    def __init__(self,config,extension ="") -> None:
         self.config = config
+        self.extension = extension  
         self.root_dir = config['root_dir']
         self.classes = config['classes']
+        self.is_multi_feature = config.get('is_multi_feature',False)
         self.feature_paths = self.get_feature_paths()
         self.label_file = self.get_label_file()
         self.label_field = config['label_field']
@@ -26,7 +28,7 @@ class ActivationDataset:
         if len(self.labels) != len(self.feature_paths):
             temp_paths = []
             for path in self.feature_paths:
-                name = path.split('/')[-1].replace('.npy','')
+                name = path.split('/')[-1].replace(self.extension,'')
             
                 # print(type(name),type(self.labels['name'].values[-1]),name in self.labels['name'].values)
                 if name in self.labels['name'].values:
@@ -37,7 +39,7 @@ class ActivationDataset:
             print(len(self.feature_paths),len(self.labels))
 
     def get_feature_paths(self):
-        return sorted(glob(os.path.join(self.root_dir,'features', '*.npy')))
+        return sorted(glob(os.path.join(self.root_dir,'features', f'*{self.extension}')))
     def get_label_file(self):
         return os.path.join(self.root_dir,self.config["label_file"])
     def get_label(self,idx):
@@ -53,10 +55,22 @@ class ActivationDataset:
         return label
     def __getitem__(self, idx):
         feature_path = self.feature_paths[idx]
-        feature_name = feature_path.split('/')[-1].replace('.npy','')
-        feature = np.load(feature_path)
+        feature_name = feature_path.split('/')[-1].replace(self.extension,'')
+        # print(feature_name)
+        if self.is_multi_feature:
+            pickle_path = feature_path.replace('.npy','')
+            with open(pickle_path,'rb') as f:
+                feature = pickle.load(f)
+            first = torch.from_numpy(feature[0])
+            second = torch.from_numpy(feature[1])
+            third = torch.from_numpy(feature[2])
+            tensor_feature = [first,second,third]        
+
+        else:
+            feature = np.load(feature_path)
+            tensor_feature = torch.from_numpy(feature)
         label = self.get_label(feature_name)
-        tensor_feature = torch.from_numpy(feature)
+        
         tensor_label = torch.LongTensor([label])
 
         # print(tensor_label)

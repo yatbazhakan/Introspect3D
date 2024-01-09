@@ -3,27 +3,31 @@ import numpy as np
 import os
 import pickle
 from definitions import ROOT_DIR
+from utils.utils import load_detection_model, check_and_create_folder
+
 try:
     from mmdet3d.apis import inference_detector, init_model
-    from utils.utils import load_detection_model, check_and_create_folder
 except:
-    print("DIfferent environment, some packages will be missing")
+    print("Could not load mmdet3d, some packages will be missing")
     pass
 class Activations:
 
     def __init__(self,
                  config,extract=True) -> None:
         self.model = load_detection_model(config)
+        print(self.model)
         self.config = config
         method = config['method']
         self.save_dir = method['save_dir']
         self.extension =  method['extension']
-    
+        self.save_input = method['save_input']
         self.hooks = []
         self.activation_list= []
         #TODO: better way to do this, indexes are not used right now, save activation must be generalized
         if extract:
             print("Hook initialized")
+            # if self.save_input:
+            #     input_hool = self.model.backbone.register_forward_hook(self.register_prerpocessing_output)
             self.hook_layers = method['hook']['indexes']
             for i,index in enumerate(self.hook_layers):
                 extract = method['hook']['extract_from'][i]
@@ -36,7 +40,7 @@ class Activations:
         else:
             self.hook = None
             
-        check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
+        # check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
 
     def __call__(self, x,name):
         self.save_name = name.split('/')[-1]
@@ -56,11 +60,19 @@ class Activations:
         #np.save(os.path.join(self.save_dir,"features" ,save_name), self.activation_list)
         del self.activation_list
         self.activation_list = []
+    def register_prerpocessing_output(self,module, input, output):
+        # print(output[0].shape,output[1].shape)
+        # print(len(output))
+        print(len(input),input[0].shape)
+
+        last_output = input[0].detach().cpu().numpy()
     def register_activation_output(self,module, input, output):
         # print(output[0].shape,output[1].shape)
         # print(len(output))
         last_output = output.detach().cpu().numpy() #TODO: generalize this
         # print("Last output shape",last_output.shape)
+        print(last_output.shape)
+        print("-------------------")
         last_output = np.squeeze(last_output)
         self.activation_list.append(last_output)
 
@@ -78,7 +90,7 @@ class Activations:
         last_output = np.squeeze(last_output)
         save_name = self.save_name.replace(self.extension,'.npy') #should be more generic currently depends on image, maybe jsut remove extension
         # print(save_name,self.save_dir)
-        np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
+        # np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
     def clear(self):
         self.activations = []
         self.gradients = []

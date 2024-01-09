@@ -11,6 +11,7 @@ from utils.process import *
 import wandb
 import torch
 from modules.graph_networks import GCN
+from modules.custom_networks import CustomModel
 from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
@@ -133,15 +134,19 @@ class IntrospectionOperator(Operator):
         pbar = tqdm(total=len(self.train_loader),leave=False)
         pbar.set_description(f'Training at Epoch {epoch} with learning rate {self.optimizer.param_groups[0]["lr"]:.2E} and No improvement count {self.scheduler.num_bad_epochs}')
         for batch_idx, (data, target, name) in enumerate(self.train_loader):
-            data, target = data.to(self.device), target.to(self.device)
+            
             # print(data.shape)
             self.optimizer.zero_grad()
-            if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
+            if(self.proceesor != None and 
+               "GAP" not in self.method_info['processing']['method'] and
+               "MULTI" not in self.method_info['processing']['method']):
+                data, target = data.to(self.device), target.to(self.device)
                 data = self.proceesor.process(activation=data)
                 data = torch.from_numpy(data).to(self.device)
                 data = data.float()
                 output = self.model(data)
             elif "GAP" in self.method_info['processing']['method']:
+                data, target = data.to(self.device), target.to(self.device)
                 batched_data = []
                 edge_indexes,node_features = self.proceesor.process(activation=data)
                 from torch_geometric.data import Data,Batch
@@ -152,6 +157,7 @@ class IntrospectionOperator(Operator):
                     indexes = indexes.long()
                     data = Data(x=features, edge_index=indexes).to(self.device)
                     batched_data.append(data)
+                
                 # batched_data = torch.from_numpy(np.array(batched_data))
                 batch = Batch.from_data_list(batched_data)
                 data = batch.to(self.device)#batched_data
@@ -161,7 +167,9 @@ class IntrospectionOperator(Operator):
                 self.model = self.model.to(self.device)
                 output = self.model(data)
                 # print(output.shape)
-                
+            elif "MULTI" in self.method_info['processing']['method']:
+                target = target.to(self.device)
+                output = self.model(data)
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                 # print(target.shape, output.shape)
                 loss = self.criterion(output, target.float())
@@ -197,12 +205,14 @@ class IntrospectionOperator(Operator):
 
         self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+f"{iteration}.pth")
         self.dataset = DatasetFactory().get(**self.config['dataset'])
-        model_info = self.method_info['model']
-        if "GAP" not in self.method_info['processing']['method']: #TODO: requires generalization
-            self.model = generate_model_from_config(model_info)
-        else:
+        model_info = self.method_info['model']            
+        if "GAP" in self.method_info['processing']['method']:
             self.model = GCN(model_info)
             print(self.model)
+        elif "MULTI" in self.method_info['processing']['method']:
+            self.model = CustomModel(model_info)
+        else:
+            self.model = generate_model_from_config(model_info)
         print("Model loaded")
         early_stop_threshold = self.method_info['early_stop']
         no_improvement_count = 0
@@ -266,13 +276,16 @@ class IntrospectionOperator(Operator):
                 pbar.set_description(f'Evaluating at Epoch {epoch}')
                 pbar.refresh()
                 for data, target, name in loader:
-                    data, target = data.to(self.device), target.to(self.device)
-                    if(self.proceesor != None and "GAP" not in self.method_info['processing']['method']):
+                    if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
+                       "MULTI" not in self.method_info['processing']['method']):
+                        data, target = data.to(self.device), target.to(self.device)
+
                         data = self.proceesor.process(activation=data)
                         # print(type(data))
                         data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
                         data = data.float()
                     elif "GAP" in self.method_info['processing']['method']:
+                        data, target = data.to(self.device), target.to(self.device)
                         batched_data = []
                         edge_indexes,node_features = self.proceesor.process(activation=data)
                         from torch_geometric.data import Data,Batch
@@ -289,7 +302,8 @@ class IntrospectionOperator(Operator):
                         # print(data)
                         # data = data.to('cpu')
                         self.model = self.model.to(self.device)
-                        
+                    elif "MULTI" in self.method_info['processing']['method']:
+                        target = target.to(self.device)
                     output = self.model(data)
 
                     if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
@@ -398,7 +412,6 @@ class IntrospectionOperator(Operator):
                     self.train(i)
             elif self.config['operation']['type'] == "evaluate":
                 self.dataset = DatasetFactory().get(**self.config['dataset'])
-                self.model = generate_model_from_config(self.method_info['model'])
                 self.model.to(self.device)
                 self.initialize_learning_parameters()
                 self.evaluate()
