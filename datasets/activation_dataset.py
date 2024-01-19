@@ -64,6 +64,7 @@ class ActivationDataset:
             first = torch.from_numpy(feature[0])
             second = torch.from_numpy(feature[1])
             third = torch.from_numpy(feature[2])
+            # print(first.shape,second.shape,third.shape)
             tensor_feature = [first,second,third]        
 
         else:

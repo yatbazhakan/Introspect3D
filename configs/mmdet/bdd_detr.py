@@ -1,6 +1,8 @@
 _base_ = [
     '/mnt/ssd2/Introspect3D/configs/mmdet/bdd_dataset.py', '/mnt/ssd2/mmdetection/configs/_base_/default_runtime.py'
 ]
+load_from = 'https://download.openmmlab.com/mmdetection/v3.0/detr/detr_r50_8xb2-150e_coco/detr_r50_8xb2-150e_coco_20221023_153551-436d03e8.pth'
+
 model = dict(
     type='DETR',
     num_queries=100,
@@ -152,4 +154,4 @@ param_scheduler = [
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=16)
+auto_scale_lr = dict(base_batch_size=2)

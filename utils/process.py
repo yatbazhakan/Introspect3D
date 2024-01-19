@@ -199,6 +199,21 @@ class MultiFeatureActivation(ActivationProcessor): #Just an identity function fo
         activation = kwargs.get('activation')
         return activation
 
+class MultiFeatureActivationEarlyFused(ActivationProcessor): #Just an identity function for now
+    def __init__(self, config):
+        self.config = config
+    def process(self, **kwargs):
+        activation = kwargs.get('activation')
+        early, mid , late = activation
+        early = early
+        mid = mid
+        late = late
+        target_shape = late.shape
+        pooler  = torch.nn.AdaptiveAvgPool2d(target_shape[2:])
+        early = pooler(early)
+        mid = pooler(mid)
+        stacked = torch.cat([early,mid,late],dim=1)
+        return stacked
 class SpatioChannelReshaping(ActivationProcessor):
     def __init__(self, config):
         self.config = config
@@ -309,3 +324,4 @@ class ProcessorEnum(Enum):
     PAD = Padding
     PADASH = PadAndASH
     MULTI = MultiFeatureActivation
+    EFM = MultiFeatureActivationEarlyFused

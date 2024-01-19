@@ -1,4 +1,4 @@
-auto_scale_lr = dict(base_batch_size=16)
+auto_scale_lr = dict(base_batch_size=2)
 backend_args = None
 classes = (
     'car',
@@ -22,7 +22,7 @@ env_cfg = dict(
     dist_cfg=dict(backend='nccl'),
     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0))
 launcher = 'none'
-load_from = None
+load_from = 'https://download.openmmlab.com/mmdetection/v3.0/detr/detr_r50_8xb2-150e_coco/detr_r50_8xb2-150e_coco_20221023_153551-436d03e8.pth'
 log_level = 'INFO'
 log_processor = dict(by_epoch=True, type='LogProcessor', window_size=50)
 max_epochs = 8
@@ -194,7 +194,7 @@ test_pipeline = [
 train_cfg = dict(max_epochs=8, type='EpochBasedTrainLoop', val_interval=1)
 train_dataloader = dict(
     batch_sampler=dict(type='AspectRatioBatchSampler'),
-    batch_size=2,
+    batch_size=4,
     dataset=dict(
         ann_file='coco/instances_train.json',
         backend_args=None,

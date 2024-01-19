@@ -24,30 +24,46 @@ class CustomModel(nn.Module):
         self.resnet = nn.Sequential(*list(self.layers['layer_0'].children()))
         self.fc = nn.Sequential(*list(self.layers.values())[1:])
         self.hooks = hooks or {}
+        self.pool = None
         self.downsample1 = DownSampleNorm(128,64,kernel_size=1,stride=1)
         self.downsample2 = DownSampleNorm(256,128,kernel_size=1,stride=1)
         self.downsample1= weight_init(self.downsample1)
         self.downsample2= weight_init(self.downsample2)
 
-    def forward(self, x,hooks = [4,6]):
+    def forward(self, x,hooks = [4,6],device = 'cuda:1'):
 
         first = x[0]
         second = x[1]
         third = x[2]
-        first=first.to('cuda:0')
-        second=second.to('cuda:0')
-        third=third.to('cuda:0')
+        first=first.to(device)
+        # print(first.shape)
         for  idx,layer in enumerate(self.resnet):
             if idx ==0:
                 x = first
             elif idx == hooks[0]:
+                second=second.to(device)
                 x_add = self.downsample1(second)
-                x = x+x_add
-            elif idx == hooks[1]:
-                x_add = self.downsample2(third)
-                x = x+x_add
+                if x_add.shape != x.shape:
+                    # print(x_add.shape,x.shape)
+                    self.pool  = torch.nn.AdaptiveAvgPool2d(x.shape[2:])
+                    x_add = self.pool(x_add)
+                    # print("Adaptive Pooling",x_add.shape)
 
+                x = x+x_add
+                del second,first,x_add
+            elif idx == hooks[1]:
+                third=third.to(device)
+                x_add = self.downsample2(third)
+                if x_add.shape != x.shape:
+                    # print(x_add.shape,x.shape)
+                    self.pool  = torch.nn.AdaptiveAvgPool2d(x.shape[2:])
+                    x_add = self.pool(x_add)
+                    # print("Adaptive Pooling",x_add.shape)
+                x = x+x_add
+                del third,x_add
             x = layer(x)
+            # print("-------------------")
+            # print(x.shape)
             # if idx ==0:
             #     print(f"Concatting at layer {idx},{first.shape}")
             #     x = layer(first)

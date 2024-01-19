@@ -140,10 +140,12 @@ class IntrospectionOperator(Operator):
             if(self.proceesor != None and 
                "GAP" not in self.method_info['processing']['method'] and
                "MULTI" not in self.method_info['processing']['method']):
-                data, target = data.to(self.device), target.to(self.device)
                 data = self.proceesor.process(activation=data)
-                data = torch.from_numpy(data).to(self.device)
+                # print("Processed data",data.shape)
+                if type(data) == np.ndarray:
+                    data = torch.from_numpy(data).to(self.device)
                 data = data.float()
+                data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
             elif "GAP" in self.method_info['processing']['method']:
                 data, target = data.to(self.device), target.to(self.device)
@@ -186,7 +188,7 @@ class IntrospectionOperator(Operator):
         #TODO: check if this division is correct way to do so
         return epoch_loss
     def update_config_from_wandb(self,conf):
-        print(wandb.config)
+        wandb.log({"custom_config":self.config})
         self.method_info['model']['layer_config'] = wandb.config.model_yaml
         self.method_info['optimizer']['type'] = wandb.config.optimizer
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr

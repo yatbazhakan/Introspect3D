@@ -71,14 +71,14 @@ introspection:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: point_pillar_kitti_activations_test
+      name: point_pillar_kitti_activations_multifeat_early
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn.yaml
+          - configs/networks/resnet18_fcn_mult.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -98,25 +98,25 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_multi_feature_test
+    name: point_pillar_kitti_multi_feature_early_test
   verbose: true
   method:
     task: multiclass
     cross_validation:
-      type: montecarlo
-      iteration: 5
+      type: holdout
+      iteration: 1
       balanced: false
       train_test_split: 0.2
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.MULTI
+      method: ProcessorEnum.EFM
       params:
         config:
           grid_size: 16
           pad: 0
     model:
-      layer_config: configs/networks/resnet18_fcn.yaml
+      layer_config: configs/networks/resnet18_fcn_mult.yaml
     optimizer:
       type: Adam
       params:
@@ -141,7 +141,7 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_raw_filtered_losslog2.pt
+    save_name: point_pillar_kitti_activations_multifeat_early.pt
   device: cuda:0
   filtering: none
   dataset:
