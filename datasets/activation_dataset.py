@@ -7,9 +7,9 @@ from glob import glob
 import os
 import pickle
 class ActivationDataset:
-    def __init__(self,config,extension ="") -> None:
+    def __init__(self,config) -> None:
         self.config = config
-        self.extension = extension  
+        self.extension = config.get('extension','')  
         self.root_dir = config['root_dir']
         self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
@@ -37,6 +37,7 @@ class ActivationDataset:
             self.feature_paths = temp_paths
             print("Feature paths and labels are not equal, some features are missing")
             print(len(self.feature_paths),len(self.labels))
+        print(len(self.feature_paths),len(self.labels))
 
     def get_feature_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'features', f'*{self.extension}')))

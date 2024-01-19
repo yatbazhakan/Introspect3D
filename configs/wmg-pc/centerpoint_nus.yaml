@@ -74,17 +74,46 @@ extraction:
 introspection:
   experiment_name: centerpoint_nus_activations
   wandb:
-    is_sweep: False
-    sweep_configuration: {}
+    is_sweep: True
+    sweep_configuration:
+      method: grid
+      name: centerpoint_nus_activations_all
+      metric:
+        name: val_loss
+        goal: minimize
+      parameters:
+        model_yaml:
+          values:
+          - configs/networks/resnet18_fcn.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
+        optimizer:
+          values:
+          - SGD
+          - Adam
+        criterion:
+          values:
+          - FocalLoss
+        lr:
+          values:
+          - 0.0005
+          - 0.001
+        batch_size:
+          values:
+          - 64
+          - 32
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_raw_activations_filtered_resnet18_att
+    name: centerpoint_nus_all_raw
   verbose: True
   method:
-    train_test_split: 0.2
-    validation_split: 0.2
     task: multiclass
+    cross_validation:
+      type: holdout
+      iteration: 1
+      balanced: false
+      train_test_split: 0.2
+      validation_split: 0.2
     processing:
       active: True
       method: ProcessorEnum.RAW
@@ -98,7 +127,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/attention_resnet18_fcn.yaml # fcn_only.yaml#
+      layer_config: configs/networks/resnet18_fcn.yaml # fcn_only.yaml#
     optimizer:
       type: SGD
       params: 
@@ -106,9 +135,10 @@ introspection:
         momentum: 0.9
         weight_decay: 0.001
     criterion:
-      type: CrossEntropyLoss
+      type: FocalLoss
       params: 
         weight: [0.78, 1.39]
+        gamma: 5
     scheduler:
       type: ReduceLROnPlateau
       params:
@@ -120,21 +150,25 @@ introspection:
     early_stop: 25
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_raw_filtered_attentionres.pt
+    save_name: centerpoint_nus_activations_raw_resnet.pt
   device: cuda:0
+  filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/
-      label_file: nus_centerpoint_labels_filtered.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_raw/
+      label_file: nus_centerpoint_labels_raw.csv
       classes: ['No Error', 'Error']
+      label_field: is_missed
+      is_multi_feature: False
+      extension: .npy
       name: nuscenes
   dataloader:
     all:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     train:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     test:
       batch_size: 1

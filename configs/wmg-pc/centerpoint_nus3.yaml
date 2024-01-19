@@ -71,7 +71,7 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: centerpoint_nus_multi_feature_aggregation_early
+  experiment_name: centerpoint_nus_multi_feature_aggregation_int
   wandb:
     is_sweep: True
     sweep_configuration:
@@ -83,7 +83,7 @@ introspection:
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_mult_c.yaml
+          - configs/networks/resnet18_fcn_multr.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -98,12 +98,12 @@ introspection:
           - 0.001
         batch_size:
           values:
-          - 8
           - 16
+          - 32
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_multifeat_early
+    name: centerpoint_nus_multifeat_int
   verbose: True
   method:
     task: multiclass
@@ -115,7 +115,7 @@ introspection:
       validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.EFM
+      method: ProcessorEnum.MULTI
       params:
         # config:
         #   percentile: 0.9
@@ -126,7 +126,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn_mult_c.yaml
+      layer_config: configs/networks/resnet18_fcn_multr.yaml
     optimizer:
       type: SGD
       params: 

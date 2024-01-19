@@ -157,10 +157,10 @@ introspection:
       name: kitti
   dataloader:
     all:
-      batch_size: 4
+      batch_size: 8
       shuffle: true
     train:
-      batch_size: 4
+      batch_size: 8
       shuffle: true
     test:
       batch_size: 1

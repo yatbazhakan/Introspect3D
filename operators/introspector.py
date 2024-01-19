@@ -280,11 +280,12 @@ class IntrospectionOperator(Operator):
                 for data, target, name in loader:
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
                        "MULTI" not in self.method_info['processing']['method']):
-                        data, target = data.to(self.device), target.to(self.device)
 
                         data = self.proceesor.process(activation=data)
                         # print(type(data))
                         data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
+                        data, target = data.to(self.device), target.to(self.device)
+
                         data = data.float()
                     elif "GAP" in self.method_info['processing']['method']:
                         data, target = data.to(self.device), target.to(self.device)

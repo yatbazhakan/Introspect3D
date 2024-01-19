@@ -30,7 +30,7 @@ class CustomModel(nn.Module):
         self.downsample1= weight_init(self.downsample1)
         self.downsample2= weight_init(self.downsample2)
 
-    def forward(self, x,hooks = [4,6],device = 'cuda:1'):
+    def forward(self, x,hooks = [4,6],device = 'cuda:0'):
 
         first = x[0]
         second = x[1]
