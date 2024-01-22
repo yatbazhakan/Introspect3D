@@ -212,7 +212,7 @@ class IntrospectionOperator(Operator):
             self.model = GCN(model_info)
             print(self.model)
         elif "MULTI" in self.method_info['processing']['method']:
-            self.model = CustomModel(model_info)
+            self.model = CustomModel(model_info,device=self.device)
         else:
             self.model = generate_model_from_config(model_info)
         print("Model loaded")

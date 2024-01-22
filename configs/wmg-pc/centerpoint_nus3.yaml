@@ -152,7 +152,7 @@ introspection:
     sanity_check: false
     save_path: outputs/ckpts
     save_name: centerpoint_nus_activations_aggregated_early.pt
-  device: cuda:0
+  device: cuda:1
   filtering: none
   dataset:
     name: ActivationDataset

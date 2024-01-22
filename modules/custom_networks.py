@@ -16,7 +16,7 @@ class DownSampleNorm(nn.Module):
         x = self.bn(x)
         return x
 class CustomModel(nn.Module):
-    def __init__(self, model_config,hooks=None):
+    def __init__(self, model_config,hooks=None,device = 'cuda:0'):
         super(CustomModel, self).__init__()
         # Store the layers in an OrderedDict
         layers = generate_model_from_config(model_config)
@@ -29,19 +29,20 @@ class CustomModel(nn.Module):
         self.downsample2 = DownSampleNorm(256,128,kernel_size=1,stride=1)
         self.downsample1= weight_init(self.downsample1)
         self.downsample2= weight_init(self.downsample2)
+        self.device = device
 
-    def forward(self, x,hooks = [4,6],device = 'cuda:0'):
+    def forward(self, x,hooks = [4,6]):
 
         first = x[0]
         second = x[1]
         third = x[2]
-        first=first.to(device)
+        first=first.to(self.device)
         # print(first.shape)
         for  idx,layer in enumerate(self.resnet):
             if idx ==0:
                 x = first
             elif idx == hooks[0]:
-                second=second.to(device)
+                second=second.to(self.device)
                 x_add = self.downsample1(second)
                 if x_add.shape != x.shape:
                     # print(x_add.shape,x.shape)
@@ -52,7 +53,7 @@ class CustomModel(nn.Module):
                 x = x+x_add
                 del second,first,x_add
             elif idx == hooks[1]:
-                third=third.to(device)
+                third=third.to(self.device)
                 x_add = self.downsample2(third)
                 if x_add.shape != x.shape:
                     # print(x_add.shape,x.shape)
