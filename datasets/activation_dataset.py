@@ -47,6 +47,8 @@ class ActivationDataset:
         # name_from_idx = int(self.feature_paths[idx].split('/')[-1].replace('.npy',''))
         # print(idx,self.labels['name'].values)
         # print(idx in self.labels['name'].values)
+        # idx = str(idx).replace('.npy','')
+        # idx = str(idx).replace('.pkl','')
         if self.threshold == None:
             label = self.labels[self.labels['name']==idx]['is_missed'].values[0]
             label = 1 if label else 0
@@ -71,6 +73,7 @@ class ActivationDataset:
         else:
             feature = np.load(feature_path)
             tensor_feature = torch.from_numpy(feature)
+        print(feature_name)
         label = self.get_label(feature_name)
         
         tensor_label = torch.LongTensor([label])
