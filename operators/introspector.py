@@ -11,7 +11,7 @@ from utils.process import *
 import wandb
 import torch
 from modules.graph_networks import GCN
-from modules.custom_networks import CustomModel
+from modules.custom_networks import CustomModel, EarlyFusionAdaptive
 from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
@@ -139,7 +139,8 @@ class IntrospectionOperator(Operator):
             self.optimizer.zero_grad()
             if(self.proceesor != None and 
                "GAP" not in self.method_info['processing']['method'] and
-               "MULTI" not in self.method_info['processing']['method']):
+               "MULTI" not in self.method_info['processing']['method'] and
+               "EFS" not in self.method_info['processing']['method']):
                 data = self.proceesor.process(activation=data)
                 # print("Processed data",data.shape)
                 if type(data) == np.ndarray:
@@ -169,9 +170,12 @@ class IntrospectionOperator(Operator):
                 self.model = self.model.to(self.device)
                 output = self.model(data)
                 # print(output.shape)
-            elif "MULTI" in self.method_info['processing']['method']:
+            elif "MULTI" in self.method_info['processing']['method'] or "EFS" in self.method_info['processing']['method']:
                 target = target.to(self.device)
                 output = self.model(data)
+            # elif "EFS" in self.method_info['processing']['method']:
+            #     data, target = data.to(self.device), target.to(self.device)
+            #     output = self.model(data)
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                 # print(target.shape, output.shape)
                 loss = self.criterion(output, target.float())
@@ -183,6 +187,7 @@ class IntrospectionOperator(Operator):
             loss.backward()
             self.optimizer.step()
             self.total_loss += loss.item()
+            print(loss.item())
             epoch_loss += loss.item()
             pbar.update(1)
         #TODO: check if this division is correct way to do so
@@ -213,6 +218,9 @@ class IntrospectionOperator(Operator):
             print(self.model)
         elif "MULTI" in self.method_info['processing']['method']:
             self.model = CustomModel(model_info,device=self.device)
+        elif "EFS" in self.method_info['processing']['method']:
+            print("LOADING EFS MODEL")
+            self.model = EarlyFusionAdaptive(model_info,device=self.device)
         else:
             self.model = generate_model_from_config(model_info)
         print("Model loaded")
@@ -279,7 +287,8 @@ class IntrospectionOperator(Operator):
                 pbar.refresh()
                 for data, target, name in loader:
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
-                       "MULTI" not in self.method_info['processing']['method']):
+                       "MULTI" not in self.method_info['processing']['method']
+                       and "EFS" not in self.method_info['processing']['method']):
 
                         data = self.proceesor.process(activation=data)
                         # print(type(data))
@@ -305,7 +314,7 @@ class IntrospectionOperator(Operator):
                         # print(data)
                         # data = data.to('cpu')
                         self.model = self.model.to(self.device)
-                    elif "MULTI" in self.method_info['processing']['method']:
+                    elif "MULTI" in self.method_info['processing']['method'] or "EFS" in self.method_info['processing']['method']:
                         target = target.to(self.device)
                     output = self.model(data)
 
