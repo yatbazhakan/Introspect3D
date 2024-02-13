@@ -99,7 +99,7 @@ introspection:
           - 64
     project: introspection-legacy
     entity: yatbazhakan
-    mode: online
+    mode: disabled
     name: yolov8_kitti_activations_sf
   verbose: true
   method:
@@ -174,5 +174,5 @@ introspection:
       batch_size: 1
       shuffle: false
   operation:
-    type: traineval
+    type: eval
     load_model: true

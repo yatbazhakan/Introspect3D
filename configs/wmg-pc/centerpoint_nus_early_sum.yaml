@@ -1,0 +1,180 @@
+experiment_name: centerpoint_nus_activations
+experiment_path: ./
+device: cuda:1
+method: activations
+verbose: True
+detection:
+  device: 'cuda:0'
+  dataset:
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.NONE
+    filter_params:
+      a: 25
+      b: 15
+      offset: -10
+      axis: 0
+  model:
+    name: centerpoint
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+    checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  #save_path: ./custom_dataset/
+  training_params: {}
+extraction:
+  active: True
+  device: 'cuda:0'
+  score_threshold: 0.5
+  dataset:
+    name: NuScenesDataset
+    root_dir: /mnt/ssd2/nuscenes/
+    version: v1.0-trainval
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.NONE
+    filter_params:
+      a: 15
+      b: 25
+      offset: -10
+      axis: 1
+  model:
+    name: centerpoint
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+    checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  method:
+    name: raw_activations
+    hook:
+      layer: pts_backbone.blocks #pts_backbone
+      indexes: [0,0,1]
+      extract_from: [0,1,1]
+      layer_index: 1
+    save_dir: ../custom_dataset/nus_centerpoint_activations_aggregated_raw/
+    labels_file_name: nus_centerpoint_labels_aggregated_raw.csv
+    balanced: False
+    transforms: None
+    extension: .pcd.bin
+    #Are theese needed?
+    # config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
+    # checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
+  save_path: ./custom_dataset/
+  training_params: {}
+# experiment_name: point_pillar_nus_activations
+# Only showing the introspection section for brevity
+introspection:
+  experiment_name: centerpoint_nus_multi_feature_aggregation_early_sum
+  wandb:
+    is_sweep: False
+    sweep_configuration:
+      method: grid
+      name: centerpoint_nus_multi_feature_aggregation_early_sum
+      metric:
+        name: val_loss
+        goal: minimize
+      parameters:
+        model_yaml:
+          values:
+          - configs/networks/resnet18_fcn_multr.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
+        optimizer:
+          values:
+          - SGD
+          # - Adam
+        criterion:
+          values:
+          - FocalLoss
+        lr:
+          values:
+          - 0.01
+          - 0.001
+          - 0.0005
+        batch_size:
+          values:
+          - 16
+          - 32
+    project: introspect3D
+    entity: yatbazhakan
+    mode: online
+    name: centerpoint_nus_multi_feature_aggregation_early_sum
+  verbose: True
+  method:
+    task: multiclass
+    cross_validation:
+      type: holdout
+      iteration: 1
+      balanced: false
+      train_test_split: 0.2
+      validation_split: 0.2
+    processing:
+      active: True
+      method: ProcessorEnum.EFS
+      params:
+        # config:
+        #   percentile: 0.9
+        #   method: p
+        config:
+          stack: False
+          functions:
+            - mean
+            - max
+            - std
+    model:
+      layer_config: configs/networks/resnet18_fcn_multr.yaml
+    optimizer:
+      type: SGD
+      params: 
+        lr: 0.01
+        weight_decay: 0.001
+    criterion:
+      type: FocalLoss
+      params:
+        reduction: mean
+        gamma: 5
+        weight:
+        - 0.78
+        - 1.39
+    scheduler:
+      type: ReduceLROnPlateau
+      params:
+        patience : 10
+        factor: 0.7
+    epochs: 300
+    log_interval: 1
+    save_interval: 1
+    early_stop: 25
+    sanity_check: false
+    save_path: outputs/ckpts
+    save_name: centerpoint_nus_activations_aggregated_early_sum.pt
+  device: cuda:1
+  filtering: none
+  dataset:
+    name: ActivationDataset
+    config:
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/
+      label_file: nus_centerpoint_labels_aggregated_raw.csv
+      classes: ['No Error', 'Error']
+      label_field: is_missed
+      is_multi_feature: True
+      name: nuscenes
+  dataloader:
+    all:
+      batch_size: 16
+      shuffle: True
+    train:
+      batch_size: 16
+      shuffle: True
+    test:
+      batch_size: 1
+      shuffle: False
+  operation: 
+    type: traineval
+    load_model: False

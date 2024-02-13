@@ -53,9 +53,23 @@ class ActivationDataset:
             label = self.labels[self.labels['name']==idx]['is_missed'].values[0]
             label = 1 if label else 0
             return label
-        label = self.labels[self.labels['name']==idx][self.label_field].values[0]
-        label = 1 if label > self.threshold else 0
-        return label
+        else:
+            if type(self.label_field) == str:
+                label = self.labels[self.labels['name']==idx][self.label_field].values[0]
+                label = 1 if label > self.threshold else 0
+                return label
+            elif type(self.label_field) == list: #Assuming this is to calculate missed ratio
+                missed_objects = self.labels[self.labels['name']==idx][self.label_field[0]].values[0]
+                total_objects = self.labels[self.labels['name']==idx][self.label_field[1]].values[0]
+                missed_ratio = missed_objects/total_objects
+                print(missed_ratio)
+                label = 1 if missed_ratio < self.threshold else 0
+                return label
+            else:
+                print("Label field is not recognized")
+        # label = self.labels[self.labels['name']==idx][self.label_field].values[0]
+        # label = 1 if label > self.threshold else 0
+        # return label
     def __getitem__(self, idx):
         feature_path = self.feature_paths[idx]
         feature_name = feature_path.split('/')[-1].replace(self.extension,'')
@@ -67,13 +81,15 @@ class ActivationDataset:
             first = torch.from_numpy(feature[0])
             second = torch.from_numpy(feature[1])
             third = torch.from_numpy(feature[2])
+
             # print(first.shape,second.shape,third.shape)
             tensor_feature = [first,second,third]        
 
         else:
             feature = np.load(feature_path)
             tensor_feature = torch.from_numpy(feature)
-        print(feature_name)
+        # print(feature_name)
+        feature_name = feature_name.replace('.npy','')
         label = self.get_label(feature_name)
         
         tensor_label = torch.LongTensor([label])

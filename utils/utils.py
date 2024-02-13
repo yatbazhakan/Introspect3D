@@ -125,7 +125,7 @@ def generate_model_from_config(config):
     layers = []
     pretrained = False
     num_ftrs = None
-    print(layer_data)
+    # print(layer_data)
     for layer_config in layer_data['layers']:
         # print(layer_config)
         layer_type = layer_config['type']
@@ -139,7 +139,7 @@ def generate_model_from_config(config):
         else:
             layer_params = layer_config['params']
             if num_ftrs != None and 'in_features' in layer_params.keys():
-                print("in_features is set to",num_ftrs,"for layer",layer_type)
+                # print("in_features is set to",num_ftrs,"for layer",layer_type)
                 layer_params['in_features'] = num_ftrs
                 num_ftrs = None
             elif 'output_size' in layer_params.keys():
