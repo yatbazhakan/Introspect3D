@@ -35,6 +35,16 @@ try:
 except:
     print("torch_geometric not installed")
     pass
+import gc
+
+
+def clear_memory():
+    # Clear GPU memory if using PyTorch
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    # Garbage collection to free up RAM
+    gc.collect()
 def load_detection_model(config: Config):
     """Loads the detection model."""
     root_dir = config['model']['root_dir']

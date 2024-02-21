@@ -15,6 +15,7 @@ from modules.custom_networks import CustomModel, EarlyFusionAdaptive
 from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
+import os
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
@@ -141,7 +142,7 @@ class IntrospectionOperator(Operator):
                "GAP" not in self.method_info['processing']['method'] and
                "MULTI" not in self.method_info['processing']['method'] and
                "EFS" not in self.method_info['processing']['method']):
-                data = self.proceesor.process(activation=data)
+                data = self.proceesor.process(activation=data,stack=self.method_info['processing']['stack'])
                 # print("Processed data",data.shape)
                 if type(data) == np.ndarray:
                     data = torch.from_numpy(data).to(self.device)
@@ -187,9 +188,10 @@ class IntrospectionOperator(Operator):
             loss.backward()
             self.optimizer.step()
             self.total_loss += loss.item()
-            print(loss.item())
+            # print(loss.item())
             epoch_loss += loss.item()
             pbar.update(1)
+            clear_memory()
         #TODO: check if this division is correct way to do so
         return epoch_loss
     def update_config_from_wandb(self,conf):
@@ -290,7 +292,7 @@ class IntrospectionOperator(Operator):
                        "MULTI" not in self.method_info['processing']['method']
                        and "EFS" not in self.method_info['processing']['method']):
 
-                        data = self.proceesor.process(activation=data)
+                        data = self.proceesor.process(activation=data,stack=self.method_info['processing']['stack'])
                         # print(type(data))
                         data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
                         data, target = data.to(self.device), target.to(self.device)
@@ -329,6 +331,7 @@ class IntrospectionOperator(Operator):
                             (all_labels, target),dim=0
                         )
                     pbar.update(1)
+                    clear_memory()
         # test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
@@ -406,28 +409,39 @@ class IntrospectionOperator(Operator):
             self.evaluate(i)
         
     def execute(self, **kwargs):
-        if self.is_sweep:
-            sweep_configuration = self.wandb['sweep_configuration']
-            sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
-            if self.verbose:
-                print("Sweep id:",None)
-                print("="*100,"\n",wandb.config,"\n","="*100)
-            wandb.agent(sweep_id, function=self.train_sweep)
+        
+       
+        try:
+            if self.is_sweep:
+                os.environ["WANDB_AGENT_MAX_INITIAL_FAILURES"] = "1"
+                os.environ["WANDB_AGENT_DISABLE_FLAPPING"] = "true"
+                os.environ['WANDB_AGENT_FLAPPING_MAX_FAILURES'] = '1'
 
+                sweep_configuration = self.wandb['sweep_configuration']
+                sweep_id = wandb.sweep(sweep=sweep_configuration, project=self.wandb['project'])
+                if self.verbose:
+                    print("Sweep id:",None)
+                    print("="*100,"\n",wandb.config,"\n","="*100)
+                wandb.agent(sweep_id, function=self.train_sweep)
+           
                 
-        else:
-            #Some management will be needed here
-            wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
-            
-            if self.config['operation']['type'] == "train":
-                for i in range(self.method_info['cross_validation']['iteration']):
-                    self.train(i)
-            elif self.config['operation']['type'] == "evaluate":
-                self.dataset = DatasetFactory().get(**self.config['dataset'])
-                self.model.to(self.device)
-                self.initialize_learning_parameters()
-                self.evaluate()
             else:
-                for i in range(self.method_info['cross_validation']['iteration']):
-                    self.train(i)
-                    self.evaluate(i)
+                #Some management will be needed here
+                wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
+                
+                if self.config['operation']['type'] == "train":
+                    for i in range(self.method_info['cross_validation']['iteration']):
+                        self.train(i)
+                elif self.config['operation']['type'] == "evaluate":
+                    self.dataset = DatasetFactory().get(**self.config['dataset'])
+                    self.model.to(self.device)
+                    self.initialize_learning_parameters()
+                    self.evaluate()
+                else:
+                    for i in range(self.method_info['cross_validation']['iteration']):
+                        self.train(i)
+                        self.evaluate(i)
+
+        except Exception as e:
+            clear_memory()
+            exit(e)

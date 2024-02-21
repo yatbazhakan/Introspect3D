@@ -16,6 +16,7 @@ class ActivationDataset:
         self.feature_paths = self.get_feature_paths()
         self.label_file = self.get_label_file()
         self.label_field = config['label_field']
+        self.layer = config.get('layer',None)
         self.threshold = config.get('threshold',None)
         print("Threshold is ",self.threshold)
         self.labels = pd.read_csv(self.label_file)
@@ -86,8 +87,14 @@ class ActivationDataset:
             tensor_feature = [first,second,third]        
 
         else:
-            feature = np.load(feature_path)
-            tensor_feature = torch.from_numpy(feature)
+            if self.layer == None:
+                feature = np.load(feature_path)
+                tensor_feature = torch.from_numpy(feature)
+            else:
+                pickle_path = feature_path.replace('.npy','')
+                with open(pickle_path,'rb') as f:
+                    feature = pickle.load(f)
+                tensor_feature = torch.from_numpy(feature[int(self.layer)])
         # print(feature_name)
         feature_name = feature_name.replace('.npy','')
         label = self.get_label(feature_name)

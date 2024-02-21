@@ -66,19 +66,19 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: point_pillar_kitti_activations_single_feature_early
+  experiment_name: point_pillar_kitti_activations_single_feature_mid
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: point_pillar_kitti_activations_single_feature_early
+      name: point_pillar_kitti_activations_single_feature_mid
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_indv.yaml
+          - configs/networks/resnet18_fcn_indv2.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -94,10 +94,11 @@ introspection:
         batch_size:
           values:
           - 32
+          - 64
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_activations_single_feature_early
+    name: point_pillar_kitti_activations_single_feature_mid
   verbose: true
   method:
     task: multiclass
@@ -115,7 +116,7 @@ introspection:
           grid_size: 16
           pad: 0
     model:
-      layer_config: configs/networks/resnet18_fcn_indv.yaml
+      layer_config: configs/networks/resnet18_fcn_indv2.yaml
     optimizer:
       type: Adam
       params:
@@ -140,7 +141,7 @@ introspection:
     early_stop: 15
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: point_pillar_kitti_activations_single_feature_early.pt
+    save_name: point_pillar_kitti_activations_single_feature_mid.pt
   device: cuda:1
   filtering: none
   dataset:
@@ -149,7 +150,7 @@ introspection:
       root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
       label_file: kitti_point_pillars_labels_aggregated_raw.csv
       label_field: is_missed
-      layer: 0
+      layer: 1
       is_multi_feature: False
       classes:
       - No Error
