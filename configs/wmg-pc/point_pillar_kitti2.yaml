@@ -110,6 +110,7 @@ introspection:
     processing:
       active: true
       method: ProcessorEnum.RAW
+      stack: False
       params:
         config:
           grid_size: 16

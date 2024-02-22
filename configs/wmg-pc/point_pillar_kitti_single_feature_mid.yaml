@@ -94,7 +94,7 @@ introspection:
         batch_size:
           values:
           - 32
-          - 64
+          # - 64
     project: introspect3D
     entity: yatbazhakan
     mode: online
@@ -111,6 +111,7 @@ introspection:
     processing:
       active: true
       method: ProcessorEnum.RAW
+      stack: False
       params:
         config:
           grid_size: 16
@@ -133,12 +134,12 @@ introspection:
     scheduler:
       type: ReduceLROnPlateau
       params:
-        patience: 15
+        patience: 9
         factor: 0.7
     epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 15
+    early_stop: 10
     sanity_check: false
     save_path: outputs/ckpts
     save_name: point_pillar_kitti_activations_single_feature_mid.pt

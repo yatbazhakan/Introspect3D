@@ -291,7 +291,7 @@ class IntrospectionOperator(Operator):
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
                        "MULTI" not in self.method_info['processing']['method']
                        and "EFS" not in self.method_info['processing']['method']):
-
+                    
                         data = self.proceesor.process(activation=data,stack=self.method_info['processing']['stack'])
                         # print(type(data))
                         data = torch.from_numpy(data).to(self.device) if isinstance(data,np.ndarray) else data.to(self.device)
