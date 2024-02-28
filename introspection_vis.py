@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 import pickle
+from utils.boundingbox import BoundingBox
 from tqdm.auto import tqdm
 from datasets.kitti import Kitti3D
 from datasets.activation_dataset import ActivationDataset
@@ -67,55 +68,116 @@ detections = inference_detector(model,kitti_dataset[idx]['pointcloud'].points)
 detections[0].pred_instances_3d
 #%%
 dets= detections[0].pred_instances_3d.bboxes_3d.tensor.detach().cpu().numpy()
+scores = detections[0].pred_instances_3d.scores_3d.detach().cpu().numpy()
+filtered_indices = np.where(scores >= 0.5)[0]
+dets = dets[filtered_indices]
 dets
 #%%
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-
-def get_rotated_corners(x, y, w, l, yaw):
-    # Calculate the corners of the rectangle before rotation
+def get_rotated_corners(x, y, z, w, l, yaw, pitch=0, roll=0):
+    # Define the corners of the rectangle before rotation
     corners = np.array([
-        [-l / 2, -w / 2], [l / 2, -w / 2],
-        [l / 2, w / 2], [-l / 2, w / 2]
+        [-l / 2, -w / 2, z], [l / 2, -w / 2, z],
+        [l / 2, w / 2, z], [-l / 2, w / 2, z]
     ])
 
-    # Rotation matrix
-    rotation_matrix = np.array([
-        [np.cos(yaw), -np.sin(yaw)],
-        [np.sin(yaw), np.cos(yaw)]
+    # Rotation matrices for yaw (Z-axis), pitch (Y-axis), and roll (X-axis)
+    R_yaw = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
     ])
+
+    R_pitch = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    R_roll = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    # Combined rotation matrix
+    R = np.dot(R_yaw, np.dot(R_pitch, R_roll))
 
     # Rotate the corners
-    rotated_corners = np.dot(corners, rotation_matrix)
+    rotated_corners = np.dot(corners, R.T)
 
     # Translate the corners to the position of the object
     rotated_corners[:, 0] += x
     rotated_corners[:, 1] += y
 
-    return rotated_corners
+    # For 2D visualization, return only the x and y coordinates
+    return rotated_corners[:, :2]
+def get_rotated_corners(x, y, w, l, yaw=0, pitch=0, roll=0):
+    # Define the corners of the rectangle before rotation
+    corners = np.array([
+        [-l / 2, -w / 2, 0], [l / 2, -w / 2, 0],
+        [l / 2, w / 2, 0], [-l / 2, w / 2, 0]
+    ])
+
+    # Rotation matrices for yaw (Z-axis), pitch (Y-axis), and roll (X-axis)
+    R_yaw = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    R_pitch = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    R_roll = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    # Combined rotation matrix
+    R = np.dot(R_yaw, np.dot(R_pitch, R_roll))
+
+    # Rotate the corners
+    rotated_corners = np.dot(corners, R.T)
+
+    # Translate the corners to the position of the object
+    rotated_corners[:, 0] += x
+    rotated_corners[:, 1] += y
+
+    # For 2D visualization, return only the x and y coordinates
+    return rotated_corners[:, :2]
+
+
 points = kitti_dataset[idx]['pointcloud'].points
 # Assuming 'points' is your N,3 point cloud data
 x = points[:, 0]  # X coordinates
 y = points[:, 1]  # Y coordinates
-
+indices = x[:] >=0 
+x = x[indices]
+y = y[indices]
 plt.scatter(x, y, s=1)  # s is the size of each point
 plt.xlabel('X Coordinate')
 plt.ylabel('Y Coordinate')
 plt.title('2D Top-Down View of Point Cloud')
 plt.axis('equal')  # To maintain aspect ratio
-
+print("Labels", len(kitti_dataset[idx]['labels']))
 for detection in dets:
-    x, y, _, _, w, l, yaw = detection
-    corners = get_rotated_corners(x, y, w, l, yaw)
-
+    x, y, z, w, l, h, yaw = detection
+    
+    # box.rotation = R
+    corners = get_rotated_corners(x, y, w, l, roll=yaw)
     # Create a polygon patch
     polygon = patches.Polygon(corners, closed=True, linewidth=1, edgecolor='r', facecolor='none')
 
     # Add the polygon to the Axes
     plt.gca().add_patch(polygon)
 for label in kitti_dataset[idx]['labels']:
-    
     # x, y, _, _, w, l, yaw = label.center[0],label.center[1],label.center[2],label.dimensions[0],label.dimensions[1],label.dimensions[2],label.rotation[1]
     print(label.corners.shape)
     corners = label.corners[:,:2]
