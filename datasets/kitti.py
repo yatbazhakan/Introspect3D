@@ -16,10 +16,12 @@ class Kitti3D(DrivingDataset):
     def __init__(self,
                  root_dir: str,
                  class_names: Union[None, List],
-                 filtering_style: FilterType = FilterType.ELLIPSE,**kwargs) -> None:
+                 filtering_style: FilterType = FilterType.NONE,**kwargs) -> None:
         self.root_dir = root_dir
         self.classes = class_names
-        # self.image_paths = self.get_image_paths()
+        print("Getting image paths")
+        self.image_paths = self.get_image_paths()
+        print("Getting lidar paths")
         self.lidar_paths = self.get_lidar_paths()
         self.calibration_paths = self.get_calibration_paths()
         self.label_paths = self.get_label_paths()
