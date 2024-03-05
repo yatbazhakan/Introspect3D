@@ -15,6 +15,7 @@ from scipy.ndimage import zoom
 import open3d as o3d
 from mmdet3d.apis import init_model, inference_detector
 from utils.utils import generate_model_from_config
+from operators.introspector import IntrospectionOperator
 def hook_func(module, input, output):
     introspection_activations.append(output)
     print(len(introspection_activations))
@@ -22,15 +23,15 @@ def hook_func(module, input, output):
 #INTROSPECTION model
 config_int = '/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn_vis.yaml'
 model_dir = "/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK"
-model_pth = "kitti_late_single.pth"
+model_pth = "nuscenes_late.pth"
 #%%
 det_root_dir = "/mnt/ssd2/mmdetection3d/"
-# model_name = 'centerpoint'
-# config = 'centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py' #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
-# checkpoint = 'centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-model_name = 'pointpillars'
-config = 'pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py' #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
-checkpoint = 'hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth'#%%
+model_name = 'centerpoint'
+config = 'centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py' #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+checkpoint = 'centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+# model_name = 'pointpillars'
+# config = 'pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py' #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+# checkpoint = 'hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth'#%%
 kitti_path = r"/mnt/ssd2/kitti/training/"
 file_path = r"/mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/"
 file_names = sorted(glob(os.path.join(file_path,'features','*')))
@@ -43,7 +44,7 @@ activation_dataset = ActivationDataset({'root_dir':file_path,
                                         'classes':["No Error","Error"],
                                         'label_file':'kitti_point_pillars_labels_aggregated_raw.csv',
                                         'label_field':'is_missed',
-                                        'layer':2,
+                                        'layer':1,
                                         'is_multi_feature':False,
                                         'name':'kitti'})
 #%%
@@ -61,10 +62,10 @@ introspection_activations = None
 introspection_activations = []
 
 
-my_hook  = introspection_model[1].layer4.register_forward_hook(hook_func)
-my_hook2 = introspection_model[1].layer3.register_forward_hook(hook_func)
-my_hook3 = introspection_model[1].layer2.register_forward_hook(hook_func)
-my_hook4 = introspection_model[1].layer1.register_forward_hook(hook_func)
+my_hook  = introspection_model[0].layer4.register_forward_hook(hook_func)
+my_hook2 = introspection_model[0].layer3.register_forward_hook(hook_func)
+my_hook3 = introspection_model[0].layer2.register_forward_hook(hook_func)
+my_hook4 = introspection_model[0].layer1.register_forward_hook(hook_func)
 
 import torch.nn.functional as TF
 idx = 2

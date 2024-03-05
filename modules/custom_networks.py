@@ -36,6 +36,7 @@ class CustomModel(nn.Module):
         first = x[0]
         second = x[1]
         third = x[2]
+        print(first.shape,second.shape,third.shape)
         first=first.to(self.device)
         # print(first.shape)
         for  idx,layer in enumerate(self.resnet):

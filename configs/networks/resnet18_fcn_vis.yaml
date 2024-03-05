@@ -1,9 +1,9 @@
 layers:
-  - type: ChannelAttention
-    params:
-      in_channels: 256
+  # - type: ChannelAttention
+  #   params:
+  #     in_channels: 128
   - type: torchvision.models.resnet18
-    in_channels: 256
+    in_channels: 265
     params:
       weights: ResNet18_Weights.IMAGENET1K_V1
   - type: "Flatten"

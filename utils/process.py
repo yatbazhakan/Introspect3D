@@ -211,6 +211,7 @@ class MultiFeatureActivationEarlyFused(ActivationProcessor): #Just an identity f
         late = late
         target_shape = late.shape
         pooler  = torch.nn.AdaptiveAvgPool2d(target_shape[2:])
+        # print(pooler)
         early = pooler(early)
         mid = pooler(mid)
         if stack:
