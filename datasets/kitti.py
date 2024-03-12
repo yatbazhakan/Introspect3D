@@ -9,6 +9,7 @@ import open3d as o3d
 from math import cos,sin
 import cv2 
 from utils.filter import *
+import copy
 import open3d as o3d
 from definitions import KITTI_CLASSES
 class Kitti3D(DrivingDataset):
@@ -26,7 +27,8 @@ class Kitti3D(DrivingDataset):
         self.calibration_paths = self.get_calibration_paths()
         self.label_paths = self.get_label_paths()
         self.filtering_style = eval(filtering_style)
-        self.filter_params = kwargs['filter_params']
+        self.filter_params = kwargs.get('filter_params',{})
+        self.is_e2e = kwargs.get('is_e2e',False)
         self.filter = self.filtering_style.value(**self.filter_params)
     def __getitem__(self, idx):       
         #Read data
@@ -36,11 +38,19 @@ class Kitti3D(DrivingDataset):
         labels = self.read_labels(idx=idx)
         #Process data
         point_cloud = PointCloud(points=points)
+        if self.is_e2e:
+            raw_point_cloud = copy.deepcopy(point_cloud)
+            raw_labels = copy.deepcopy(labels)
         point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
         # point_cloud.convert_to_kitti_points()
         
         labels = self.filter.filter_bounding_boxes(labels)
-        item_dict = {'pointcloud': point_cloud, 'labels': labels,'file_name':file_name}
+        if self.is_e2e:
+            item_dict = {'pointcloud': {'filtered':point_cloud,'raw':raw_point_cloud},
+                        'labels': {'filtered':labels,'raw':raw_labels},
+                        'file_name':file_name}
+        else:
+            item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name':file_name}
 
         return item_dict
     
@@ -131,6 +141,8 @@ class Kitti3D(DrivingDataset):
         box.corners = translated_corners.T
         return box
 
+
+    
 class Kitti2D(DrivingDataset):
     def __init__(self, root_dir: str,
                  class_names: Union[None, List],

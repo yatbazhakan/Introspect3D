@@ -1,0 +1,171 @@
+experiment_name: point_pillar_kitti_activations
+experiment_path: ./
+device: cuda:1
+method: activations
+verbose: true
+detection:
+  device: cuda:1
+  dataset:
+    name: Kitti
+    root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
+    class_names:
+    - Car
+    - Pedestrian
+    - Cyclist
+    filtering_style: FilterType.NONE
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  training_params: {}
+extraction:
+  active: true
+  device: cuda:1
+  score_threshold: 0.5
+  dataset:
+    name: Kitti3D
+    root_dir: /mnt/ssd2/kitti/training/
+    class_names:
+    - Car
+    - Pedestrian
+    - Cyclist
+    filtering_style: FilterType.ELLIPSE
+    filter_params:
+      a: 25
+      b: 15
+      offset: -10
+      axis: 0
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  method:
+    name: raw_activations
+    save_input: true
+    hook:
+      layer: backbone.blocks
+      indexes:
+      - 0
+      - 1
+      - 2
+      extract_from:
+      - 0
+      - 1
+      - 1
+      layer_index: 2
+    save_dir: ../custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+    labels_file_name: kitti_point_pillars_labels_aggregated_raw.csv
+    balanced: false
+    transforms: None
+    extension: .bin
+  training_params: {}
+introspection:
+  experiment_name: point_pillar_kitti_activations_single_feature_early
+  wandb:
+    is_sweep: True
+    sweep_configuration:
+      method: grid
+      name: point_pillar_kitti_activations_single_feature_early
+      metric:
+        name: val_loss
+        goal: minimize
+      parameters:
+        model_yaml:
+          values:
+          - configs/networks/resnet18_fcn_indv.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
+        optimizer:
+          values:
+          - SGD
+        criterion:
+          values:
+          - FocalLoss
+        lr:
+          values:
+          - 0.0005
+          - 0.001
+          - 0.01
+        batch_size:
+          values:
+          - 32
+    project: introspect3D
+    entity: yatbazhakan
+    mode: online
+    name: point_pillar_kitti_activations_single_feature_early
+  verbose: true
+  method:
+    task: multiclass
+    cross_validation:
+      type: holdout
+      iteration: 1
+      balanced: false
+      train_test_split: 0.2
+      validation_split: 0.2
+    processing:
+      active: true
+      method: ProcessorEnum.RAW
+      stack: False
+      params:
+        config:
+          grid_size: 16
+          pad: 0
+    model:
+      layer_config: configs/networks/resnet18_fcn_indv.yaml
+    optimizer:
+      type: Adam
+      params:
+        lr: 0.001
+        weight_decay: 0.0001
+    criterion:
+      type: FocalLoss
+      params:
+        reduction: sum
+        gamma: 5
+        weight:
+        - 0.78
+        - 1.39
+    scheduler:
+      type: ReduceLROnPlateau
+      params:
+        patience: 15
+        factor: 0.7
+    epochs: 100
+    log_interval: 1
+    save_interval: 1
+    early_stop: 15
+    sanity_check: false
+    save_path: outputs/ckpts
+    save_name: point_pillar_kitti_activations_single_feature_early.pt
+  device: cuda:1
+  filtering: none
+  dataset:
+    name: ActivationDataset
+    config:
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+      label_file: kitti_point_pillars_labels_aggregated_raw.csv
+      label_field: is_missed
+      layer: 0
+      is_multi_feature: False
+      classes:
+      - No Error
+      - Error
+      name: kitti
+  dataloader:
+    all:
+      batch_size: 8
+      shuffle: true
+    train:
+      batch_size: 8
+      shuffle: true
+    test:
+      batch_size: 1
+      shuffle: false
+  operation:
+    type: traineval
+    load_model: true

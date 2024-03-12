@@ -9,6 +9,7 @@ from utils.pointcloud import PointCloud
 from utils.filter import *
 import pickle
 import os
+import copy
 object_label_to_index = {
     "human.pedestrian.adult": 6,
     "human.pedestrian.child": 6,
@@ -70,7 +71,8 @@ class NuScenesDataset(DrivingDataset):
         self.save_path,self.save_filename = kwargs['save_path'], kwargs['save_filename']
         print("Filtering style",filtering_style)
         self.filtering_style = eval(filtering_style)
-        self.filter_params = kwargs['filter_params']
+        self.filter_params = kwargs.get('filter_params',{})
+        self.is_e2e = kwargs.get('is_e2e',False)
         self.filter = self.filtering_style.value(**self.filter_params)
         self.dataset_flattened = {}
         if process:
@@ -135,6 +137,9 @@ class NuScenesDataset(DrivingDataset):
         points = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
         point_cloud = PointCloud(points)
         # print("Before filtering",point_cloud.points.shape)
+        if self.is_e2e:
+            raw_point_cloud = copy.deepcopy(point_cloud)
+            raw_labels = copy.deepcopy(labels)
         point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
         point_cloud.raw_points = point_cloud.points.copy()
         # print("After filtering",point_cloud.points.shape)
@@ -142,7 +147,12 @@ class NuScenesDataset(DrivingDataset):
         # print(type(labels),len(labels))
         # print("------------------")
         labels = self.filter.filter_bounding_boxes(labels)
-        item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath}
+        if self.is_e2e:
+            item_dict = {'pointcloud': {'filtered':point_cloud,'raw':raw_point_cloud},
+                        'labels': {'filtered':labels,'raw':raw_labels},
+                        'file_name':lidar_filepath}
+        else:
+            item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath}
         return item_dict
     
     def filter_boxes_with_category(self,box_label,accepted_categories=['vehicle.','human','cyclist']):

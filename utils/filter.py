@@ -113,8 +113,21 @@ class NoFilter(FilterStrategy):
         return True
     def is_outside(self,**kwargs):
         return False
-
-
+#TODO: Implement a grid filter to split pc into grids
+class GridFilter(FilterStrategy):
+    def __init__(self,**kwargs) -> None:
+        super().__init__()   
+    def filter_pointcloud(self, data, mode=0):
+        # Rectangle filtering logic here
+        pass
+    def filter_bounding_boxes(self, data, mode=0):
+        pass
+    
+    def is_inside(self,**kwargs):
+        pass
+    
+    def is_outside(self,**kwargs):
+        pass  
 class FilterType(Enum):
     RECTANGLE = RectangleFilter
     ELLIPSE = EllipseFilter 
