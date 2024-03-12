@@ -1,6 +1,7 @@
 from nuscenes.nuscenes import NuScenes
 import numpy as np
 import os
+os.chdir('/mnt/ssd2/Introspect3D')
 import open3d as o3d
 from pprint import pprint
 from glob import glob
@@ -118,7 +119,7 @@ def filter_objects_outside_ellipse(objects, a, b,offset=5,axis=0):
     for obj in objects:
         corners = obj.copy()
         if(len(corners) != 8):
-          corners = corners.T
+          corners = corners.Tq
         corners[:, axis] = corners[:, axis] + offset
         inside_ellipse = is_inside_ellipse(corners[:, 0], corners[:, 1], a, b)
         if np.any(inside_ellipse):
@@ -224,26 +225,30 @@ dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
                           version='v1.0-trainval',
                           split='train',
                           transform=None,
-                          filtering_style = "FilterType.ELLIPSE",
+                          filtering_style = "FilterType.NONE",
                           filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
                           save_path='/mnt/ssd2/nuscenes/',
-                          save_filename='nuscenes_train_filtered.pkl',
+                          save_filename='nuscenes_train.pkl',
                           process=False,)
 print("Length of nuScenes database: {}".format(len(dataset)))
-
-for item in dataset:
+sindex = 50
+for i,item in enumerate(dataset):
+    if i != sindex:
+        continue
+    if i>sindex:
+        break
     visualizer = Visualizer()
-    config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
-    checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-    # checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-    # config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+    # config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
+    # checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
+    checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+    config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
     # config =r'/mnt/ssd2/mmdetection3d/configs/pv_rcnn/pv_rcnn_8xb2-80e_kitti-3d-3class.py'
     # checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/pv_rcnn_8xb2-80e_kitti-3d-3class_20221117_234428-b384d22f.pth'
-    config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_16xb2-2x_waymo-3d-3class.py'
-    checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn_2x16_2x_waymoD5-3d-3class_20200831_204144-d1a706b1.pth'
+    # config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_16xb2-2x_waymo-3d-3class.py'
+    # checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn_2x16_2x_waymoD5-3d-3class_20200831_204144-d1a706b1.pth'
     
     model = init_model(config, checkpoint, device='cuda:0')
-    item['pointcloud'].validate_and_update_descriptors(extend_or_reduce=4)
+    item['pointcloud'].validate_and_update_descriptors(extend_or_reduce=5)
     res, data = inference_detector(model, item['pointcloud'].points)
     predicted_boxes = res.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
     predicted_scores = res.pred_instances_3d.scores_3d.cpu().numpy()
@@ -258,10 +263,15 @@ for item in dataset:
     print("Number of unmatched ground truths: {}".format(len(unmatched_ground_truths)))
     print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
     # print(type(prediction_bounding_boxes[0]),type(item['labels'][0]))
-    visualizer.visualize(cloud= item['pointcloud'].points[:,:3],gt_boxes = item['labels'],pred_boxes = prediction_bounding_boxes)  # item['labels']
-    
-    if input() == "q":
+    visualizer.visualize_save(cloud= item['pointcloud'].points[:,:3],
+                              gt_boxes = [], #item['labels'],
+                              pred_boxes = [],#prediction_bounding_boxes,
+                              save_path="./nuscenes_pointcloud3.png")  # item['labels']
+    print("saved")
+    if i == sindex:
         break
+    # if input() == "q":
+    #     break
     # nusc = NuScenes(version='v1.0-mini', dataroot='/mnt/ssd2/nuscenes_mini/v1.0-mini', verbose=True)
     # # kitti_velodyne_path= r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/velodyne"
     # # img_path = r"/mnt/ssd1/introspectionBase/datasets/KITTI/training/image_2"

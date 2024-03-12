@@ -44,7 +44,7 @@ class Visualizer:
         cam_params.extrinsic = extrinsic
         ctr.convert_from_pinhole_camera_parameters(cam_params)
         opt = vis.get_render_option()
-        opt.background_color = np.asarray([0.5, 0.5, 0.5])
+        opt.background_color = np.asarray([0.0, 0.0, 0.0])
 
     def create_oriented_bounding_boxes(self,
                                        box: BoundingBox,
@@ -92,12 +92,12 @@ class Visualizer:
             max_distance = None
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points[:, :3])
-        pcd.colors = o3d.utility.Vector3dVector(self.compute_colors_from_distance(points,max_distance))
+        pcd.colors = o3d.utility.Vector3dVector(self.compute_colors_from_distance(points,None))
         return pcd
     def compute_colors_from_distance(self,points,max_distance):
         #If no disatance given return all black
         if max_distance==None:
-            return np.zeros((points.shape[0],3))
+            return np.ones((points.shape[0],3)) * [0.56470588235, 0.93333333333, 0.56470588235]
         distances = np.linalg.norm(points[:, :3], axis=1)
         normalized_distances = distances / max_distance
         return plt.cm.jet(normalized_distances)[:,:3]
@@ -119,5 +119,29 @@ class Visualizer:
             # print(type(box))
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0,Colors.RED.value))
         
+        visualizer.run()
+        visualizer.destroy_window()
+    def visualize_save(self, cloud, gt_boxes, pred_boxes, save_path=None, resolution=(1920, 1080)):
+        # This function now has parameters for the point cloud, ground truth boxes, predicted boxes,
+        # an optional path to save the screenshot, and an optional resolution for the screenshot.
+        cloud = self.create_pcd_from_points(cloud, max_distance=False)
+        visualizer = o3d.visualization.Visualizer()
+        visualizer.create_window(width=resolution[0], height=resolution[1])
+        self.set_custom_view(visualizer)
+        visualizer.add_geometry(cloud)
+
+        for box in gt_boxes:
+            visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0, Colors.GREEN.value))
+        for box in pred_boxes:
+            visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0, Colors.RED.value))
+
+        if save_path:
+            # Adjust the viewpoint before capturing the screenshot
+            visualizer.poll_events()
+            visualizer.update_renderer()
+            # Capture the screenshot
+            image_float = np.asarray(visualizer.capture_screen_float_buffer(do_render=True))
+            plt.imsave(save_path, np.asarray(image_float), dpi=1)  # dpi=1 means save the image at the resolution given by width and height
+
         visualizer.run()
         visualizer.destroy_window()

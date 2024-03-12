@@ -68,6 +68,7 @@ class NuScenesDataset(DrivingDataset):
                  filtering_style: FilterType = FilterType.ELLIPSE,**kwargs):
         process = kwargs['process']
         self.save_path,self.save_filename = kwargs['save_path'], kwargs['save_filename']
+        print("Filtering style",filtering_style)
         self.filtering_style = eval(filtering_style)
         self.filter_params = kwargs['filter_params']
         self.filter = self.filtering_style.value(**self.filter_params)
