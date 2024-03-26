@@ -201,6 +201,7 @@ class IntrospectionOperator(Operator):
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
         self.method_info['criterion']['type'] = wandb.config.criterion
         self.config['dataloader']['train']['batch_size'] = wandb.config.batch_size
+        self.method_info['criterion']['params']['gamma'] = wandb.config.gamma
     def train(self,iteration=1):
         #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
         if self.is_sweep:

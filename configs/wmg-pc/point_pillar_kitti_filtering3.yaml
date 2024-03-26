@@ -34,8 +34,8 @@ extraction:
     - Cyclist
     filtering_style: FilterType.ELLIPSE
     filter_params:
-      a: 25
-      b: 5
+      a: 5
+      b: 25
       offset: -10
       axis: 0
   model:
@@ -59,19 +59,19 @@ extraction:
       # - 1
       - 1
       layer_index: 2
-    save_dir: ../custom_dataset/kitti_pp_filtered_a25b05/
-    labels_file_name: kitti_pp_filtered_a25b05.csv
+    save_dir: ../custom_dataset/kitti_pp_filtered_a05b25/
+    labels_file_name: kitti_pp_filtered_a05b25.csv
     balanced: false
     transforms: None
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: kitti_pp_filtered_a25b25
+  experiment_name: kitti_pp_filtered_a05b25
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: kitti_pp_filtered_a25b25
+      name: kitti_pp_filtered_a05b25
       metric:
         name: val_loss
         goal: minimize
@@ -103,7 +103,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_pp_filtered_a25b25
+    name: kitti_pp_filtered_a05b25
   verbose: true
   method:
     task: multiclass
@@ -147,14 +147,14 @@ introspection:
     early_stop: 15
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: kitti_pp_filtered_a25b25.pt
+    save_name: kitti_pp_filtered_a05b25.pt
   device: cuda:1
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pp_filtered_a25b25/
-      label_file: kitti_pp_filtered_a25b25.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pp_filtered_a05b25/
+      label_file: kitti_pp_filtered_a05b25.csv
       label_field: is_missed
       layer: 0
       is_multi_feature: False

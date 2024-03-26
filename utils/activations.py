@@ -40,7 +40,7 @@ class Activations:
         else:
             self.hook = None
             
-        # check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
+        check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
 
     def __call__(self, x,name):
         self.save_name = name.split('/')[-1]
@@ -71,8 +71,8 @@ class Activations:
         # print(len(output))
         last_output = output.detach().cpu().numpy() #TODO: generalize this
         # print("Last output shape",last_output.shape)
-        print(last_output.shape)
-        print("-------------------")
+        # print(last_output.shape)
+        # print("-------------------")
         last_output = np.squeeze(last_output)
         self.activation_list.append(last_output)
 

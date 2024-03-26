@@ -100,7 +100,7 @@ class ActivationDataset:
         label = self.get_label(feature_name)
         
         tensor_label = torch.LongTensor([label])
-
+        # print(tensor_feature.shape,tensor_label.shape,feature_name)
         # print(tensor_label)
         return tensor_feature, tensor_label, feature_name
     def __len__(self):
