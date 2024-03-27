@@ -52,6 +52,7 @@ class Activations:
         print(output.shape)
         print(output)
     def save_multi_layer_activation(self):
+        print("Saving activations")
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
         print("Saving", save_name, "to", self.save_dir)
         with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:

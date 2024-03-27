@@ -35,7 +35,6 @@ class ActivationExractionOperator(Operator):
             # for activation in self.activation.activation_list:
             #     print(activation.shape)
             # exit()
-            self.activation.save_multi_layer_activation()
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
@@ -53,6 +52,6 @@ class ActivationExractionOperator(Operator):
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
             if verbose:
                 progress_bar.update(1)
-        if(self.config['active']):
-            self.save_labels()
+        # if(self.config['active']):
+        self.save_labels()
             

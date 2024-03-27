@@ -22,11 +22,13 @@ detection:
     checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
   training_params: {}
 extraction:
-  active: true
+  active: False
+  labels_only: True
   device: cuda:1
   score_threshold: 0.5
   dataset:
     name: Kitti3D
+    filter_labels_only: True
     root_dir: /mnt/ssd2/kitti/training/
     class_names:
     - Car
@@ -35,7 +37,7 @@ extraction:
     filtering_style: FilterType.ELLIPSE
     filter_params:
       a: 25
-      b: 5
+      b: 15
       offset: -10
       axis: 0
   model:
@@ -47,7 +49,7 @@ extraction:
     checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
   method:
     name: raw_activations
-    save_input: true
+    save_input: False
     hook:
       layer: backbone.blocks
       indexes:
@@ -59,8 +61,8 @@ extraction:
       # - 1
       - 1
       layer_index: 2
-    save_dir: ../custom_dataset/kitti_pp_filtered_a25b05/
-    labels_file_name: kitti_pp_filtered_a25b05.csv
+    save_dir: ../custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+    labels_file_name: kitti_pointpillars_activations_filtered_labels.csv
     balanced: false
     transforms: None
     extension: .bin

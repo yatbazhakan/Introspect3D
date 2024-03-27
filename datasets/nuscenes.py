@@ -73,6 +73,7 @@ class NuScenesDataset(DrivingDataset):
         self.filtering_style = eval(filtering_style)
         self.filter_params = kwargs.get('filter_params',{})
         self.is_e2e = kwargs.get('is_e2e',False)
+        self.labels_only = kwargs.get('filter_labels_only',False)
         self.filter = self.filtering_style.value(**self.filter_params)
         self.dataset_flattened = {}
         if process:
@@ -140,7 +141,8 @@ class NuScenesDataset(DrivingDataset):
         if self.is_e2e:
             raw_point_cloud = copy.deepcopy(point_cloud)
             raw_labels = copy.deepcopy(labels)
-        point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
+        if not self.labels_only:
+            point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
         point_cloud.raw_points = point_cloud.points.copy()
         # print("After filtering",point_cloud.points.shape)
         # point_cloud.convert_to_kitti_points()
