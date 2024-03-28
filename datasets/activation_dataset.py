@@ -14,6 +14,7 @@ class ActivationDataset:
         self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
         self.feature_paths = self.get_feature_paths()
+        print("Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
         self.label_file = self.get_label_file()
         self.label_field = config['label_field']
         self.layer = config.get('layer',None)
@@ -79,22 +80,33 @@ class ActivationDataset:
             pickle_path = feature_path.replace('.npy','')
             with open(pickle_path,'rb') as f:
                 feature = pickle.load(f)
-            first = torch.from_numpy(feature[0])
-            second = torch.from_numpy(feature[1])
-            third = torch.from_numpy(feature[2])
-
+            #making the grouping agnostic from the number of layers selected
             # print(first.shape,second.shape,third.shape)
-            tensor_feature = [first,second,third]        
-
+            if type(self.layer) == list:
+                tensor_feature = []
+                for i in range(len(self.layer)):
+                    data = torch.from_numpy(feature[self.layer[i]])
+                # Handled in the model, will be changed to sort out here as well
+                #     if i == 0:
+                #         data = torch.from_numpy(feature[self.layer[i]])
+                #     elif i == 1:
+                #         data = torch.from_numpy(feature[self.layer[i]])
+                #     elif i == 2:
+                #         data = torch.from_numpy(feature[self.layer[i]])
+                    tensor_feature.append(data)
+    
+            # tensor_feature = [first,second,third]        
         else:
             if self.layer == None:
                 feature = np.load(feature_path)
                 tensor_feature = torch.from_numpy(feature)
             else:
                 pickle_path = feature_path.replace('.npy','')
+                # print("----",pickle_path)
                 with open(pickle_path,'rb') as f:
                     feature = pickle.load(f)
                 tensor_feature = torch.from_numpy(feature[int(self.layer)])
+            # print(tensor_feature.shape)
         # print(feature_name)
         feature_name = feature_name.replace('.npy','')
         label = self.get_label(feature_name)

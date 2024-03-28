@@ -1,5 +1,6 @@
 from utils.config import Config
 import argparse
+import traceback 
 import os
 from operators.activation_extractor import ActivationExractionOperator
 from operators.introspector import IntrospectionOperator
@@ -20,7 +21,7 @@ def parse_args():
 
 if __name__== "__main__":
     args = parse_args()
-
+    print(args.config)
     config = Config(os.path.join(CONFIG_DIR,args.config))
     
     operator = get_operator(int(args.operator))(config)

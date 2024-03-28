@@ -6,12 +6,14 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+import traceback 
+
 from definitions import ROOT_DIR
 from utils.process import *
 import wandb
 import torch
 from modules.graph_networks import GCN
-from modules.custom_networks import CustomModel, EarlyFusionAdaptive
+from modules.custom_networks import CustomModel, EarlyFusionAdaptive, GenericInjection
 from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
@@ -24,6 +26,7 @@ class IntrospectionOperator(Operator):
         self.wandb = self.config['wandb']
         self.verbose = self.config['verbose']
         self.method_info = self.config['method']
+        print(self.method_info)
         self.is_sweep = self.wandb['is_sweep']
         self.device = self.config['device']
         os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
@@ -172,8 +175,10 @@ class IntrospectionOperator(Operator):
                 output = self.model(data)
                 # print(output.shape)
             elif "MULTI" in self.method_info['processing']['method'] or "EFS" in self.method_info['processing']['method']:
+                mode = self.method_info.get('mode','EML')
+                
                 target = target.to(self.device)
-                output = self.model(data)
+                output = self.model(data,mode=mode) #FIX FOR EFS
             # elif "EFS" in self.method_info['processing']['method']:
             #     data, target = data.to(self.device), target.to(self.device)
             #     output = self.model(data)
@@ -220,7 +225,7 @@ class IntrospectionOperator(Operator):
             self.model = GCN(model_info)
             print(self.model)
         elif "MULTI" in self.method_info['processing']['method']:
-            self.model = CustomModel(model_info,device=self.device)
+            self.model = GenericInjection(model_info,device=self.device)
         elif "EFS" in self.method_info['processing']['method']:
             print("LOADING EFS MODEL")
             self.model = EarlyFusionAdaptive(model_info,device=self.device)
@@ -444,5 +449,6 @@ class IntrospectionOperator(Operator):
                         self.evaluate(i)
 
         except Exception as e:
+            traceback.print_exc() 
             clear_memory()
             exit(e)
