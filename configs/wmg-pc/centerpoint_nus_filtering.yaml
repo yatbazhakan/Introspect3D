@@ -74,19 +74,19 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: centerpoint_nus_multi_feature_aggregation_int
+  experiment_name: centerpoint_nus_filtered_labels_only
   wandb:
-    is_sweep: True
+    is_sweep: False
     sweep_configuration:
       method: grid
-      name: point_pillar_nus_feature_aggregation_early
+      name: nus_centerpoint_filtered_labels_only
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_multr.yaml
+          - configs/networks/resnet18_fcn.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -97,16 +97,22 @@ introspection:
           - FocalLoss
         lr:
           values:
-          - 0.0005
+          - 0.005
           - 0.001
+          - 0.01
         batch_size:
           values:
           - 16
           - 32
+        gamma:
+          values:
+          - 5
+          - 0
+          - 2
     project: introspect3D
     entity: yatbazhakan
-    mode: online
-    name: centerpoint_nus_multifeat_int
+    mode: disabled
+    name: nus_centerpoint_filtered_labels_only
   verbose: True
   method:
     task: multiclass
@@ -118,7 +124,8 @@ introspection:
       validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.MULTI
+      method: ProcessorEnum.RAW
+      stack: False
       params:
         # config:
         #   percentile: 0.9
@@ -129,7 +136,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn_multr.yaml
+      layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
       type: SGD
       params: 
@@ -148,23 +155,23 @@ introspection:
       params:
         patience : 10
         factor: 0.7
-    epochs: 300
+    epochs: 200
     log_interval: 1
     save_interval: 1
-    early_stop: 25
+    early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_aggregated_early.pt
+    save_name: centerpoint_nus_activations_filtered_labels_only.pt
   device: cuda:1
   filtering: none
   dataset:
     name: ActivationDataset
     config:
       root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/
-      label_file: nus_centerpoint_labels_aggregated_raw.csv
+      label_file: nus_centerpoint_labels_aggregated_raw_filtered.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
-      is_multi_feature: True
+      is_multi_feature: False
       name: nuscenes
   dataloader:
     all:

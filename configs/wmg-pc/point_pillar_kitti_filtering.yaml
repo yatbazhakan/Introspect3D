@@ -68,19 +68,19 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: kitti_pp_filtered_a25b25
+  experiment_name: kitti_pp_filtered_labels_only
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: kitti_pp_filtered_a25b25
+      name: kitti_pp_filtered_labels_only
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_indv.yaml
+          - configs/networks/resnet18_fcn.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -105,7 +105,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: point_pillar_kitti_pp_filtered_a25b25
+    name: kitti_pp_filtered_labels_only
   verbose: true
   method:
     task: multiclass
@@ -124,7 +124,7 @@ introspection:
           grid_size: 16
           pad: 0
     model:
-      layer_config: configs/networks/resnet18_fcn_indv.yaml
+      layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
       type: Adam
       params:
@@ -141,24 +141,24 @@ introspection:
     scheduler:
       type: ReduceLROnPlateau
       params:
-        patience: 15
+        patience: 10
         factor: 0.7
-    epochs: 100
+    epochs: 200
     log_interval: 1
     save_interval: 1
-    early_stop: 15
+    early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: kitti_pp_filtered_a25b25.pt
+    save_name: kitti_pp_filtered_labels_only.pt
   device: cuda:1
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pp_filtered_a25b25/
-      label_file: kitti_pp_filtered_a25b25.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+      label_file: kitti_pointpillars_activations_filtered_labels.csv
       label_field: is_missed
-      layer: 0
+      layer: 2
       is_multi_feature: False
       classes:
       - No Error
