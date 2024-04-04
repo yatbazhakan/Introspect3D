@@ -190,7 +190,6 @@ class ThreeDimensionalConvolution(ActivationProcessor):
         np_activation = activation.detach().cpu().numpy()
 
         #add 1 dimension after batch  and return
-        activation = np_activation[:,None,:,:,:]
         return activation
 class MultiFeatureActivation(ActivationProcessor): #Just an identity function for now
     def __init__(self, config):
@@ -275,11 +274,19 @@ class SpatioChannelReshaping(ActivationProcessor):
 
         return output_array
 import numpy as np
+class ChannelTransformer(ActivationProcessor):
+    def __init__(self,config):
+        self.config = config
+    def process(self, **kwargs):
+        activation = kwargs.get('activation')
+        return activation[:,None,:,:,:]
 
 class GraphActivationProcessor(ActivationProcessor):
     def __init__(self, config):
         self.config = config
-
+    def process(self, **kwargs):
+        activation = kwargs.get('activation')  # activation shape is (batch_size, channel, height, width)
+        return activation[:,None,:,:,:]
     def process(self, **kwargs):
         def index_to_1d(index, c, h):
             return (index[0] * h + index[1]) * c + index[2]
@@ -352,3 +359,4 @@ class ProcessorEnum(Enum):
     MULTI = MultiFeatureActivation
     EFM = MultiFeatureActivationEarlyFused
     EFS = MultiFeatureActivationEarlyFusedSum
+    TX = ChannelTransformer

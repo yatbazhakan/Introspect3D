@@ -13,7 +13,7 @@ from utils.process import *
 import wandb
 import torch
 from modules.graph_networks import GCN
-from modules.custom_networks import CustomModel, EarlyFusionAdaptive, GenericInjection
+from modules.custom_networks import CustomModel, EarlyFusionAdaptive, GenericInjection, SwinIntrospection
 from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
@@ -179,6 +179,7 @@ class IntrospectionOperator(Operator):
                 
                 target = target.to(self.device)
                 output = self.model(data,mode=mode) #FIX FOR EFS
+            
             # elif "EFS" in self.method_info['processing']['method']:
             #     data, target = data.to(self.device), target.to(self.device)
             #     output = self.model(data)
@@ -229,6 +230,8 @@ class IntrospectionOperator(Operator):
         elif "EFS" in self.method_info['processing']['method']:
             print("LOADING EFS MODEL")
             self.model = EarlyFusionAdaptive(model_info,device=self.device)
+        elif "TX" in self.method_info['processing']['method']:
+            self.model = SwinIntrospection(model_info,device=self.device)
         else:
             self.model = generate_model_from_config(model_info)
         print("Model loaded")

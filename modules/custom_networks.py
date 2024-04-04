@@ -4,6 +4,20 @@ import yaml
 import os
 from collections import OrderedDict
 from utils.utils import weight_init,generate_model_from_config
+from torchvision.models.video import swin3d_t ,Swin3D_T_Weights
+import torchvision
+class SwinIntrospection(nn.Module):
+    def __init__(self, model_config,hooks=None,device = 'cuda:1',in_channels=1) -> None:
+        super(SwinIntrospection, self).__init__()
+        self.swin = swin3d_t(weights=Swin3D_T_Weights.DEFAULT)
+        self.layers = generate_model_from_config(model_config)
+        self.swin.head = self.layers
+        self.swin.patch_embed.proj = nn.Conv3d(in_channels, self.swin.patch_embed.proj.out_channels,kernel_size=(2, 4, 4), stride=(2, 4, 4))
+        self.swin.patch_embed = weight_init(self.swin.patch_embed)
+    
+    def forward(self,x):
+        return self.swin(x)
+
 class DownSampleNorm(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=True):
         super(DownSampleNorm, self).__init__()

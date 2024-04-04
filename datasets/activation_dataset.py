@@ -23,6 +23,7 @@ class ActivationDataset:
         self.labels = pd.read_csv(self.label_file)
         self.labels['name'] = self.labels['name'].astype(str)
         #remove if any leading path is there in self labels['name']
+        # if self.is_multi_feature: #Need to fix this extension issue
         self.labels['name'] = self.labels['name'].apply(lambda x: x.split('/')[-1].replace('.npy',''))
         #fill names with leading zeros to make them 6 digits
         if self.config['name'] == 'kitti':
@@ -31,7 +32,7 @@ class ActivationDataset:
             temp_paths = []
             for path in self.feature_paths:
                 name = path.split('/')[-1].replace(self.extension,'')
-            
+                print(name)
                 # print(type(name),type(self.labels['name'].values[-1]),name in self.labels['name'].values)
                 if name in self.labels['name'].values:
                     

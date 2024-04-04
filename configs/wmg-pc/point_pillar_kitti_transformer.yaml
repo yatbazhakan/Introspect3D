@@ -1,10 +1,10 @@
 experiment_name: point_pillar_kitti_activations
 experiment_path: ./
-device: cuda:1
+device: cuda:0
 method: activations
 verbose: true
 detection:
-  device: cuda:1
+  device: cuda:0
   dataset:
     name: Kitti
     root_dir: /mnt/ssd2/kitti/training/
@@ -24,7 +24,7 @@ detection:
 extraction:
   active: False
   labels_only: True
-  device: cuda:1
+  device: cuda:0
   score_threshold: 0.5
   dataset:
     name: Kitti3D
@@ -68,19 +68,20 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: kitti_pp_filtered_labels_only
+  experiment_name: kitti_pp_transformer
   wandb:
-    is_sweep: True
+    is_sweep: False
     sweep_configuration:
       method: grid
-      name: kitti_pp_filtered_labels_only
+      name: kitti_pp_transformer
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn2.yaml
+          - configs/networks/swin3d_t_fcn.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
           - SGD
@@ -103,8 +104,8 @@ introspection:
           - 2
     project: introspect3D
     entity: yatbazhakan
-    mode: online
-    name: kitti_pp_filtered_labels_only
+    mode: disabled
+    name: kitti_pp_transformer
   verbose: true
   method:
     task: multiclass
@@ -116,16 +117,15 @@ introspection:
       validation_split: 0.2
     processing:
       active: true
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.TX
       stack: False
       params:
         config:
-          grid_size: 16
-          pad: 0
+          in_channels: 1
     model:
-      layer_config: configs/networks/resnet18_fcn2.yaml
+      layer_config: configs/networks/swin3d_t_fcn.yaml
     optimizer:
-      type: Adam
+      type: SGD
       params:
         lr: 0.001
         weight_decay: 0.0001
@@ -148,8 +148,8 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: kitti_pp_filtered_labels_only.pt
-  device: cuda:1
+    save_name: kitti_pp_transformer.pt
+  device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
@@ -157,7 +157,7 @@ introspection:
       root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
       label_file: kitti_pointpillars_activations_filtered_labels.csv
       label_field: is_missed
-      layer: 2
+      layer: 1
       is_multi_feature: False
       classes:
       - No Error
@@ -165,10 +165,10 @@ introspection:
       name: kitti
   dataloader:
     all:
-      batch_size: 8
+      batch_size: 4
       shuffle: true
     train:
-      batch_size: 8
+      batch_size: 4
       shuffle: true
     test:
       batch_size: 1
