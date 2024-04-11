@@ -1,10 +1,10 @@
 experiment_name: point_pillar_kitti_activations
 experiment_path: ./
-device: cuda:1
+device: cuda:0
 method: activations
 verbose: true
 detection:
-  device: cuda:1
+  device: cuda:0
   dataset:
     name: Kitti
     root_dir: /mnt/ssd2/kitti/training/
@@ -24,7 +24,7 @@ detection:
 extraction:
   active: False
   labels_only: True
-  device: cuda:1
+  device: cuda:0
   score_threshold: 0.5
   dataset:
     name: Kitti3D
@@ -68,12 +68,12 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: kitti_pp_filtered_labels_only
+  experiment_name: kitti_pp_filtered_both
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: kitti_pp_filtered_labels_only
+      name: kitti_pp_filtered_both
       metric:
         name: val_loss
         goal: minimize
@@ -89,22 +89,22 @@ introspection:
           - FocalLoss
         lr:
           values:
-          - 0.001
+          # - 0.001
           - 0.005
           - 0.01
         batch_size:
           values:
-          - 32
+          # - 32
           - 64
         gamma:
           values:
           - 5
-          - 0
-          - 2
+          # - 0
+          # - 2
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: kitti_pp_filtered_labels_only
+    name: kitti_pp_filtered_both
   verbose: true
   method:
     task: multiclass
@@ -149,15 +149,15 @@ introspection:
     sanity_check: false
     save_path: outputs/ckpts
     save_name: kitti_pp_filtered_labels_only.pt
-  device: cuda:1
+  device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_aggregated_raw/
-      label_file: kitti_pointpillars_activations_filtered_labels.csv
+      root_dir: /mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/
+      label_file: kitti_point_pillars_labels_filtered.csv
       label_field: is_missed
-      layer: 2
+      extension: .npy
       is_multi_feature: False
       classes:
       - No Error

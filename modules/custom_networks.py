@@ -160,9 +160,11 @@ class GenericInjection(nn.Module):
                 x = x.to(self.device)
                 x = layer(x)
         else:
+            # hooks = [4]
             for idx,layer in enumerate(self.resnet):
                 if idx ==0:
                     x = second
+                    x = x.to(self.device)
                 elif idx == hooks[0] and third is not None:
                     third=third.to(self.device)
                     # print(third.shape)

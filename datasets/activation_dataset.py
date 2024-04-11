@@ -32,14 +32,14 @@ class ActivationDataset:
             temp_paths = []
             for path in self.feature_paths:
                 name = path.split('/')[-1].replace(self.extension,'')
-                print(name)
+                # print(name)
                 # print(type(name),type(self.labels['name'].values[-1]),name in self.labels['name'].values)
                 if name in self.labels['name'].values:
                     
                     temp_paths.append(path)
             self.feature_paths = temp_paths
             print("Feature paths and labels are not equal, some features are missing")
-            print(len(self.feature_paths),len(self.labels))
+            # print(len(self.feature_paths),len(self.labels))
         print(len(self.feature_paths),len(self.labels))
 
     def get_feature_paths(self):

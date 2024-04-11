@@ -1,10 +1,10 @@
 experiment_name: centerpoint_nus_activations
 experiment_path: ./
-device: cuda:1
+device: cuda:0
 method: activations
 verbose: True
 detection:
-  device: 'cuda:1'
+  device: 'cuda:0'
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
@@ -29,7 +29,7 @@ detection:
   training_params: {}
 extraction:
   active: False
-  device: 'cuda:1'
+  device: 'cuda:0'
   labels_only: True
   score_threshold: 0.5
   dataset:
@@ -98,17 +98,17 @@ introspection:
         lr:
           values:
           # - 0.005
-          - 0.001
+          - 0.005
           - 0.01
         batch_size:
           values:
           # - 16
-          - 32
+          - 64
         gamma:
           values:
           - 5
-          - 0
-          # - 2
+          # - 0
+          - 2
     project: introspect3D
     entity: yatbazhakan
     mode: online
@@ -155,14 +155,14 @@ introspection:
       params:
         patience : 10
         factor: 0.7
-    epochs: 200
+    epochs: 100
     log_interval: 1
     save_interval: 1
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
     save_name: centerpoint_nus_activations_filtered_labels_only.pt
-  device: cuda:1
+  device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset

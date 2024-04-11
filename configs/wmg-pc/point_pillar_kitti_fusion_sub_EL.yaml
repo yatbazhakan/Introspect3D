@@ -72,7 +72,7 @@ introspection:
   wandb:
     is_sweep: True
     sweep_configuration:
-      method: grid
+      method: bayes
       name: kitti_pp_fusion_sub_EL
       metric:
         name: val_loss
@@ -91,16 +91,16 @@ introspection:
         lr:
           values:
           - 0.001
-          - 0.005
-          - 0.01
+          - 0.0005
+          # - 0.01
         batch_size:
           values:
           - 32
-          - 64
+          # - 64
         gamma:
           values:
           - 5
-          - 0
+          # - 0
           - 2
     project: introspect3D
     entity: yatbazhakan
@@ -147,7 +147,7 @@ introspection:
     epochs: 200
     log_interval: 1
     save_interval: 1
-    early_stop: 20
+    early_stop: 15
     sanity_check: false
     save_path: outputs/ckpts
     save_name: kitti_pp_fusion_sub_EL.pt
