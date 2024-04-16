@@ -10,6 +10,7 @@ try:
 except:
     print("Could not load mmdet3d, some packages will be missing")
     pass
+d = 1 
 class Activations:
 
     def __init__(self,
@@ -52,9 +53,16 @@ class Activations:
         print(output.shape)
         print(output)
     def save_multi_layer_activation(self):
-        print("Saving activations")
+        # print("Saving activations")
+        # if self.extension != "":
+        global d 
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
-        print("Saving", save_name, "to", self.save_dir)
+        # else:
+            # save_name = self.save_name + ".pkl" # A fix that might create an isssue, hoping that extension param will fix automatically
+        if d == 1:
+
+            print("Saving", save_name, "to", self.save_dir)
+            d = 0
         with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
             pickle.dump(self.activation_list, f)
         # print(save_name,self.save_dir)

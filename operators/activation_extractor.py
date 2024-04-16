@@ -49,6 +49,7 @@ class ActivationExractionOperator(Operator):
                 row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
                 from pprint import pprint
                 # pprint(row)
+                self.activation.save_multi_layer_activation()
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
             if verbose:
                 progress_bar.update(1)

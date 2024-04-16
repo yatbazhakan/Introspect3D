@@ -18,10 +18,11 @@ from pprint import pprint
 import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 import os
+import uuid
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
-        
+        self.str_uid = str(uuid.uuid4())
         self.config = config.introspection
         self.wandb = self.config['wandb']
         self.verbose = self.config['verbose']
@@ -198,6 +199,7 @@ class IntrospectionOperator(Operator):
             epoch_loss += loss.item()
             pbar.update(1)
             clear_memory()
+            # return epoch_loss  #*debug
         #TODO: check if this division is correct way to do so
         return epoch_loss
     def update_config_from_wandb(self,conf):
@@ -219,7 +221,7 @@ class IntrospectionOperator(Operator):
         print("Name Builder")
         self.name_builder()
 
-        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+f"{iteration}.pth")
+        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+self.str_uid+f"{iteration}_")
         self.dataset = DatasetFactory().get(**self.config['dataset'])
         model_info = self.method_info['model']            
         if "GAP" in self.method_info['processing']['method']:
@@ -266,7 +268,11 @@ class IntrospectionOperator(Operator):
 
                 if self.verbose:
                     print("Saving model")
-                torch.save(self.model.state_dict(), self.model_save_to)
+
+                
+                epoch_id = epoch
+                torch.save(self.model.state_dict(), self.model_save_to + f"Ep{epoch_id}.pth")
+                torch.save(self.model.state_dict(), self.model_save_to +"_best.pth")
                 wandb.save( self.model_save_to)
             else:
                 if self.verbose:
@@ -283,7 +289,7 @@ class IntrospectionOperator(Operator):
         if loader == None:
             
             loader = self.test_loader
-            self.model.load_state_dict(torch.load(self.model_save_to))
+            self.model.load_state_dict(torch.load(self.model_save_to +"_best.pth"))
             if self.verbose:
                 print("No loader provided, Evaluation started for test set")
                 print("Model loaded from:",self.model_save_to)
@@ -341,6 +347,7 @@ class IntrospectionOperator(Operator):
                         )
                     pbar.update(1)
                     clear_memory()
+                    # return test_loss  #*debug
         # test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:

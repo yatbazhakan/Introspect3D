@@ -3,6 +3,7 @@
 *.json
 *.txt
 *.npy
+*.csv
 *.pt
 *.pth
 *.pkl
