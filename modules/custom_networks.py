@@ -110,6 +110,7 @@ class GenericInjection(nn.Module):
         self.downsample1= weight_init(self.downsample1)
         self.downsample2= weight_init(self.downsample2)
         self.device = device
+        self.hooks = [1,2]#[4,6] #currently manually changed
     def get_tensor_list(self,x,mode):
         if mode == "EML":
             first = x[0]
@@ -131,8 +132,8 @@ class GenericInjection(nn.Module):
         return first,second,third
         
 
-    def forward(self, x,hooks = [4,6],mode='EML'):
-
+    def forward(self, x,mode='EML'):
+        hooks = self.hooks
         first,second,third = self.get_tensor_list(x,mode)
         if first is not None:
             for  idx,layer in enumerate(self.resnet):

@@ -1,7 +1,6 @@
 from utils.factories import DatasetFactory
 from utils.config import Config
 from definitions import ROOT_DIR
-from mmdet3d.models import bu
 import os
 import random
 import torch
@@ -25,6 +24,8 @@ if __name__ == "__main__":
     #     dataset_test['features'].append(flattened)
     #     dataset_test['captions'].append(captions[num])
     # torch.save(dataset_test, os.path.join(ROOT_DIR, 'test_data.pt'))
-    config_path = "configs/wmg-pc/yolov8_nuscenes.yaml"
-    config = Config(os.path.join(config_path))
+    config_path = "configs/wmg-pc/centerpoint_nus_caption_blended.yaml"
+    config = Config(os.path.join(config_path)).introspection
+    dataset = DatasetFactory().get(**config['dataset'])
+
 

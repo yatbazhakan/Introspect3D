@@ -68,19 +68,19 @@ extraction:
     extension: .bin
   training_params: {}
 introspection:
-  experiment_name: kitti_filtered_injection
+  experiment_name: kitti_filtered_injection_custonnn
   wandb:
     is_sweep: False
     sweep_configuration:
       method: grid
-      name: kitti_filtered_injection
+      name: kitti_filtered_injection_custonnn
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_sub.yaml
+          - configs/networks/custom_conv_blocks.yaml
         optimizer:
           values:
           - SGD
@@ -90,12 +90,12 @@ introspection:
         lr:
           values:
           # - 0.001
-          - 0.005
+          # - 0.005
           - 0.01
         batch_size:
           values:
-          - 32
-          # - 64
+          # - 32
+          - 64
         gamma:
           values:
           - 5
@@ -104,7 +104,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: disabled
-    name: kitti_filtered_injection
+    name: kitti_filtered_injection_custonnn
   verbose: true
   method:
     task: multiclass
@@ -123,7 +123,7 @@ introspection:
           grid_size: 16
           pad: 0
     model:
-      layer_config: configs/networks/resnet18_fcn_sub.yaml
+      layer_config: configs/networks/custom_conv_blocks.yaml
     optimizer:
       type: SGD
       params:
@@ -146,7 +146,7 @@ introspection:
     epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 20
+    early_stop: 10
     sanity_check: false
     save_path: outputs/ckpts
     save_name: kitti_filtered_injection.pt

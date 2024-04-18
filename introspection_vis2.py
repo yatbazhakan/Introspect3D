@@ -55,7 +55,8 @@ checkpoint = 'centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_n
 # checkpoint = 'hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth'#%%
 kitti_path = r"/mnt/ssd2/kitti/training/"
 file_path = r"/mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/"
-file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
+file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/"
+#r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
 file_names = sorted(glob(os.path.join(file_path,'features','*')))
 # files = [pickle.load(open(file_name,'rb')) for file_name in file_names[:10]]
 # labels = pd.read_csv(os.path.join(file_path,'kitti_point_pillars_labels_aggregated_raw.csv'))
@@ -73,17 +74,14 @@ nuscenes_dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
                                    save_path='/mnt/ssd2/nuscenes',
                                    save_filename='nuscenes_train.pkl')
 #%%
-idx = 4808
+# idx = 4808
 object_det_config = os.path.join(det_root_dir,"configs",model_name,config)
 object_det_checkpoint = os.path.join(det_root_dir,"ckpts",checkpoint)
 model = init_model(object_det_config, object_det_checkpoint, device='cuda:1')
 #RUn detection and visualize with open3d
-print(nuscenes_dataset[idx]['pointcloud'].points.shape)
-print(type(nuscenes_dataset[idx]['pointcloud']))
-data = nuscenes_dataset[idx]['pointcloud']
+data = nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud']
 data.validate_and_update_descriptors(extend_or_reduce=5)
 # nuscenes_dataset[idx]['pointcloud'].points = nuscenes_dataset[idx]['pointcloud'].point
-print(nuscenes_dataset[idx]['pointcloud'].raw_points.shape)
 # nuscenes_dataset[idx]['pointcloud'].po
 detections = inference_detector(model,data.points)
 detections[0].pred_instances_3d
@@ -135,9 +133,12 @@ def get_rotated_corners(x, y, z, w, l, yaw, pitch=0, roll=0):
 
     # For 2D visualization, return only the x and y coordinates
     return rotated_corners[:, :2]
+#%%
 #dets = []
 #labels = []
-points = nuscenes_dataset[4808]['pointcloud'].points
+points = nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud'].points
+print(points.shape)
+#%%
 # points = kitti_dataset[4808]['pointcloud'].points
 # Assuming 'points' is your N,3 point cloud data
 x = points[:, 0]  # X coordinates
@@ -193,7 +194,19 @@ nuscenes_dataset2 = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
 #%%
 activation_dataset = ActivationDataset({'root_dir':file_path,
                                         'classes':["No Error","Error"],
-                                        'label_file': 'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
+                                        'label_file': 'nus_centerpoint_labels_aggregated_raw.csv',
+                                        #'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
+                                        'label_field':'is_missed',
+                                        'layer':2,
+                                        'is_multi_feature':False,
+                                        'name':'nuscenes',
+                                        'extension':''})
+#%%
+file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
+activation_dataset = ActivationDataset({'root_dir':file_path,
+                                        'classes':["No Error","Error"],
+                                        'label_file': 'nus_centerpoint_labels_filtered.csv',
+                                        #'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
                                         'label_field':'is_missed',
                                         'layer':None,
                                         'is_multi_feature':False,
@@ -219,14 +232,20 @@ introspection_activations = []
 # my_hook  = introspection_model[0].layer4.register_forward_hook(hook_func)
 # my_hook2 = introspection_model[0].layer3.register_forward_hook(hook_func)
 # my_hook3 = introspection_model[0].layer2.register_forward_hook(hook_func)
-my_hook4 = introspection_model[0].layer4.register_forward_hook(hook_func)
+my_hook4 = introspection_model[0].layer1.register_forward_hook(hook_func)
+def find_index(name):
+    for i,act in enumerate(activation_dataset):
+        if name in act[2]:
+            print(act[2])
+            return act
+    return None
+import torch.nn.functional as TF #1526915267947714  ,1526915268947475 1526915330047920
+tensor , label, file_name = find_index("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915330047920")
 
-import torch.nn.functional as TF
-idx = 2
 introspection_model.to('cuda:0')
 introspection_model.eval()
     
-tensor , label, file_name = activation_dataset[idx]
+print(file_name,label)
 if not multi:
     tensor = tensor.to('cuda:0')
     res = introspection_model(tensor.unsqueeze(0))
@@ -245,7 +264,7 @@ my_hook4.remove()
 del my_hook4
 print(res_sm,label)
 # %%
-idx = 2
+# idx = 2
 # #RUn detection and visualize with open3d
 # print(nuscenes_dataset[idx]['pointcloud'].points.shape)
 # print(type(nuscenes_dataset[idx]['pointcloud']))
@@ -309,7 +328,7 @@ idx = 2
 dets = []
 labels = []
 # points = nuscenes_dataset[idx]['pointcloud'].points
-points = kitti_dataset[idx]['pointcloud'].points
+# points = kitti_dataset[idx]['pointcloud'].points
 # Assuming 'points' is your N,3 point cloud data
 # x = points[:, 0]  # X coordinates
 # y = points[:, 1]  # Y coordinates
@@ -350,6 +369,9 @@ points = kitti_dataset[idx]['pointcloud'].points
 numpy_tens  = tensor.detach().cpu().numpy()
 
 eigen_tens = get_2d_projection(numpy_tens[np.newaxis,:])
+rw = numpy_tens.max(axis=0)
+plt.imshow(rw,cmap='gray')
+plt.show()
 #%%
 print(eigen_tens.shape)
 #%%
@@ -361,7 +383,7 @@ grayscale_tens_Cv = cv2.cvtColor(gray_tens[:,:,np.newaxis], cv2.COLOR_GRAY2RGB)
 plt.imshow(eigen_tens)
 plt.xticks([])
 plt.yticks([])
-#plt.show()
+plt.show()
 #%%
 import cv2
 import matplotlib.cm as cm
@@ -446,7 +468,7 @@ for i,cam in enumerate(scaled_cams):
     plt.xticks([])
     plt.yticks([])
     plt.axis('off')
-    cam = 1-cam
+    cam = cam
     norm_cam = (cam - cam.min()) / (cam.max() - cam.min())
     grayscale = (norm_cam * 255).astype(np.uint8)
     # cmap_map = cmap(grayscale)
@@ -459,7 +481,7 @@ for i,cam in enumerate(scaled_cams):
     # colored = (blended * 255).astype(np.uint8)
     # colored = cmap(colored)
     plt.imshow(blended,cmap='viridis')
-    plt.savefig('nus_eigen_lla_spatial4.png',bbox_inches='tight',pad_inches=0,dpi=600)
+    plt.savefig('nus_eigen_labelsonly.png',bbox_inches='tight',pad_inches=0,dpi=600)
         
 
 # cbar = plt.colorbar(fraction=0.1, pad=0.04)

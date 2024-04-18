@@ -87,8 +87,9 @@ class NuScenesDataset(DrivingDataset):
             self.process_data()
         else:
             self.dataset_flattened = pickle.load(open(os.path.join(self.save_path,self.save_filename),'rb'))
+            self.dataset_flattened = list(self.dataset_flattened.values()) #Test
+            print("Loaded dataset with {} samples, {}".format(len(self.dataset_flattened),self.dataset_flattened[0].keys()))
 
-        
 
     def read_labels(self, **kwargs):
         id = kwargs['id']
@@ -127,7 +128,11 @@ class NuScenesDataset(DrivingDataset):
     
     def __len__(self):
         return len(self.dataset_flattened)
-
+    def get_with_name(self,name):
+        for i in range(len(self.dataset_flattened)):
+            if name in self.dataset_flattened[i]['path']:
+                return self.__getitem__(i)
+        return None
     def __getitem__(self, idx):
         # Fetch the sample token, get sample data
         data= self.dataset_flattened[idx]

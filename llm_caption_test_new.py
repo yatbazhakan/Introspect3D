@@ -272,11 +272,13 @@ dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
                           save_path='/mnt/ssd2/nuscenes/',
                           save_filename='nuscenes_train.pkl',
                           process=False,)
+# print(len(dataset))
+# exit()  
 sindex = 0
 checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
 config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
 model = init_model(config, checkpoint, device='cuda:0')
-with open('/mnt/ssd2/test_captions.txt','w') as f:
+with open('/mnt/ssd2/test_captions2.txt','w') as f:
     with tqdm(total=len(dataset)) as pbar:
         for i,item in enumerate(dataset):
             # if i != sindex:

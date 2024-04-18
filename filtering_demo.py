@@ -90,13 +90,20 @@ from tqdm.auto import tqdm
 results_dict = {'spatial_filtering' : {}, 'label_only': {}}
 int_filtered.to('cuda:0')
 int_filtered.eval()
+int_raw.to('cuda:0')
+int_raw.eval()
 with tqdm(activation_dataset_filtered)as pbar:
-    for samp in activation_dataset_filtered:
+    for samp,samp2 in zip(activation_dataset_filtered,activation_dataset_raw):
         
         tensor , label, file_name = samp
+        tensor2 , label2, file_name2 = samp2
+        if(label.item() != label2.item()):
+            continue
         if not multi:
             tensor = tensor.to('cuda:0')
             res = int_filtered(tensor.unsqueeze(0))
+            tensor2 = tensor.to('cuda:0')
+            res2 = int_raw(tensor.unsqueeze(0))
         else:
             tensor = [t.unsqueeze(0) for t in tensor]
             # tensor = processor.process(activation=tensor,stack=True)
@@ -106,35 +113,42 @@ with tqdm(activation_dataset_filtered)as pbar:
             tensor= tensor.squeeze(0)
         res_sm, label = TF.softmax(res,dim=1), label
         predicted_label = torch.argmax(res_sm).item()
+        res_sm2, label2 = TF.softmax(res2,dim=1), label2
+        predicted_label2 = torch.argmax(res_sm2).item()
         # print(predicted_label, label)
-        results_dict['spatial_filtering'][file_name] = {'activations': predicted_label, 'label': label.item()}
-        pbar.update(1)
-# #%%
-# %%
-int_raw.to('cuda:0')
-int_raw.eval()
-with tqdm(activation_dataset_raw)as pbar:
-    for samp in activation_dataset_raw:
-        
-        tensor , label, file_name = samp
-        if not multi:
-            tensor = tensor.to('cuda:0')
-            res = int_raw(tensor.unsqueeze(0))
-        else:
-            tensor = [t.unsqueeze(0) for t in tensor]
-            # tensor = processor.process(activation=tensor,stack=True)
-            tensor = tensor.to('cuda:0')
-            print(tensor.shape)
-            res = int_raw(tensor)
-            tensor= tensor.squeeze(0)
-        res_sm, label = TF.softmax(res,dim=1), label
-        predicted_label = torch.argmax(res_sm).item()
-        # print(predicted_label, label)
-        results_dict['label_only'][file_name] = {'activations': predicted_label, 'label': label.item()}
-        pbar.update(1)
+        if predicted_label2 != label2.item() and predicted_label == label.item():
+            results_dict['spatial_filtering'][file_name] = {'sf_prediction': predicted_label, 'label': label.item()}
+            results_dict['label_only'][file_name2] = {'lo_prediction': predicted_label2, 'label': label2.item()}
 
-# %%
-import pandas as pd
-pd.DataFrame.from_dict(results_dict['spatial_filtering'],orient='index').to_csv('nus_centerpoint_filtered_results.csv')
-pd.DataFrame.from_dict(results_dict['label_only'],orient='index').to_csv('nus_centerpoint_raw_results.csv')
-# %%
+        pbar.update(1)
+    pd.DataFrame.from_dict(results_dict,orient='index').to_csv('nus_all.csv')
+
+# #%%
+# # %%
+# int_raw.to('cuda:0')
+# int_raw.eval()
+# with tqdm(activation_dataset_raw)as pbar:
+#     for samp in activation_dataset_raw:
+        
+#         tensor , label, file_name = samp
+#         if not multi:
+#             tensor = tensor.to('cuda:0')
+#             res = int_raw(tensor.unsqueeze(0))
+#         else:
+#             tensor = [t.unsqueeze(0) for t in tensor]
+#             # tensor = processor.process(activation=tensor,stack=True)
+#             tensor = tensor.to('cuda:0')
+#             print(tensor.shape)
+#             res = int_raw(tensor)
+#             tensor= tensor.squeeze(0)
+#         res_sm, label = TF.softmax(res,dim=1), label
+#         predicted_label = torch.argmax(res_sm).item()
+#         # print(predicted_label, label)
+#         results_dict['label_only'][file_name] = {'activations': predicted_label, 'label': label.item()}
+#         pbar.update(1)
+
+# # %%
+# import pandas as pd
+# pd.DataFrame.from_dict(results_dict['spatial_filtering'],orient='index').to_csv('nus_centerpoint_filtered_results.csv')
+# pd.DataFrame.from_dict(results_dict['label_only'],orient='index').to_csv('nus_centerpoint_raw_results.csv')
+# # %%
