@@ -1,4 +1,4 @@
-project_dir: D:/Introspect3D
+project_dir: /home/opencav/Desktop/DistEstIntrospection
 datasets:
     - Kitti3D
     - Kitti2D

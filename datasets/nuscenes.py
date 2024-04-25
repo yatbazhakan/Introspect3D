@@ -119,6 +119,7 @@ class NuScenesDataset(DrivingDataset):
                     self.dataset_flattened[id] = {}
                     self.dataset_flattened[id]['path'] = lidar_filepath
                     self.dataset_flattened[id]['label'] = []
+                    self.dataset_flattened[id]['sample_record'] = sample_record
                     self.read_labels(id=id, lidar_token=lidar_token, sample_record=sample_record)
                     id += 1
                 first_sample_token = sample_record['next']
@@ -152,9 +153,10 @@ class NuScenesDataset(DrivingDataset):
         if self.is_e2e:
             item_dict = {'pointcloud': {'filtered':point_cloud,'raw':raw_point_cloud},
                         'labels': {'filtered':labels,'raw':raw_labels},
-                        'file_name':lidar_filepath}
+                        'file_name':lidar_filepath,
+                        'sample_record':data['sample_record']}
         else:
-            item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath}
+            item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath, 'sample_record': data['sample_record']}
         return item_dict
     
     def filter_boxes_with_category(self,box_label,accepted_categories=['vehicle.','human','cyclist']):

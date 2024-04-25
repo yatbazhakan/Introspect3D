@@ -121,7 +121,7 @@ class Visualizer:
         
         visualizer.run()
         visualizer.destroy_window()
-    def visualize_save(self, cloud, gt_boxes, pred_boxes, save_path=None, resolution=(1920, 1080)):
+    def visualize_save(self, cloud, gt_boxes, pred_boxes, save_path=None, resolution=(1920, 1080), gt_box_color=None):
         # This function now has parameters for the point cloud, ground truth boxes, predicted boxes,
         # an optional path to save the screenshot, and an optional resolution for the screenshot.
         cloud = self.create_pcd_from_points(cloud, max_distance=False)
@@ -129,9 +129,10 @@ class Visualizer:
         visualizer.create_window(width=resolution[0], height=resolution[1])
         self.set_custom_view(visualizer)
         visualizer.add_geometry(cloud)
-
-        for box in gt_boxes:
-            visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0, Colors.GREEN.value))
+        if gt_box_color is None:
+            gt_box_color = [Colors.GREEN.value]*len(gt_boxes)
+        for gt_itr, box in enumerate(gt_boxes):
+            visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0, gt_box_color[gt_itr]))
         for box in pred_boxes:
             visualizer.add_geometry(self.create_line_set_bounding_box(box,0,0, Colors.RED.value))
 

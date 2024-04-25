@@ -12,7 +12,7 @@ class ActivationExractionOperator(Operator):
     def __init__(self, config):
         self.config = config.extraction
         self.dataset = DatasetFactory().get(**self.config['dataset'])
-        self.activation = Activations(self.config,extract=self.config['active'])
+        self.activation = Activations(self.config,extract=self.config['active'], extract=False)
         os.makedirs(self.config['method']['save_dir'], exist_ok=True)
     def save_labels(self):
         self.new_dataset.to_csv(os.path.join(ROOT_DIR,
@@ -45,12 +45,12 @@ class ActivationExractionOperator(Operator):
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
             matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
             # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
-            if(len(ground_truth_boxes) > 0):
-                row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
-                from pprint import pprint
-                # pprint(row)
-                self.activation.save_multi_layer_activation()
-                self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
+            # # if(len(ground_truth_boxes) > 0):
+            # #     row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
+            # #     from pprint import pprint
+            # #     # pprint(row)
+            # #     self.activation.save_multi_layer_activation()
+            # #     self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
             if verbose:
                 progress_bar.update(1)
         # if(self.config['active']):

@@ -1,7 +1,7 @@
 from nuscenes.nuscenes import NuScenes
 import numpy as np
 import os
-os.chdir('/mnt/ssd2/Introspect3D')
+#os.chdir('/mnt/ssd2/Introspect3D')
 import open3d as o3d
 from pprint import pprint
 from glob import glob
@@ -21,6 +21,7 @@ import cv2
 from utils.boundingbox import BoundingBox
 import pickle
 from utils.visualizer import Visualizer
+
 def rotate_points(points, R):
     return np.dot(points, R.T)
 
@@ -221,13 +222,13 @@ def filter_boxes_with_category(box_label,accepted_categories=['vehicle.','human'
 from datasets.nuscenes import NuScenesDataset
 from utils.filter import FilterType
 from definitions import ROOT_DIR
-dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/',
+dataset = NuScenesDataset(root_dir='/media/ssd_reza/nuscenes',
                           version='v1.0-trainval',
                           split='train',
                           transform=None,
                           filtering_style = "FilterType.NONE",
                           filter_params = {'a':15,'b':25,'offset':-5,'axis':1},
-                          save_path='/mnt/ssd2/nuscenes/',
+                          save_path='/media/ssd_reza/nuscenes',
                           save_filename='nuscenes_train.pkl',
                           process=False,)
 print("Length of nuScenes database: {}".format(len(dataset)))
@@ -240,8 +241,8 @@ for i,item in enumerate(dataset):
     visualizer = Visualizer()
     # config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py'
     # checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth'
-    checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
-    config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+    checkpoint = r'/home/wmg-5gcat/Desktop/Sajjad/DistEstIntrospection/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+    config= r'/home/wmg-5gcat/Desktop/Sajjad/DistEstIntrospection/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
     # config =r'/mnt/ssd2/mmdetection3d/configs/pv_rcnn/pv_rcnn_8xb2-80e_kitti-3d-3class.py'
     # checkpoint=  r'/mnt/ssd2/mmdetection3d/ckpts/pv_rcnn_8xb2-80e_kitti-3d-3class_20221117_234428-b384d22f.pth'
     # config =r'/mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_16xb2-2x_waymo-3d-3class.py'
@@ -264,8 +265,8 @@ for i,item in enumerate(dataset):
     print("Number of unmatched predictions: {}".format(len(unmatched_predictions)))
     # print(type(prediction_bounding_boxes[0]),type(item['labels'][0]))
     visualizer.visualize_save(cloud= item['pointcloud'].points[:,:3],
-                              gt_boxes = [], #item['labels'],
-                              pred_boxes = [],#prediction_bounding_boxes,
+                              gt_boxes = item['labels'],
+                              pred_boxes = prediction_bounding_boxes,
                               save_path="./nuscenes_pointcloud3.png")  # item['labels']
     print("saved")
     if i == sindex:

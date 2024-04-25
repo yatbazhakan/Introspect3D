@@ -77,18 +77,16 @@ class EllipseFilter(FilterStrategy):
     
      
 class RectangleFilter(FilterStrategy):
-    def __init__(self,height,width,offset) -> None:
+    def __init__(self,height,width) -> None:
         """Initialize RectangleFilter with dimensions and offset.
         
         Args:
             height: The height of the rectangle.
             width: The width of the rectangle.
-            offset: The offset for the rectangle position.
         """
         super().__init__()
         self.height = height
         self.width = width
-        self.offset = offset
         
     def filter_pointcloud(self, data, mode=0):
         # Rectangle filtering logic here
@@ -101,7 +99,47 @@ class RectangleFilter(FilterStrategy):
         pass
     
     def is_outside(self,**kwargs):
-        pass   
+        pass  
+
+class LeadVehicleFilter(FilterStrategy):
+    def __init__(self,length,width) -> None:
+        """Initialize RectangleFilter with dimensions and offset.
+        
+        Args:
+            length: The length of the rectangle.
+            width: The width of the rectangle.
+        """
+        super().__init__()
+        self.length = length
+        self.width = width
+        
+    def filter_pointcloud(self, data, mode=0):
+        # Rectangle filtering logic here
+        pass
+    
+    def filter_bounding_boxes(self, data, mode: FilteringArea = FilteringArea.INSIDE):
+        lead_vehicle = []
+        for box in data:
+            # Check if any corner point is inside the ellipse
+            # print(box)
+            center = box.center.copy()
+            x,y,_ = center
+            if mode == FilteringArea.INSIDE:
+                if y > 0 and y <self.length and x > -self.width/2 and x < self.width/2:
+                    if len(lead_vehicle) == 0:
+                        lead_vehicle.append(box)
+                    elif box.center[1] < lead_vehicle[0].center[1]:
+                        lead_vehicle[0] = box
+            elif mode == FilteringArea.OUTSIDE:
+                raise NotImplementedError
+        return lead_vehicle
+    
+    def is_inside(self,**kwargs):
+        return True
+    
+    def is_outside(self,**kwargs):
+        return False 
+
 class NoFilter(FilterStrategy):
     def __init__(self,**kwargs) -> None:
         super().__init__()
@@ -130,5 +168,6 @@ class GridFilter(FilterStrategy):
         pass  
 class FilterType(Enum):
     RECTANGLE = RectangleFilter
-    ELLIPSE = EllipseFilter 
+    ELLIPSE = EllipseFilter
+    LEAD_VEHICLE = LeadVehicleFilter 
     NONE = NoFilter
