@@ -70,9 +70,9 @@ extraction:
 introspection:
   experiment_name: kitti_filtered_injection
   wandb:
-    is_sweep: False
+    is_sweep: True
     sweep_configuration:
-      method: grid
+      method: bayes
       name: kitti_filtered_injection
       metric:
         name: val_loss
@@ -89,21 +89,21 @@ introspection:
           - FocalLoss
         lr:
           values:
-          # - 0.001
-          - 0.005
-          - 0.01
+          - 0.0005
+          - 0.001
+          # - 0.01
         batch_size:
           values:
           - 32
-          # - 64
+          - 64
         gamma:
           values:
-          - 5
-          - 0
-          # - 2
+          # - 5
+          # - 0
+          - 2
     project: introspect3D
     entity: yatbazhakan
-    mode: disabled
+    mode: online
     name: kitti_filtered_injection
   verbose: true
   method:

@@ -2,7 +2,7 @@ import numpy as np
 class PointCloud:
     def __init__(self, points,model_req_dim = 4) -> None:
         self.raw_points = points
-        self.validate_and_update_descriptors(extend_or_reduce=model_req_dim)
+        # self.validate_and_update_descriptors(extend_or_reduce=model_req_dim)
         
     def validate_and_update_descriptors(self, **kwargs):
         if self.raw_points.shape[1] < 3:
@@ -18,7 +18,8 @@ class PointCloud:
     
     def __len__(self):
         return len(self.points)
-    
+    def set_points_as_raw(self):
+        self.points = self.raw_points
     def get_points(self):
         return self.points
     

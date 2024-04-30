@@ -79,7 +79,7 @@ object_det_config = os.path.join(det_root_dir,"configs",model_name,config)
 object_det_checkpoint = os.path.join(det_root_dir,"ckpts",checkpoint)
 model = init_model(object_det_config, object_det_checkpoint, device='cuda:1')
 #RUn detection and visualize with open3d
-data = nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud']
+data = nuscenes_dataset[2]['pointcloud']#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud']
 data.validate_and_update_descriptors(extend_or_reduce=5)
 # nuscenes_dataset[idx]['pointcloud'].points = nuscenes_dataset[idx]['pointcloud'].point
 # nuscenes_dataset[idx]['pointcloud'].po
@@ -136,7 +136,7 @@ def get_rotated_corners(x, y, z, w, l, yaw, pitch=0, roll=0):
 #%%
 #dets = []
 #labels = []
-points = nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud'].points
+points = nuscenes_dataset[2]['pointcloud'].points#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud'].points
 print(points.shape)
 #%%
 # points = kitti_dataset[4808]['pointcloud'].points
@@ -170,7 +170,7 @@ for detection in dets:
 
     # Add the polygon to the Axes
     plt.gca().add_patch(polygon)
-for label in nuscenes_dataset[idx]['labels']:
+for label in nuscenes_dataset[2]['labels']:
     # x, y, _, _, w, l, yaw = label.center[0],label.center[1],label.center[2],label.dimensions[0],label.dimensions[1],label.dimensions[2],label.rotation[1]
     print(label.corners.shape)
     corners = label.corners[:,:2]

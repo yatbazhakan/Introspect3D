@@ -18,16 +18,30 @@ class Colors(Enum):
     ORANGE = (1,0.5,0)
     PURPLE = (0.5,0,1)
     PINK = (1,0,0.5)
-    
+camera_parameters = {
+    "field_of_view": 60.0,
+    "lookat": [2.0621228213350746, 13.9162883221339, 1.8207356271047817],
+    "up": [-0.032179561539771549, 0.39573627678482143, 0.91780023700999092],
+    "front": [-0.021788454380564679, -0.91833534235703385, 0.39520306455504062],
+    "zoom": 0.079999999999999613
+}
+
 class Visualizer:
     def __init__(self) -> None:
         pass
+    def set_custom(self,vis):
+        vc = vis.get_view_control()
+        vc.set_lookat([2.0621228213350746, 13.9162883221339, 1.8207356271047817])
+        vc.set_up([-0.032179561539771549, 0.39573627678482143, 0.91780023700999092])
+        vc.set_front([-0.021788454380564679, -0.91833534235703385, 0.39520306455504062])
+        vc.set_zoom(0.08) 
     def set_custom_view(self,vis):
+        
         ctr = vis.get_view_control()
         
         # Create an extrinsic matrix for camera placement
         extrinsic = np.eye(4)
-        extrinsic[0:3, 3] = [-10, 0, 0]  # Set camera position (x, y, z)
+        extrinsic[0:3, 3] = [-10, 0, 30]  # Set camera position (x, y, z)
         
         # Create a rotation matrix for 30-degree downward view
         rotation = np.array([
@@ -45,6 +59,7 @@ class Visualizer:
         ctr.convert_from_pinhole_camera_parameters(cam_params)
         opt = vis.get_render_option()
         opt.background_color = np.asarray([0.0, 0.0, 0.0])
+        opt.point_size = 1.0
 
     def create_oriented_bounding_boxes(self,
                                        box: BoundingBox,
@@ -102,9 +117,9 @@ class Visualizer:
         normalized_distances = distances / max_distance
         return plt.cm.jet(normalized_distances)[:,:3]
     def visualize(self,**kwargs):
-        cloud = kwargs['cloud']
-        gt_boxes = kwargs['gt_boxes']
-        pred_boxes = kwargs['pred_boxes']
+        cloud = kwargs.get('cloud', [])
+        gt_boxes = kwargs.get('gt_boxes', [])
+        pred_boxes = kwargs.get('pred_boxes', [])
         #print(cloud.shape)
         cloud = self.create_pcd_from_points(cloud)
         visualizer = o3d.visualization.Visualizer()

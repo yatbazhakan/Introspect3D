@@ -58,8 +58,8 @@ extraction:
       indexes: [0,0,1]
       extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_aggregated_raw/
-    labels_file_name: nus_centerpoint_labels_aggregated_raw.csv
+    save_dir: ../custom_dataset/nus_centerpoint_filtered_all/
+    labels_file_name: nus_centerpoint_labels_filtered_all.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
@@ -159,8 +159,8 @@ introspection:
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/
-      label_file: nus_centerpoint_labels_aggregated_raw.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered_all/
+      label_file: nus_centerpoint_labels_filtered_all.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
       caption_file: "/mnt/ssd2/test_captions2.txt"
