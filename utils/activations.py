@@ -44,6 +44,7 @@ class Activations:
         check_and_create_folder(os.path.join(ROOT_DIR,self.save_dir,"features"))
 
     def __call__(self, x,name):
+        
         self.save_name = name.split('/')[-1]
         self.gradients = []
         self.activations = []
@@ -99,7 +100,12 @@ class Activations:
         last_output = np.squeeze(last_output)
         save_name = self.save_name.replace(self.extension,'.npy') #should be more generic currently depends on image, maybe jsut remove extension
         # print(save_name,self.save_dir)
-        # np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
+        np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
+    def save_single_layer_activation(self):
+        tens = self.activation_list[0]
+        save_name = self.save_name.replace(self.extension,'.npy')
+        np.save(os.path.join(self.save_dir,"features" ,save_name), tens)
+        self.activation_list = []
     def clear(self):
         self.activations = []
         self.gradients = []

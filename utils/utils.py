@@ -38,6 +38,21 @@ except:
 import gc
 
 
+def get_lead_vehicle(data, length, width):
+        lead_vehicle = []
+        for box in data:
+            # Check if any corner point is inside the ellipse
+            # print(box)
+            center = box.center.copy()
+            x,y,_ = center
+            if y > 0 and y <length and x > -width/2 and x < width/2:
+                if len(lead_vehicle) == 0:
+                    lead_vehicle.append(box)
+                elif box.center[1] < lead_vehicle[0].center[1]:
+                    lead_vehicle[0] = box
+            
+        return lead_vehicle
+
 def clear_memory():
     # Clear GPU memory if using PyTorch
     if torch.cuda.is_available():

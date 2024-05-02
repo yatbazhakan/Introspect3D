@@ -30,7 +30,7 @@ class IntrospectionOperator(Operator):
         print(self.method_info)
         self.is_sweep = self.wandb['is_sweep']
         self.device = self.config['device']
-        os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
+        os.makedirs(os.path.join(ROOT_DIR, self.method_info['save_path']), exist_ok=True)
         if self.method_info['processing']['active']:
             print(self.method_info['processing']['method'])
             self.proceesor = eval(self.method_info['processing']['method']).value(**self.method_info['processing']['params'])
