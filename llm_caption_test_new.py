@@ -252,8 +252,9 @@ def captionize_missed(missed_objects,dataset="nuscenes",mode="closest"):
         each_location.append((f"{lateral_location}{long_location}",euc_distance))
     each_location = sorted(each_location,key=lambda x:x[1])
     if len(each_location) > 0:
-        locs = [loc[0] for loc in each_location]
-        text = f"{len(missed_objects)},{','.join(locs)}"
+        # locs = [loc[0] for loc in each_location]
+        closest_loc_dist = each_location[0]
+        text = f"{len(missed_objects)},{closest_loc_dist[0]},{closest_loc_dist[1]:.2f}"
     else:
         text = f"{len(missed_objects)},NN"
     return text
@@ -278,7 +279,7 @@ sindex = 0
 checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
 config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
 model = init_model(config, checkpoint, device='cuda:0')
-with open('/mnt/ssd2/test_captions2.txt','w') as f:
+with open('/mnt/ssd2/test_captions_v3.txt','w') as f:
     with tqdm(total=len(dataset)) as pbar:
         for i,item in enumerate(dataset):
             # if i != sindex:
@@ -308,6 +309,7 @@ with open('/mnt/ssd2/test_captions2.txt','w') as f:
             from utils.utils import check_detection_matches
             matches , unmatched_ground_truths, unmatched_predictions = check_detection_matches(item['labels'],prediction_bounding_boxes)
             missed_info = captionize_missed(unmatched_ground_truths)
+            # print(missed_info)
             f.write(f"{name},{missed_info}\n")
             pbar.update(1)
             # print(missed_info)

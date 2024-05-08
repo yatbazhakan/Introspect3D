@@ -3,6 +3,12 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QLin
 import pandas as pd
 import subprocess
 import os
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QLineEdit, QVBoxLayout, QWidget, QFileDialog, QListWidget, QMessageBox, QComboBox, QSizePolicy, QCheckBox
+
+import pandas as pd
+import subprocess
+import os
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -14,35 +20,25 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        # Load CSV button
         load_button = QPushButton("Load CSV", self)
         load_button.clicked.connect(self.load_csv)
         
-        # Scene selection
         self.scene_combobox = QComboBox(self)
-        self.scene_combobox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self.scene_combobox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-        self.scene_combobox.setMaxVisibleItems(10)  # Set maximum visible items
+        self.scene_combobox.setMaxVisibleItems(10)
         self.scene_combobox.activated.connect(self.select_scene)
 
-        # Token entry
         self.token_entry = QLineEdit(self)
-
-        # Search token
         search_token_button = QPushButton("Search Token", self)
         search_token_button.clicked.connect(self.search_token)
-
-        # Search name
+        
         self.search_name_entry = QLineEdit(self)
         search_name_button = QPushButton("Search Name", self)
         search_name_button.clicked.connect(self.search_name)
 
-        # Scene info
         self.scene_name_label = QLabel(self)
         self.scene_desc_text = QLabel(self)
 
-        # Token list
         token_list_label = QLabel("Token List:", self)
         self.token_listbox = QListWidget(self)
         add_button = QPushButton("Add to List", self)
@@ -50,11 +46,14 @@ class MainWindow(QMainWindow):
         clear_button = QPushButton("Clear List", self)
         clear_button.clicked.connect(self.clear_list)
 
-        # Run button
+        # Sensor selection checkboxes
+        self.camera_check = QCheckBox("Camera", self, checked=True)
+        self.lidar_check = QCheckBox("Lidar", self, checked=True)
+        self.radar_check = QCheckBox("Radar", self, checked=True)
+
         run_button = QPushButton("Run", self)
         run_button.clicked.connect(self.run_scripts)
 
-        # Layout
         layout = QVBoxLayout()
         layout.addWidget(load_button)
         layout.addWidget(self.scene_combobox)
@@ -68,6 +67,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.token_listbox)
         layout.addWidget(add_button)
         layout.addWidget(clear_button)
+        layout.addWidget(self.camera_check)
+        layout.addWidget(self.lidar_check)
+        layout.addWidget(self.radar_check)
         layout.addWidget(run_button)
 
         widget = QWidget()
@@ -137,9 +139,18 @@ class MainWindow(QMainWindow):
 
     def clear_list(self):
         self.token_listbox.clear()
-    def build_python_script(self, tokens):
+    def build_python_script(self, tokens, lidar, radar):
         # Construct command to run python script within the Conda environment
         base_str = "conda run -n openmmlab2 --no-capture-output python3 /mnt/ssd2/Introspect3D/open3d_vis.py -n "
+        script = base_str + ' '.join(map(lambda token: f'"{token}"', tokens))
+        if lidar:
+            script += " -l True"
+        if radar:
+            script += " -r True"
+        return script
+    def build_python_script_cam(self, tokens):
+        # Construct command to run python script within the Conda environment
+        base_str = "conda run -n openmmlab --no-capture-output python /mnt/ssd2/Introspect3D/nuscenes_camera_vis.py -n "
         script = base_str + ' '.join(map(lambda token: f'"{token}"', tokens))
         return script
 
@@ -147,12 +158,27 @@ class MainWindow(QMainWindow):
         # Start the script using gnome-terminal
         terminal = subprocess.Popen(['gnome-terminal', '--', 'bash', '-c', script], stdin=subprocess.PIPE)
         return terminal
-
     def run_scripts(self):
-        # Collect tokens and execute the script in a new terminal
         tokens = [self.token_listbox.item(i).text() for i in range(self.token_listbox.count())]
-        script = self.build_python_script(tokens)
-        terminal = self.open_terminal(script)
+        if self.camera_check.isChecked():
+            script_cam = self.build_python_script_cam(tokens)
+            self.open_terminal(script_cam)
+        if self.lidar_check.isChecked() and self.radar_check.isChecked():
+            script = self.build_python_script(tokens, True, True)
+            self.open_terminal(script)
+        elif self.lidar_check.isChecked():
+            script = self.build_python_script(tokens, True, False)
+            self.open_terminal(script)
+        elif self.radar_check.isChecked():
+            script = self.build_python_script(tokens, False, True)
+            self.open_terminal(script)
+    # def run_scripts(self):
+    #     # Collect tokens and execute the script in a new terminal
+    #     tokens = [self.token_listbox.item(i).text() for i in range(self.token_listbox.count())]
+        
+    #     script_cam = self.build_python_script_cam(tokens)
+    #     terminal = self.open_terminal(script)
+    #     terminal2 = self.open_terminal(script_cam)
 
         # subprocess.Popen(["gnome-terminal", "--", "python3", "script.py", "-p"] + [token for token in tokens])
         # subprocess.Popen(["gnome-terminal", "--", "bash", "-c", f"python3 script.py -n {token}], shell=True)

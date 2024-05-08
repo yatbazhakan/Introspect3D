@@ -133,6 +133,21 @@ class ActivationDataset:
         map_values = self.labels[self.label_field].values
         bool_values = map_values > self.threshold
         return bool_values.astype(int)
+    def quant_distance(self,distance):
+        distance = float(distance)
+        if distance < 5:
+            return "<5m"
+        elif distance < 10:
+            return "5-10m"
+        elif distance < 20:
+            return "10-20m"
+        elif distance < 40:
+            return "20-40m"
+        elif distance < 80:
+            return "40-80m"
+        else:
+            return ">80m"
+        
     def get_processed_caption(self,caption_details):
         mapper = {
             "LB":"left back",
@@ -148,13 +163,15 @@ class ActivationDataset:
             rest[i] = rest[i].replace(' ','')
 
         rest_set = set(rest)
+ 
         # # print(len(rest_set),num_missed,rest_set)
         # if num_missed > 0 and len(rest_set) < 4:
         #     processed_caption = str(num_missed) + " objects missed closest at "+ mapper[rest[0]]
         # elif num_missed > 0 and len(rest_set) == 4:
         #     processed_caption = str(num_missed) + " objects missed at the scene"
         if num_missed > 0:
-            processed_caption = str(num_missed) + " objects missed closest at "+ mapper[rest[0]]
+            distance = rest[1]
+            processed_caption = "objects missed closest at "+ mapper[rest[0]] +" " +self.quant_distance(distance)
         elif num_missed == 0 :
             processed_caption= "no object detections missed in the scene"
         return processed_caption
@@ -162,10 +179,13 @@ class ActivationDataset:
         data_path = "/mnt/ssd1/test/"
         dataset_dict = {'x_features':[],'captions':[]}
         from tqdm.auto import tqdm
+        print("Generating caption dataset")
+        print("Length of feature paths: ",len(self.feature_paths))
         with tqdm(total=len(self.feature_paths)) as pbar:
             for i in range(len(self.feature_paths)):
                 feature_path = self.feature_paths[i]
                 feature_name = feature_path.split('/')[-1].replace(self.extension,'')
+                print(feature_name)
                 # if self.is_multi_feature:
                 #     pickle_path = feature_path.replace('.npy','')
                 #     with open(pickle_path,'rb') as f:
@@ -203,6 +223,7 @@ class ActivationDataset:
                 # ppc_resized = F.interpolate(test_map, size=(lla.shape[1], lla.shape[2]), mode='bilinear', align_corners=False)
                 # blended = weight_ppc * ppc_resized + weight_lla * lla
                 feature_name = feature_name.replace('.npy','')
+                print("length generic captions: ",len(self.generic_captions))
                 for i,cap in enumerate(self.generic_captions):
                     
                     caption_details = cap.split(',')
@@ -211,6 +232,7 @@ class ActivationDataset:
                     if file in feature_name:
                         # print(i,cap)
                         processed_caption = self.get_processed_caption(caption_details)
+                        print(processed_caption)
                         # print(processed_caption)
                         # torch.save(blended.detach().cpu(),os.path.join(data_path,'features',file+'.pt'))
                         dataset_dict['x_features'].append(os.path.join(data_path,'features',file+'.pt'))
@@ -218,7 +240,7 @@ class ActivationDataset:
                         
                 pbar.update(1)
             import json
-            with open(os.path.join(data_path,'caption_dataset_nus.json'), "w") as outfile: 
+            with open(os.path.join(data_path,'caption_dataset_nus_v3.json'), "w") as outfile: 
                 json.dump(dataset_dict, outfile)
             # torch.save(dataset_dict,'caption_dataset_nus.pt')
 class ActivationDatasetLegacy:

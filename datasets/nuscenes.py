@@ -141,12 +141,14 @@ class NuScenesDataset(DrivingDataset):
 
         # Load the point cloud data
         points = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
+        print("Points shape",points.shape)
         point_cloud = PointCloud(points)
         # print("Before filtering",point_cloud.points.shape)
         if self.is_e2e:
             raw_point_cloud = copy.deepcopy(point_cloud)
             raw_labels = copy.deepcopy(labels)
         if not self.labels_only:
+            print(point_cloud.points.shape)
             point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
         point_cloud.raw_points = point_cloud.points.copy()
         # print("After filtering",point_cloud.points.shape)

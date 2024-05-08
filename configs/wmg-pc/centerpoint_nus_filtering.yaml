@@ -74,12 +74,12 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: centerpoint_nus_filtered_labels_only
+  experiment_name: centerpoint_nus_filtered_middle
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: nus_centerpoint_filtered_labels_only
+      name: nus_centerpoint_filtered_middle
       metric:
         name: val_loss
         goal: minimize
@@ -112,7 +112,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: nus_centerpoint_filtered_labels_only
+    name: nus_centerpoint_filtered_middle
   verbose: True
   method:
     task: multiclass
@@ -161,17 +161,17 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_activations_filtered_labels_only.pt
+    save_name: centerpoint_nus_activations_filtered_middle.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/
-      label_file: nus_centerpoint_labels_aggregated_raw_filtered.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered_all/
+      label_file: nus_centerpoint_labels_filtered_all.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
-      layer: 2
+      layer: 1
       is_multi_feature: False
       name: nuscenes
   dataloader:

@@ -2,6 +2,7 @@ import numpy as np
 class PointCloud:
     def __init__(self, points,model_req_dim = 4) -> None:
         self.raw_points = points
+        self.points = points
         # self.validate_and_update_descriptors(extend_or_reduce=model_req_dim)
         
     def validate_and_update_descriptors(self, **kwargs):

@@ -5,7 +5,7 @@ import numpy as np
 from base_classes.base import DrivingDataset
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.data_classes import LidarPointCloud,Box
-
+from nuscenes.utils.data_classes import RadarPointCloud
 from pyquaternion import Quaternion
 import numpy as np
 from utils.boundingbox import BoundingBox
@@ -94,7 +94,7 @@ def read_labels(self, **kwargs):
     return boxes
 
             
-def visualize_point_clouds(nuscenes_data, tokens):
+def visualize_point_clouds(nuscenes_data, tokens, lidar = False, radar = False):
     """Visualize point clouds and switch between them using the spacebar."""
 
     for token in tokens:
@@ -107,35 +107,73 @@ def visualize_point_clouds(nuscenes_data, tokens):
         set_custom_view(vis)
         first_sample_token = scene['first_sample_token']
         sample_record = nuscenes_data.get('sample', first_sample_token)
-        lidar_token = sample_record['data']['LIDAR_TOP']
-        lidar_data = nuscenes_data.get('sample_data', lidar_token)
-        lidar_filepath = nuscenes_data.get_sample_data_path(lidar_token)
-        point_cloud = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
-        o3d_cloud = o3d.geometry.PointCloud()
-        o3d_cloud.points = o3d.utility.Vector3dVector(point_cloud[:, :3])
-        o3d_cloud.colors = o3d.utility.Vector3dVector(np.ones((len(point_cloud), 3))*[34,139,34])
+        if lidar:
+            lidar_token = sample_record['data']['LIDAR_TOP']
+            lidar_data = nuscenes_data.get('sample_data', lidar_token)
+            lidar_filepath = nuscenes_data.get_sample_data_path(lidar_token)
+            point_cloud = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
+            o3d_cloud = o3d.geometry.PointCloud()
+            o3d_cloud.points = o3d.utility.Vector3dVector(point_cloud[:, :3])
+            o3d_cloud.colors = o3d.utility.Vector3dVector(np.ones((len(point_cloud), 3))*[34,139,34])
+        if radar:
+            "Loading"
+            radar_token = sample_record['data']['RADAR_FRONT']
+            radar_data = nuscenes_data.get('sample_data', radar_token)
+            radar_filepath = nuscenes_data.get_sample_data_path(radar_token)
+            radar_point_cloud = RadarPointCloud.from_file(radar_filepath)
+            point_cloud = radar_point_cloud.points
+            print(point_cloud.shape)
+            o3d_cloud2 = o3d.geometry.PointCloud()
+            o3d_cloud2.points = o3d.utility.Vector3dVector(radar_point_cloud.points[:, :3])
+            #Create np array with yellow rgb code with point length
+            o3d_cloud2.colors = o3d.utility.Vector3dVector(np.ones((len(point_cloud), 3))*np.array([1,1,0]))
+        #Combine if both lidar and radar are selected
 
         def load_next_point_cloud(vis):
-            nonlocal sample_record  # Declare nonlocal to modify the outer scope variable
+            nonlocal sample_record,lidar, radar  # Declare nonlocal to modify the outer scope variable
             first_sample_token = sample_record['next']
             if first_sample_token == '':
                 return
             sample_record = nuscenes_data.get('sample', first_sample_token)
-            lidar_token = sample_record['data']['LIDAR_TOP']
-            lidar_data = nuscenes_data.get('sample_data', lidar_token)
-            if lidar_data['is_key_frame']:
-                vis.clear_geometries()
+            vis.clear_geometries()
+            if lidar:
+                lidar_token = sample_record['data']['LIDAR_TOP']
+                lidar_data = nuscenes_data.get('sample_data', lidar_token)
                 lidar_filepath = nuscenes_data.get_sample_data_path(lidar_token)
                 point_cloud = np.fromfile(lidar_filepath, dtype=np.float32, count=-1).reshape([-1, 5])
                 o3d_cloud = o3d.geometry.PointCloud()
                 o3d_cloud.points = o3d.utility.Vector3dVector(point_cloud[:, :3])
                 o3d_cloud.colors = o3d.utility.Vector3dVector(np.ones((len(point_cloud), 3))*[34,139,34])
                 vis.add_geometry(o3d_cloud, reset_bounding_box=True)
+            if radar:
+                radar_token = sample_record['data']['RADAR_FRONT']
+
+                radar_data = nuscenes_data.get('sample_data', radar_token)
+                radar_filepath = nuscenes_data.get_sample_data_path(radar_token)
+                # point_cloud = np.fromfile(radar_filepath, dtype=np.float32, count=-1).reshape([-1, 18])
+                radar_point_cloud = RadarPointCloud.from_file(radar_filepath)
+                
+                point_cloud = radar_point_cloud.points
+                print(point_cloud.shape)
+
+                o3d_cloud2 = o3d.geometry.PointCloud()
+                o3d_cloud2.points = o3d.utility.Vector3dVector(radar_point_cloud.points[:, :3])
+                #Create np array with yellow rgb code with point length
+                o3d_cloud2.colors = o3d.utility.Vector3dVector(np.ones((len(point_cloud), 3))*[255,255,0])
+                vis.add_geometry(o3d_cloud2, reset_bounding_box=True)
+            
+            vis.add_geometry(o3d_cloud, reset_bounding_box=True)
 
         vis.register_key_callback(ord(' '), load_next_point_cloud)  # Bind spacebar to switch point clouds
 
 
-        vis.add_geometry(o3d_cloud, reset_bounding_box=True)
+        if lidar and radar:
+            vis.add_geometry(o3d_cloud, reset_bounding_box=True)
+            vis.add_geometry(o3d_cloud2, reset_bounding_box=True)
+        elif lidar:
+            vis.add_geometry(o3d_cloud, reset_bounding_box=True)
+        elif radar:
+            vis.add_geometry(o3d_cloud2, reset_bounding_box=True)
         vis.run()  # Run the visualizer
         vis.destroy_window()  # Clean up after closing the window
 
@@ -146,6 +184,8 @@ import pickle
 def arg_parse():
     parser = argparse.ArgumentParser(description='Visualize point clouds')
     parser.add_argument('-n', "--names",nargs='+', default=[], help='Names of the scenes to visualize')
+    parser.add_argument('-l', "--lidar", default=False, help='Visualize lidar data')
+    parser.add_argument('-r', "--radar", default=False, help='Visualize radar data')
     return parser.parse_args()
 if __name__ == '__main__':
     folder_path = '/media/yatbaz_h/Jet/HYY/'
@@ -162,7 +202,7 @@ if __name__ == '__main__':
     # nuscenes_data= NuScenes(version=version, dataroot=root_dir, verbose=True)
     # with open('nuscenes_data.pkl','wb') as f:
     #     pickle.dump(nuscenes_data,f)
-    visualize_point_clouds(nuscenes_data,tokens = args.names)
+    visualize_point_clouds(nuscenes_data,tokens = args.names, lidar = args.lidar, radar = args.radar)
     # nuscenes_data= NuScenes(version=versio                  n, dataroot=root_dir, verbose=True)
     # import pandas as pd
     # from tqdm.auto import tqdm

@@ -1,6 +1,6 @@
 experiment_name: centerpoint_nus_activations
 experiment_path: ./
-device: cuda:1
+device: cuda:0
 method: activations
 verbose: True
 detection:
@@ -28,17 +28,19 @@ detection:
   #save_path: ./custom_dataset/
   training_params: {}
 extraction:
-  active: True
+  active: False
   device: 'cuda:0'
+  labels_only: True
   score_threshold: 0.5
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
     version: v1.0-trainval
     process: False
+    filter_labels_only: True
     save_path: /mnt/ssd2/nuscenes/
     save_filename: nuscenes_train.pkl
-    filtering_style: FilterType.NONE
+    filtering_style: FilterType.ELLIPSE
     filter_params:
       a: 15
       b: 25
@@ -58,11 +60,12 @@ extraction:
       indexes: [0,0,1]
       extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_filtered_all/
-    labels_file_name: nus_centerpoint_labels_filtered_all.csv
+    save_dir: ../custom_dataset/nus_centerpoint_activations_aggregated_raw/
+    labels_file_name: nus_centerpoint_labels_aggregated_raw_filtered.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
+    save_input: False
     #Are theese needed?
     # config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
     # checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
@@ -71,39 +74,45 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: centerpoint_nus_single_feature_mid
+  experiment_name: centerpoint_nus_filtered_early
   wandb:
     is_sweep: True
     sweep_configuration:
       method: grid
-      name: centerpoint_nus_single_feature_mid
+      name: centerpoint_nus_filtered_early
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_indv.yaml
+          - configs/networks/resnet18_fcn.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
-          - SGD   
+          - SGD
           # - Adam
         criterion:
           values:
           - FocalLoss
         lr:
           values:
+          # - 0.005
+          - 0.005
           - 0.01
-          - 0.001
-          - 0.0005
         batch_size:
           values:
-          - 32
+          # - 16
+          - 64
+        gamma:
+          values:
+          - 5
+          # - 0
+          - 2
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: centerpoint_nus_single_feature_mid
+    name: centerpoint_nus_filtered_early
   verbose: True
   method:
     task: multiclass
@@ -122,22 +131,21 @@ introspection:
         #   percentile: 0.9
         #   method: p
         config:
-          stack: False
           functions:
             - mean
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn_indv.yaml
+      layer_config: configs/networks/resnet18_fcn.yaml
     optimizer:
       type: SGD
       params: 
-        lr: 0.01
+        lr: 0.001
         weight_decay: 0.001
     criterion:
       type: FocalLoss
       params:
-        reduction: mean
+        reduction: sum
         gamma: 5
         weight:
         - 0.78
@@ -147,14 +155,14 @@ introspection:
       params:
         patience : 10
         factor: 0.7
-    epochs: 150
+    epochs: 100
     log_interval: 1
     save_interval: 1
-    early_stop: 15
+    early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: centerpoint_nus_single_feature_mid.pt
-  device: cuda:1
+    save_name: centerpoint_nus_activations_filtered_early.pt
+  device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
@@ -163,13 +171,8 @@ introspection:
       label_file: nus_centerpoint_labels_filtered_all.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
-      caption_file: "/mnt/ssd2/test_captions_v3.txt"
-      is_caption: True
-      layer: 
-      - 0
-      - 1
-      - 2
-      is_multi_feature: True
+      layer: 0
+      is_multi_feature: False
       name: nuscenes
   dataloader:
     all:
