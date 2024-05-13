@@ -7,7 +7,7 @@ from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import traceback 
-
+import pdb
 from definitions import ROOT_DIR
 from utils.process import *
 import wandb
@@ -19,6 +19,7 @@ import random
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
 import os
 import uuid
+import pandas as pd
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
@@ -57,33 +58,33 @@ class IntrospectionOperator(Operator):
 
     def train_test_split(self):
         indices = list(range(len(self.dataset)))
-        all_labels= self.dataset.get_all_labels()
+        all_labels= self.dataset.get_all_labels() 
         validation = self.method_info['cross_validation']
         random_state = random.randint(0,2048) if validation['type'] == "montecarlo" and  not self.is_sweep else 1024
-        train_indices, test_indices = train_test_split(indices, test_size=validation['train_test_split'],stratify=all_labels,random_state=random_state)
+        train_indices, test_indices = train_test_split(indices, test_size=validation['train_test_split'],random_state=random_state)
         self.train_dataset = Subset(self.dataset, train_indices)
-        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],stratify=all_labels[train_indices],random_state=random_state)
-        values,counts = np.unique(all_labels,return_counts=True)
-        class_dist=  dict(zip(values,counts))
-        c = 1e-3
-        class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
-        if validation['balanced']:
-            train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
-            class_counts = np.bincount(train_labels_after_val)
-            min_class_count = np.min(class_counts)
-            print("Min class count:",min_class_count,"Class counts:",class_counts)
-            balanced_train_indices = []
-            for cls in np.unique(train_labels_after_val):
-                cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
-                balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
-                balanced_train_indices.extend(balanced_cls_indices)
-            after_val_train_indices = balanced_train_indices
-            balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
-            values, counts = np.unique(balanced_train_labels, return_counts=True)
-            new_class_dist = dict(zip(values, counts))
-            total_samples = len(balanced_train_indices)
-            class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
-            class_dist = new_class_dist
+        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],random_state=random_state)
+        
+        #class_dist=  dict(zip(values,counts))
+        #c = 1e-3
+        #class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
+        # if validation['balanced']:
+        #     train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
+        #     class_counts = np.bincount(train_labels_after_val)
+        #     min_class_count = np.min(class_counts)
+        #     print("Min class count:",min_class_count,"Class counts:",class_counts)
+        #     balanced_train_indices = []
+        #     for cls in np.unique(train_labels_after_val):
+        #         cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
+        #         balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
+        #         balanced_train_indices.extend(balanced_cls_indices)
+        #     after_val_train_indices = balanced_train_indices
+        #     balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
+        #     values, counts = np.unique(balanced_train_labels, return_counts=True)
+        #     new_class_dist = dict(zip(values, counts))
+        #     total_samples = len(balanced_train_indices)
+        #     class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
+        #     class_dist = new_class_dist
         
         
         
@@ -96,7 +97,7 @@ class IntrospectionOperator(Operator):
         #Provide the class distribution overall
 
         # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
-        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+        #self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
 
         # if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
         #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
@@ -109,10 +110,10 @@ class IntrospectionOperator(Operator):
         #         self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
         #     else:
         #         self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
-        if self.verbose:
+        # if self.verbose:
 
-            print("Class distribution:",class_dist)
-            print("Class weights:",class_weights)
+        #     print("Class distribution:",class_dist)
+        #     print("Class weights:",class_weights)
 
     def initialize_learning_parameters(self):
         self.device = self.config['device']
@@ -133,7 +134,7 @@ class IntrospectionOperator(Operator):
         self.save_interval = self.method_info['save_interval']
         
     def train_epoch(self,epoch):
-        epoch_loss = 0
+        epoch_loss = []
         if self.verbose:
             print("Epoch:",epoch)
         pbar = tqdm(total=len(self.train_loader),leave=False)
@@ -187,8 +188,9 @@ class IntrospectionOperator(Operator):
             if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                 # print(target.shape, output.shape)
                 loss = self.criterion(output, target.float())
+            elif self.method_info['criterion']['type'] == 'MSELOSS':
+                loss = self.criterion(output, target)
             else:
-                output= output.float()
                 target = target.long()
                 loss = self.criterion(output, target.squeeze())
 
@@ -196,11 +198,12 @@ class IntrospectionOperator(Operator):
             self.optimizer.step()
             self.total_loss += loss.item()
             # print(loss.item())
-            epoch_loss += loss.item()
+            epoch_loss.append(loss.item())
             pbar.update(1)
             clear_memory()
             # return epoch_loss  #*debug
         #TODO: check if this division is correct way to do so
+        epoch_loss = np.mean(np.array(epoch_loss))
         return epoch_loss
     def update_config_from_wandb(self,conf):
         wandb.log({"custom_config":self.config})
@@ -209,7 +212,6 @@ class IntrospectionOperator(Operator):
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
         self.method_info['criterion']['type'] = wandb.config.criterion
         self.config['dataloader']['train']['batch_size'] = wandb.config.batch_size
-        self.method_info['criterion']['params']['gamma'] = wandb.config.gamma
     def train(self,iteration=1):
         #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
         if self.is_sweep:
@@ -251,17 +253,19 @@ class IntrospectionOperator(Operator):
         self.model.train()
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(epoch)
-            if epoch_loss < 0.001:
-                print("Train loss is converged")
-                break
+            # if epoch_loss < 0.001:
+            #     print("Train loss is converged")
+            #     break
+            if np.isnan(epoch_loss):
+                wandb.alert(title='NaN', text = f'Loss is NaN')     # Will alert you via email or slack that your metric has reached NaN
+                raise Exception(f'Loss is NaN') # This could be exchanged for exit(1) if you do not want a traceback 
             if self.verbose:
                 print("Epoch loss:",epoch_loss)
             wandb.log({'epoch_loss':epoch_loss})
             
             if self.method_info['sanity_check']:
                 self.evaluate(loader=self.train_loader,epoch=epoch)
-            val_loss = self.evaluate(loader=self.val_loader,epoch=epoch)
-                        
+            val_loss = self.evaluate(loader=self.val_loader,epoch=epoch)           
             if val_loss < previous_val_loss:
                 previous_val_loss = val_loss
                 no_improvement_count = 0
@@ -273,7 +277,7 @@ class IntrospectionOperator(Operator):
                 epoch_id = epoch
                 torch.save(self.model.state_dict(), self.model_save_to + f"Ep{epoch_id}.pth")
                 torch.save(self.model.state_dict(), self.model_save_to +"_best.pth")
-                wandb.save( self.model_save_to)
+                wandb.save(self.model_save_to)
             else:
                 if self.verbose:
                     print("No improvement")
@@ -287,7 +291,6 @@ class IntrospectionOperator(Operator):
 
     def evaluate(self,iteration=1,loader=None,epoch=None):
         if loader == None:
-            
             loader = self.test_loader
             self.model.load_state_dict(torch.load(self.model_save_to +"_best.pth"))
             if self.verbose:
@@ -297,12 +300,16 @@ class IntrospectionOperator(Operator):
         self.model.eval()
         test_loss = 0
         all_preds = torch.tensor([]).to(self.config['device'],dtype=torch.float32) 
-        all_labels = torch.tensor([]).to(self.config['device'],dtype=torch.long)
+        all_labels = torch.tensor([]).to(self.config['device'],dtype=torch.float32)
         with torch.no_grad():
             with tqdm(total=len(loader),leave=False) as pbar:
                 pbar.set_description(f'Evaluating at Epoch {epoch}')
                 pbar.refresh()
+                batch_itr = 0
                 for data, target, name in loader:
+                    batch_itr += 1
+                    if batch_itr >2:
+                        break
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
                        "MULTI" not in self.method_info['processing']['method']
                        and "EFS" not in self.method_info['processing']['method']):
@@ -337,6 +344,8 @@ class IntrospectionOperator(Operator):
 
                     if self.method_info['criterion']['type'] == 'BCEWithLogitsLoss':
                         test_loss = self.criterion(output, target.float()).item()
+                    elif self.method_info['criterion']['type'] == 'MSELOSS':
+                        test_loss += self.criterion(output, target).item()
                     else:
                         test_loss += self.criterion(output, target.squeeze(1)).item()
                     all_preds = torch.cat(
@@ -348,17 +357,23 @@ class IntrospectionOperator(Operator):
                     pbar.update(1)
                     clear_memory()
                     # return test_loss  #*debug
-        # test_loss /= len(loader.dataset)       
+        test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
             wandb.log({f'test_loss_{iteration}':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
+            #self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
             wandb.log({f'train_loss_{iteration}':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
+            #self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
             wandb.log({f'val_loss_{iteration}':test_loss})
-            self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
+            #self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
+        #save all preds and labels in csv format
+        all_labels = all_labels.cpu().numpy()
+        all_preds = all_preds.cpu().numpy()
+        result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
+        result_df = pd.DataFrame(result_dict)
+        result_df.to_csv(f"results_{iteration}.csv")
         return test_loss
     def seprate_multiclass_metrics(self,metric_name):
         multi_class_metric = self.metrics[metric_name]
@@ -391,6 +406,9 @@ class IntrospectionOperator(Operator):
                     except:
                         wandb.log({f'{mode}_{metric_name}_positive_{iteration}':positive_metric})
                         wandb.log({f'{mode}_{metric_name}_negative_{iteration}':negative_metric})
+                elif task == 'regression':
+                    #TODO: Implement this
+                    continue
                 else:
                     wandb.log({f'{mode}_{metric_name}_{iteration}':self.metrics[metric_name].cpu().numpy()})
 
@@ -428,7 +446,7 @@ class IntrospectionOperator(Operator):
         
        
         try:
-            if self.is_sweep:
+            if self.is_sweep: #wandb sweep (hyperparameter optimization)
                 os.environ["WANDB_AGENT_MAX_INITIAL_FAILURES"] = "1"
                 os.environ["WANDB_AGENT_DISABLE_FLAPPING"] = "true"
                 os.environ['WANDB_AGENT_FLAPPING_MAX_FAILURES'] = '1'
@@ -439,7 +457,6 @@ class IntrospectionOperator(Operator):
                     print("Sweep id:",None)
                     print("="*100,"\n",wandb.config,"\n","="*100)
                 wandb.agent(sweep_id, function=self.train_sweep)
-           
                 
             else:
                 #Some management will be needed here
@@ -450,8 +467,23 @@ class IntrospectionOperator(Operator):
                         self.train(i)
                 elif self.config['operation']['type'] == "evaluate":
                     self.dataset = DatasetFactory().get(**self.config['dataset'])
+                    model_info = self.method_info['model']            
+                    if "GAP" in self.method_info['processing']['method']:
+                        self.model = GCN(model_info)
+                        print(self.model)
+                    elif "MULTI" in self.method_info['processing']['method']:
+                        self.model = GenericInjection(model_info,device=self.device)
+                    elif "EFS" in self.method_info['processing']['method']:
+                        print("LOADING EFS MODEL")
+                        self.model = EarlyFusionAdaptive(model_info,device=self.device)
+                    elif "TX" in self.method_info['processing']['method']:
+                        self.model = SwinIntrospection(model_info,device=self.device)
+                    else:
+                        self.model = generate_model_from_config(model_info)
+                    print("Model loaded")
                     self.model.to(self.device)
                     self.initialize_learning_parameters()
+                    self.model_save_to = os.path.join(ROOT_DIR,self.config['operation'].get('model_dir', ''))
                     self.evaluate()
                 else:
                     for i in range(self.method_info['cross_validation']['iteration']):

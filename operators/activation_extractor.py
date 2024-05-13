@@ -26,6 +26,8 @@ class ActivationExractionOperator(Operator):
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
         for i in range(len(self.dataset)):
+            if i>4:
+                break
             data = self.dataset[i]
             cloud, ground_truth_boxes, file_name, sample_record = data['pointcloud'], data['labels'], data['file_name'], data['sample_record']
             if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
@@ -41,6 +43,10 @@ class ActivationExractionOperator(Operator):
             filtered_predicted_boxes = predicted_boxes[score_mask]
             prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
             pred_lead_vehicle = get_lead_vehicle(prediction_bounding_boxes,self.config['dataset']['filter_params']['length'],self.config['dataset']['filter_params']['width'])
+            if len(ground_truth_boxes) > 0:
+                ground_truth_boxes[0] = ground_truth_boxes[0].center
+            if len(pred_lead_vehicle) > 0:
+                pred_lead_vehicle[0] = pred_lead_vehicle[0].center
             row = {'name':f"{file_name}",
                      'token':sample_record['token'],
                      'gt_lead':ground_truth_boxes,

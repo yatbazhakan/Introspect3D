@@ -48,3 +48,21 @@ class FocalLoss(nn.Module):
             loss = loss.sum()
 
         return loss
+
+class MSELOSS(nn.Module):
+    def __init__(self, weight: Optional[Tensor] = None, reduction: str = 'mean'):
+        super(MSELOSS, self).__init__()
+        self.weight = weight
+        self.reduction = reduction
+        self.mse_loss = nn.MSELoss(reduction=reduction)
+
+    def forward(self, inputs, targets):
+        #inputs = inputs*100
+        #targets = targets*100
+        loss = self.mse_loss(inputs.squeeze(), targets.squeeze())
+
+        if self.reduction == 'mean':
+            loss = loss.mean()
+        elif self.reduction == 'sum':
+            loss = loss.sum()
+        return loss
