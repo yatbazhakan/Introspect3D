@@ -197,8 +197,20 @@ class BoundingBox:
     def is_point_inside(self,point):
         point_local = np.linalg.inv(self.rotation).dot((point[:3] - self.center))
         return np.all(np.abs(point_local) <= (self.dimensions / 2))
-    
-    
+
+    def get_yaw_from_rotation(self):
+        # Calculate yaw from the rotation matrix
+        # Assuming the matrix is structured as follows:
+        # self.rotation = [[R11, R12, R13],
+        #                  [R21, R22, R23],
+        #                  [R31, R32, R33]]
+        print(self.rotation)
+        return np.arctan2(self.rotation[1][0], self.rotation[0][0])
+    def to_list(self):
+        if type(self.rotation) == np.ndarray:
+            print(self.rotation)
+            self.yaw = self.get_yaw_from_rotation()
+        return [p for p in self.center] + [d for d in self.dimensions] + [self.yaw]
 
         
     def remove_points_inside_box(self, point_cloud: np.ndarray) -> np.ndarray:
@@ -229,6 +241,7 @@ class BoundingBox:
         st += "Center: " + str(self.center) + "\n"
         st += "Dimensions: " + str(self.dimensions) + "\n"
         st += "Rotation: " + str(self.rotation) + "\n"
+        st += "Corners: " + str(self.corners) + "\n"
         return st
 
 

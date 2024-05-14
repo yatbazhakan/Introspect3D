@@ -246,7 +246,7 @@ if __name__ == '__main__':
         checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
         config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
         model = init_model(config, checkpoint, device='cuda:0')
-        label_df = pd.DataFrame(columns=['sample_path','is_error'])
+        # label_df = pd.DataFrame(columns=['sample_path','is_error'])
         for i,cloud in enumerate(point_clouds):
             if i % 3 != 0:
                 continue
@@ -268,24 +268,26 @@ if __name__ == '__main__':
             visualizer.visualize(cloud=item.points,
                                 pred_boxes=prediction_bounding_boxes)
 
-            error = input("Is there an error?")
-            while error not in ['Y','y','N','n']:
-                error = input("Please enter a valid input")
+            # while error not in ['Y','y','N','n']:
+            #     error = input("Please enter a valid input")
             file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
             print(file_wo_extension)
-            if error=='Y' or error=='y':
-                temp_df = pd.DataFrame({'sample_path':file_wo_extension,'is_error':1},index=[0])
-                label_df = pd.concat([label_df,temp_df])
-            elif error=='N' or error=='n':
-                temp_df = pd.DataFrame({'sample_path':file_wo_extension,'is_error':0},index=[0])
-                label_df = pd.concat([label_df,temp_df])
+            error = input("Press enter to continue")
 
-        label_df.to_csv('label_df_run1_urban.csv')
-    except KeyboardInterrupt as e:
-        label_df.to_csv('label_df_run1_urban.csv')
-    except Exception as e:
-        label_df.to_csv('label_df_run1_urban.csv')
-        print(e)
+            # print(file_wo_extension)
+            # if error=='Y' or error=='y':
+            #     temp_df = pd.DataFrame({'sample_path':file_wo_extension,'is_error':1},index=[0])
+            #     label_df = pd.concat([label_df,temp_df])
+            # elif error=='N' or error=='n':
+            #     temp_df = pd.DataFrame({'sample_path':file_wo_extension,'is_error':0},index=[0])
+            #     label_df = pd.concat([label_df,temp_df])
+
+    #     label_df.to_csv('label_df_run1_urban.csv')
+    # except KeyboardInterrupt as e:
+    #     label_df.to_csv('label_df_run1_urban.csv')
+    # except Exception as e:
+    #     label_df.to_csv('label_df_run1_urban.csv')
+    #     print(e)
 
 
 

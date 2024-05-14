@@ -50,8 +50,7 @@ class EllipseFilter(FilterStrategy):
     def filter_bounding_boxes(self, data, mode: FilteringArea = FilteringArea.INSIDE):
         filtered_objects = []
         for box in data:
-            # Check if any corner point is inside the ellipse
-            # print(box)
+
             corners = box.corners.copy()
             if corners.shape[0] != 8:
                 corners = corners.T
