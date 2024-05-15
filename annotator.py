@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QFileDialog, QMessageBox, QSlider
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QFileDialog, QMessageBox, QSlider, QCheckBox
 from PyQt5.QtCore import Qt
 
 class ErrorAnnotationApp(QWidget):
@@ -11,7 +11,7 @@ class ErrorAnnotationApp(QWidget):
         self.directory = None
         self.npy_files = []
         self.current_file_index = 0
-        self.df = pd.DataFrame(columns=['file_name', 'error_annotation', 'filtered'])
+        self.df = pd.DataFrame(columns=['file_name', 'error_annotation', 'no_error_annotation', 'error_annotation_filtered', 'no_error_annotation_filtered'])
         self.checkpoint_path = None
 
     def initUI(self):
@@ -39,25 +39,25 @@ class ErrorAnnotationApp(QWidget):
         self.slider.valueChanged.connect(self.slider_changed)
         layout.addWidget(self.slider)
 
-        self.error_button = QPushButton('Annotate as Error', self)
-        self.error_button.clicked.connect(lambda: self.annotate('error', False))
-        self.error_button.setEnabled(False)
-        layout.addWidget(self.error_button)
+        # Checkboxes for annotations
+        self.error_checkbox = QCheckBox('Annotate as Error', self)
+        layout.addWidget(self.error_checkbox)
 
-        self.no_error_button = QPushButton('Annotate as No Error', self)
-        self.no_error_button.clicked.connect(lambda: self.annotate('no error', False))
-        self.no_error_button.setEnabled(False)
-        layout.addWidget(self.no_error_button)
+        self.no_error_checkbox = QCheckBox('Annotate as No Error', self)
+        layout.addWidget(self.no_error_checkbox)
 
-        self.filtered_error_button = QPushButton('Annotate as Error (Filtered)', self)
-        self.filtered_error_button.clicked.connect(lambda: self.annotate('error', True))
-        self.filtered_error_button.setEnabled(False)
-        layout.addWidget(self.filtered_error_button)
+        self.filtered_error_checkbox = QCheckBox('Annotate as Error (Filtered)', self)
+        layout.addWidget(self.filtered_error_checkbox)
 
-        self.filtered_no_error_button = QPushButton('Annotate as No Error (Filtered)', self)
-        self.filtered_no_error_button.clicked.connect(lambda: self.annotate('no error', True))
-        self.filtered_no_error_button.setEnabled(False)
-        layout.addWidget(self.filtered_no_error_button)
+        self.filtered_no_error_checkbox = QCheckBox('Annotate as No Error (Filtered)', self)
+        layout.addWidget(self.filtered_no_error_checkbox)
+
+        # Annotate all button
+        annotate_button = QPushButton('Annotate Selected', self)
+        annotate_button.clicked.connect(self.annotate_selected)
+        annotate_button.setEnabled(False)
+        layout.addWidget(annotate_button)
+        self.annotate_button = annotate_button
 
         save_button = QPushButton('Save to CSV', self)
         save_button.clicked.connect(self.save_to_csv)
@@ -97,16 +97,32 @@ class ErrorAnnotationApp(QWidget):
         self.update_current_file()
 
     def update_annotation_buttons(self, enable):
-        self.error_button.setEnabled(enable)
-        self.no_error_button.setEnabled(enable)
-        self.filtered_error_button.setEnabled(enable)
-        self.filtered_no_error_button.setEnabled(enable)
+        self.error_checkbox.setEnabled(enable)
+        self.no_error_checkbox.setEnabled(enable)
+        self.filtered_error_checkbox.setEnabled(enable)
+        self.filtered_no_error_checkbox.setEnabled(enable)
+        self.annotate_button.setEnabled(enable)
 
-    def annotate(self, annotation, filtered):
+    def annotate(self, file_name, error, no_error, error_filtered, no_error_filtered):
+        temp_df = pd.DataFrame([{
+            'file_name': file_name,
+            'error_annotation': error,
+            'no_error_annotation': no_error,
+            'error_annotation_filtered': error_filtered,
+            'no_error_annotation_filtered': no_error_filtered
+        }])
+        self.df = pd.concat([self.df, temp_df], ignore_index=True)
+        QMessageBox.information(self, 'Annotation', f'File "{file_name}" annotated')
+
+    def annotate_selected(self):
         if self.current_file_index < len(self.npy_files):
             file_name = self.npy_files[self.current_file_index]
-            self.df = self.df.append({'file_name': file_name, 'error_annotation': annotation, 'filtered': filtered}, ignore_index=True)
-            QMessageBox.information(self, 'Annotation', f'File "{file_name}" annotated as "{annotation}" (Filtered: {filtered})')
+            error = self.error_checkbox.isChecked()
+            no_error = self.no_error_checkbox.isChecked()
+            error_filtered = self.filtered_error_checkbox.isChecked()
+            no_error_filtered = self.filtered_no_error_checkbox.isChecked()
+
+            self.annotate(file_name, error, no_error, error_filtered, no_error_filtered)
             self.slider.setValue(self.current_file_index + 1)  # Automatically move to the next file
 
     def save_to_csv(self):

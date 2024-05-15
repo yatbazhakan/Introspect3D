@@ -59,7 +59,7 @@ class Visualizer:
         ctr.convert_from_pinhole_camera_parameters(cam_params)
         opt = vis.get_render_option()
         opt.background_color = np.asarray([0.0, 0.0, 0.0])
-        opt.point_size = 1.0
+        opt.point_size = 2.0
 
     def create_oriented_bounding_boxes(self,
                                        box: BoundingBox,
@@ -100,14 +100,18 @@ class Visualizer:
         o3d_box.color = color
         line_set = o3d.geometry.LineSet.create_from_oriented_bounding_box(o3d_box)
         return line_set
-    def create_pcd_from_points(self,points,max_distance=True):
+    def create_pcd_from_points(self,points,max_distance=True,colors=None) -> o3d.geometry.PointCloud:
         if max_distance:
             max_distance = np.max(np.linalg.norm(points[:, :3], axis=1))
         else:
             max_distance = None
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points[:, :3])
-        pcd.colors = o3d.utility.Vector3dVector(self.compute_colors_from_distance(points,None))
+        if colors is not None:
+            print("Colors are given")
+            pcd.colors = o3d.utility.Vector3dVector(colors)
+        else:
+            pcd.colors = o3d.utility.Vector3dVector(self.compute_colors_from_distance(points,None))
         return pcd
     def compute_colors_from_distance(self,points,max_distance):
         #If no disatance given return all black
@@ -118,14 +122,26 @@ class Visualizer:
         return plt.cm.jet(normalized_distances)[:,:3]
     def visualize(self,**kwargs):
         cloud = kwargs.get('cloud', [])
+        outside_cloud = kwargs.get('outside_cloud', None)
         gt_boxes = kwargs.get('gt_boxes', [])
         pred_boxes = kwargs.get('pred_boxes', [])
+        colors = kwargs.get('colors', {})
         #print(cloud.shape)
-        cloud = self.create_pcd_from_points(cloud)
+        cloud = self.create_pcd_from_points(cloud,colors= colors.get('inside',None))
+
         visualizer = o3d.visualization.Visualizer()
         visualizer.create_window()
         self.set_custom_view(visualizer)
         visualizer.add_geometry(cloud)
+        if outside_cloud is not None:
+            print("Outside cloud is given")
+            colors = colors.get('outside',None)
+            if colors is not None:
+                outside_cloud = self.create_pcd_from_points(outside_cloud,colors=colors)
+            else:
+                cols =  np.full((outside_cloud.shape[0],3),[0,0,1])
+                outside_cloud = self.create_pcd_from_points(outside_cloud,colors=cols )
+            visualizer.add_geometry(outside_cloud)
         for box in gt_boxes:
             # print(type(box))
             print(box.type)

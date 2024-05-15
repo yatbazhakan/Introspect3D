@@ -239,10 +239,24 @@ class ActivationDataset:
                         dataset_dict['captions'].append(processed_caption)
                         
                 pbar.update(1)
+            name = 'caption_dataset_nus_v3.json'
             import json
-            with open(os.path.join(data_path,'caption_dataset_nus_v3.json'), "w") as outfile: 
+            with open(os.path.join(data_path,name), "w") as outfile: 
                 json.dump(dataset_dict, outfile)
-            # torch.save(dataset_dict,'caption_dataset_nus.pt')
+
+            # Load the JSON data from the file
+            with open(os.path.join(data_path,name), 'r') as json_file:
+                data = json.load(json_file)
+
+            # Open the corpus.txt file in write mode
+            with open(os.path.join(data_path,'corpus.txt'), 'w') as text_file:
+                # Iterate through each caption in the JSON data
+                for caption in data.get('captions', []):
+                    # Write each caption on a new line in the text file
+                    text_file.write(caption + '\n')
+
+            print("Captions have been written to corpus.txt")
+                        # torch.save(dataset_dict,'caption_dataset_nus.pt')
 class ActivationDatasetLegacy:
     def __init__(self) -> None:
         pass

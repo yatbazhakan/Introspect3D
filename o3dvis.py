@@ -23,7 +23,7 @@ from utils.pointcloud import PointCloud
 import pickle
 from utils.visualizer import Visualizer
 from datasets.nuscenes import NuScenesDataset
-from utils.filter import FilterType, EllipseFilter
+from utils.filter import FilterType, EllipseFilter,FilteringArea
 from definitions import ROOT_DIR
 import pandas as pd
 def rotate_points(points, R):
@@ -238,23 +238,31 @@ def load_point_clouds(folder_path):
     return point_clouds
 
 if __name__ == '__main__':
-    try:
-        filt = EllipseFilter(25,15,5,0)
-        folder_path = '/media/yatbaz_h/Jet/HYY/'
-        files = glob(os.path.join(folder_path, 'lidar','*.npy'))
+        # folder_path = '/media/yatbaz_h/Extreme SSD/HYY/Urban/2024-04-30-12-28-22/'
+        folder_path = '/mnt/ssd2/HYY/Motorway/run3_2024-04-30-10-11-54/'
+        # folder_path = '/mnt/ssd2/HYY/Urban/2024-04-30-12-32-58/'
+
+        files = sorted(glob(os.path.join(folder_path, 'lidar','*.npy')))
         point_clouds = load_point_clouds(folder_path)
         checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
         config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
         model = init_model(config, checkpoint, device='cuda:0')
-        # label_df = pd.DataFrame(columns=['sample_path','is_error'])
+        # label_df =pd.DataFrame(columns=['sample_path','is_error'])
+        filt = EllipseFilter(15,25,-5,1)
         for i,cloud in enumerate(point_clouds):
-            if i % 3 != 0:
-                continue
+            print("---------NEW SAMPLE--------")
+
+
+            file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
+            print(file_wo_extension)
             visualizer = Visualizer()
             item = PointCloud(cloud)
             item.set_points_as_raw()
+            print(item.points.shape)
             # print(item.points.shape)
-            item.points = filt.filter_pointcloud(item.points)
+            inside_points = filt.filter_pointcloud(cloud,FilteringArea.INSIDE)
+            outside_points = filt.filter_pointcloud(cloud,FilteringArea.OUTSIDE)
+            print(inside_points.shape,outside_points.shape) 
             # print(item.points.shape)
             item.validate_and_update_descriptors(extend_or_reduce=5)
             res, data = inference_detector(model, item.points)
@@ -265,14 +273,17 @@ if __name__ == '__main__':
             is_nuscenes = True
             from utils.utils import create_bounding_boxes_from_predictions
             prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
-            visualizer.visualize(cloud=item.points,
-                                pred_boxes=prediction_bounding_boxes)
+            visualizer.visualize(cloud=inside_points,
+                                outside_cloud=outside_points,
+                                pred_boxes=prediction_bounding_boxes,
+                                colors={'inside':np.full((inside_points.shape[0],3),[0.56470588235, 0.93333333333, 0.56470588235]),
+                                        'outside':np.full((outside_points.shape[0],3),[0.0,0.5,1.0])})
+            print("-----------------")
 
             # while error not in ['Y','y','N','n']:
             #     error = input("Please enter a valid input")
-            file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
-            print(file_wo_extension)
-            error = input("Press enter to continue")
+
+            # error = input("Press enter to continue")
 
             # print(file_wo_extension)
             # if error=='Y' or error=='y':
