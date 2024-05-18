@@ -92,19 +92,120 @@
 # # # print("FocalLossCustom Loss:", loss2.item())
 # # print("FocalLoss Loss:", loss2.item())
 # # print("FocalLoss2 Loss:", loss4.item())
-from utils.converter import DatasetConverter
+# from utils.converter import DatasetConverter
+# import os
+# kitti_root_path = r"/mnt/ssd2/kitti/"
+# os.makedirs(os.path.join(kitti_root_path,'coco'),exist_ok=True)
+# converter = DatasetConverter(root_dir=kitti_root_path,output_dir=os.path.join(kitti_root_path,'coco'),dataset_type="KITTI")
+# # converter.add_category('car', 1)
+# # converter.add_category('pedestrian', 2)
+# # converter.add_category('truck', 3)
+# # converter.add_category('bus', 4)
+# # converter.add_category('train', 5)
+# # converter.convert('BDD')
+# converter.add_category('Car', 1)
+# converter.add_category('Pedestrian', 2)
+# converter.add_category('Cyclist', 3)
+# converter.convert('KITTI')
+# converter.split_dataset()
+#%%
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import torchmetrics
+from utils.filter import EllipseFilter
+from glob import glob
+from utils.utils import generate_model_from_config
 import os
-kitti_root_path = r"/mnt/ssd2/kitti/"
-os.makedirs(os.path.join(kitti_root_path,'coco'),exist_ok=True)
-converter = DatasetConverter(root_dir=kitti_root_path,output_dir=os.path.join(kitti_root_path,'coco'),dataset_type="KITTI")
-# converter.add_category('car', 1)
-# converter.add_category('pedestrian', 2)
-# converter.add_category('truck', 3)
-# converter.add_category('bus', 4)
-# converter.add_category('train', 5)
-# converter.convert('BDD')
-converter.add_category('Car', 1)
-converter.add_category('Pedestrian', 2)
-converter.add_category('Cyclist', 3)
-converter.convert('KITTI')
-converter.split_dataset()
+import cv2
+from mmdet3d.apis import init_model, inference_detector
+activation = []
+vis_early = []
+#%%
+def backbone_extraction_hook2(ins,inp,out):
+    global vis_early
+    # print(out[0].shape)
+    last_output = inp[0].detach().cpu().numpy()
+    vis_early.append(last_output)
+def backbone_extraction_hook(ins,inp,out):
+    global activation
+    last_output = inp[0].detach().cpu().numpy()
+    activation.append(last_output)
+#%%
+# data_folder = "/mnt/ssd2/HYY/Motorway"
+data_folder = "/mnt/ssd2/HYY/Urban/"
+
+run = "2024-04-30-12-28-22"
+# labels= pd.read_csv(os.path.join(data_folder,run,"lidar_annotations_checkpoint.csv"))
+data = glob(os.path.join(data_folder,run,'lidar','*.npy'))
+#%%
+# labels.head()
+
+# %%
+# len(data)
+# %%
+config = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_pillar02_second_secfpn_head-circlenms_8xb4-cyclic-20e_nus-3d.py'
+checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_02pillar_second_secfpn_circlenms_4x8_cyclic_20e_nus_20220811_031844-191a3822.pth'
+
+det_model_checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
+det_model_config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+det_model = init_model(config, checkpoint, device='cuda:0')
+# print(det_model)
+# exit()
+# %%
+int_model_config = "/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn_indv.yaml"
+introspector = generate_model_from_config({'layer_config':int_model_config})
+introspector = introspector.to('cuda:0')
+#%%
+# introspector.load_state_dict(torch.load("/mnt/ssd2/Introspect3D/outputs/ckpts/centerpoint_nus_activations_raw.pt",map_location='cuda:0'))
+introspector.load_state_dict(torch.load("/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK/nuscenes_early.pth",map_location='cuda:0'))
+# %%
+processor_hook  = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook)
+
+# processor_hook  = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook)
+# early_hook = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook2)
+#%%
+
+# result_df = pd.DataFrame(columns=['sample_name','label','gt','conf'])
+filt = EllipseFilter(15,25,-5,1)
+for sample in data:
+    sample_name = os.path.basename(sample)
+    # label = labels[labels['file_name']==sample_name]
+    # error_label = label['error_annotation_filtered'].values[0]
+    # tensor_label = torch.tensor([int(error_label)]).int().to('cuda:0')
+    sample_name = sample_name.split('.')[0]
+    sample_data = np.load(sample)
+    sample_data = filt.filter_pointcloud(sample_data)
+    five_channel_points = np.zeros((sample_data.shape[0],5))
+    five_channel_points[:,:3] = sample_data
+    # sample_tensor = torch.from_numpy(five_channel_points).float().to('cuda:1')
+    with torch.no_grad():
+        #Expand sample_data to N,5 from N,3
+        
+        det_results = inference_detector(det_model, five_channel_points)
+        sample_activation = activation[0]
+        print(sample_activation.shape)
+        # maxi_activation = np.max(sample_activation,axis=1)
+        # print(maxi_activation.shape)
+
+        activation = []
+        # sample_activation = torch.from_numpy(sample_activation).to('cuda:0')
+        # output = introspector(sample_activation)
+        # softmaxed_output = torch.nn.functional.softmax(output,dim=1)
+        # softmaxed_pred = torch.argmax(softmaxed_output,dim=1)
+        # print(softmaxed_output)
+        # temp_df = pd.DataFrame({'sample_name':sample_name,'label':softmaxed_pred.item(),'gt':int(error_label),'conf':softmaxed_output[0,softmaxed_pred.item()].item()},index=[0])
+        # result_df = pd.concat([result_df,temp_df],ignore_index=True)
+    # img = vis_early[0]
+    # print(img.shape)
+    # img_max_channelwise = np.max(img,axis=1)
+    # cv2.imshow('img',img_max_channelwise)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+processor_hook.remove()
+# result_df.to_csv(os.path.join(data_folder,run,'introspection_results2.csv'),index=False)
+
+# %%

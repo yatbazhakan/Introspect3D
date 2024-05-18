@@ -232,26 +232,35 @@ def make_point_cloud(path):
     return pcd
 def load_point_clouds(folder_path):
     """Load all point cloud files from the seeeeepecified folder."""
-    files = glob(os.path.join(folder_path, 'lidar','*.npy'))
+    files = sorted(glob(os.path.join(folder_path, 'lidar','*.npy')))
 
     point_clouds = [np.load(file) for file in files]
     return point_clouds
 
 if __name__ == '__main__':
         # folder_path = '/media/yatbaz_h/Extreme SSD/HYY/Urban/2024-04-30-12-28-22/'
-        folder_path = '/mnt/ssd2/HYY/Motorway/run3_2024-04-30-10-11-54/'
-        # folder_path = '/mnt/ssd2/HYY/Urban/2024-04-30-12-32-58/'
+        folder_path = '/mnt/ssd2/HYY/Motorway/Sunny/run3_2024-04-30-10-11-54/'
+        # folder_path = '/mnt/ssd2/HYY/Urban/2024-04-30-12-28-22/'
 
         files = sorted(glob(os.path.join(folder_path, 'lidar','*.npy')))
         point_clouds = load_point_clouds(folder_path)
         checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
         config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
+        # config = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_pillar02_second_secfpn_head-dcn_8xb4-cyclic-20e_nus-3d.py'
+        # checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_02pillar_second_secfpn_dcn_4x8_cyclic_20e_nus_20220811_045458-808e69ad.pth' #r"D:\mmdetection3d\ckpts\hv_pointpillars_fpn_sbn-all_fp16_2x8_2x_nus-3d_20201021_120719-269f9dd6.pth" #
+        
         model = init_model(config, checkpoint, device='cuda:0')
         # label_df =pd.DataFrame(columns=['sample_path','is_error'])
         filt = EllipseFilter(15,25,-5,1)
+        t_i = 1000
         for i,cloud in enumerate(point_clouds):
             print("---------NEW SAMPLE--------")
-
+            # if i < t_i:
+            #     file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
+            #     if str(file_wo_extension) == '20240430_101715':
+            #         t_i = i
+            #     else:
+            #         continue
 
             file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
             print(file_wo_extension)
@@ -309,7 +318,25 @@ if __name__ == '__main__':
 
 
 
-
+# {
+# 	"class_name" : "ViewTrajectory",
+# 	"interval" : 29,
+# 	"is_loop" : false,
+# 	"trajectory" : 
+# 	[
+# 		{
+# 			"boundingbox_max" : [ 44.846057891845703, 131.50129699707031, 12.466060638427734 ],
+# 			"boundingbox_min" : [ -43.393062591552734, -131.52217102050781, -5.5637688636779785 ],
+# 			"field_of_view" : 60.0,
+# 			"front" : [ 0.018693435956732646, -0.82589250425491179, 0.56351763669621036 ],
+# 			"lookat" : [ 0.72649765014648438, -0.01043701171875, 3.4511458873748779 ],
+# 			"up" : [ 0.011721879862023592, 0.56375842025419354, 0.82585654996796909 ],
+# 			"zoom" : 0.13999999999999962
+# 		}
+# 	],
+# 	"version_major" : 1,
+# 	"version_minor" : 0
+# }
 
 
 

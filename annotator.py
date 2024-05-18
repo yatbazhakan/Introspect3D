@@ -32,6 +32,9 @@ class ErrorAnnotationApp(QWidget):
         self.file_label = QLabel('Current File: None', self)
         layout.addWidget(self.file_label)
 
+        self.counter_label = QLabel('Annotated: 0 / 0', self)
+        layout.addWidget(self.counter_label)
+
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(1)
@@ -73,19 +76,23 @@ class ErrorAnnotationApp(QWidget):
         self.directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if self.directory:
             innermost_folder = os.path.basename(self.directory.rstrip('/'))
-            self.checkpoint_path = f"{innermost_folder}_annotations_checkpoint.csv"
+            parent_of_innermost = os.path.basename(os.path.dirname(self.directory.rstrip('/')))
+            print(parent_of_innermost)
+            self.checkpoint_path = f"{parent_of_innermost}_annotations_checkpoint.csv"
             self.npy_files = sorted([f for f in os.listdir(self.directory) if f.endswith('.npy')])
             self.slider.setMaximum(len(self.npy_files) - 1)
             self.slider.setValue(0)
             self.slider.setEnabled(True)
             self.update_annotation_buttons(True)
             self.update_current_file()
+            self.update_counter_label()
 
     def load_from_csv(self):
         load_path, _ = QFileDialog.getOpenFileName(self, "Load File", "", "CSV files (*.csv)")
         if load_path:
             self.df = pd.read_csv(load_path)
             self.update_current_file()
+            self.update_counter_label()
 
     def update_current_file(self):
         if self.npy_files:
@@ -113,6 +120,7 @@ class ErrorAnnotationApp(QWidget):
         }])
         self.df = pd.concat([self.df, temp_df], ignore_index=True)
         QMessageBox.information(self, 'Annotation', f'File "{file_name}" annotated')
+        self.update_counter_label()
 
     def annotate_selected(self):
         if self.current_file_index < len(self.npy_files):
@@ -136,6 +144,11 @@ class ErrorAnnotationApp(QWidget):
         if self.checkpoint_path:
             self.df.to_csv(self.checkpoint_path, index=False)
             QMessageBox.information(self, 'Checkpoint Saved', f'Annotations checkpoint saved to {self.checkpoint_path}')
+
+    def update_counter_label(self):
+        annotated_count = self.df['file_name'].nunique()
+        total_count = len(self.npy_files)
+        self.counter_label.setText(f'Annotated: {annotated_count} / {total_count}')
 
 if __name__ == '__main__':
     app = QApplication([])
