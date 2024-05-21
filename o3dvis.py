@@ -239,7 +239,7 @@ def load_point_clouds(folder_path):
 
 if __name__ == '__main__':
         # folder_path = '/media/yatbaz_h/Extreme SSD/HYY/Urban/2024-04-30-12-28-22/'
-        folder_path = '/mnt/ssd2/HYY/Motorway/Sunny/run3_2024-04-30-10-11-54/'
+        folder_path = '/mnt/ssd2/HYY/Motorway/Rainy/run8_2024-05-16-14-42-11'#/run7_2024-05-16-14-33-23/'
         # folder_path = '/mnt/ssd2/HYY/Urban/2024-04-30-12-28-22/'
 
         files = sorted(glob(os.path.join(folder_path, 'lidar','*.npy')))

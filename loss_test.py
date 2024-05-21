@@ -115,6 +115,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from modules.custom_networks import GenericInjection
 import torchmetrics
 from utils.filter import EllipseFilter
 from glob import glob
@@ -130,9 +131,12 @@ def backbone_extraction_hook2(ins,inp,out):
     # print(out[0].shape)
     last_output = inp[0].detach().cpu().numpy()
     vis_early.append(last_output)
+def input_hook(ins,inp,out):
+    global activation
+    activation.append(inp[0].detach().cpu().numpy())
 def backbone_extraction_hook(ins,inp,out):
     global activation
-    last_output = inp[0].detach().cpu().numpy()
+    last_output = out[0].detach().cpu().numpy()
     activation.append(last_output)
 #%%
 # data_folder = "/mnt/ssd2/HYY/Motorway"
@@ -152,19 +156,21 @@ checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_02pillar_second_secfpn_
 
 det_model_checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
 det_model_config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
-det_model = init_model(config, checkpoint, device='cuda:0')
+det_model = init_model(det_model_config, det_model_checkpoint, device='cuda:0')
 # print(det_model)
 # exit()
 # %%
 int_model_config = "/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn_indv.yaml"
-introspector = generate_model_from_config({'layer_config':int_model_config})
+introspector = GenericInjection(model_config={'layer_config':int_model_config},device='cuda:0')
 introspector = introspector.to('cuda:0')
 #%%
 # introspector.load_state_dict(torch.load("/mnt/ssd2/Introspect3D/outputs/ckpts/centerpoint_nus_activations_raw.pt",map_location='cuda:0'))
-introspector.load_state_dict(torch.load("/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK/nuscenes_early.pth",map_location='cuda:0'))
+introspector.load_state_dict(torch.load("/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK/nuscenes_inj_best.pth",map_location='cuda:0'))
 # %%
-processor_hook  = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook)
-
+print(det_model.pts_backbone._modules)
+processor_hook  = det_model.pts_backbone.blocks._modules["0"].register_forward_hook(input_hook)
+mid_hook = det_model.pts_backbone.blocks._modules["0"].register_forward_hook(backbone_extraction_hook)
+last_hook = det_model.pts_backbone.blocks._modules["1"].register_forward_hook(backbone_extraction_hook)
 # processor_hook  = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook)
 # early_hook = det_model.pts_backbone.blocks[0].register_forward_hook(backbone_extraction_hook2)
 #%%
@@ -186,17 +192,18 @@ for sample in data:
         #Expand sample_data to N,5 from N,3
         
         det_results = inference_detector(det_model, five_channel_points)
-        sample_activation = activation[0]
-        print(sample_activation.shape)
-        # maxi_activation = np.max(sample_activation,axis=1)
+        
+        maxi_activation = np.max(activation[1].squeeze(),axis=0)
+        plt.imshow(maxi_activation)
+        plt.show()
         # print(maxi_activation.shape)
+        # tensor_activation = [torch.from_numpy(act.squeeze()).float().to('cuda:0').unsqueeze(0) for act in activation]
 
-        activation = []
-        # sample_activation = torch.from_numpy(sample_activation).to('cuda:0')
-        # output = introspector(sample_activation)
+        # # sample_activation = torch.from_numpy(sample_activation).to('cuda:0')
+        # output = introspector(tensor_activation)
         # softmaxed_output = torch.nn.functional.softmax(output,dim=1)
         # softmaxed_pred = torch.argmax(softmaxed_output,dim=1)
-        # print(softmaxed_output)
+        
         # temp_df = pd.DataFrame({'sample_name':sample_name,'label':softmaxed_pred.item(),'gt':int(error_label),'conf':softmaxed_output[0,softmaxed_pred.item()].item()},index=[0])
         # result_df = pd.concat([result_df,temp_df],ignore_index=True)
     # img = vis_early[0]
@@ -205,7 +212,10 @@ for sample in data:
     # cv2.imshow('img',img_max_channelwise)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+    activation = []
 processor_hook.remove()
+mid_hook.remove()
+last_hook.remove()
 # result_df.to_csv(os.path.join(data_folder,run,'introspection_results2.csv'),index=False)
 
 # %%
