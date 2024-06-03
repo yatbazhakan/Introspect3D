@@ -16,10 +16,11 @@ from modules.graph_networks import GCN
 from modules.custom_networks import CustomModel, EarlyFusionAdaptive, GenericInjection, SwinIntrospection
 from pprint import pprint
 import random
-from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores
+from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score, AveragePrecision, AUROC, ConfusionMatrix, StatScores, MeanSquaredError
 import os
 import uuid
 import pandas as pd
+from time import time
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
@@ -65,55 +66,54 @@ class IntrospectionOperator(Operator):
         self.train_dataset = Subset(self.dataset, train_indices)
         after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],random_state=random_state)
         
-        #class_dist=  dict(zip(values,counts))
-        #c = 1e-3
-        #class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
-        # if validation['balanced']:
-        #     train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
-        #     class_counts = np.bincount(train_labels_after_val)
-        #     min_class_count = np.min(class_counts)
-        #     print("Min class count:",min_class_count,"Class counts:",class_counts)
-        #     balanced_train_indices = []
-        #     for cls in np.unique(train_labels_after_val):
-        #         cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
-        #         balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
-        #         balanced_train_indices.extend(balanced_cls_indices)
-        #     after_val_train_indices = balanced_train_indices
-        #     balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
-        #     values, counts = np.unique(balanced_train_labels, return_counts=True)
-        #     new_class_dist = dict(zip(values, counts))
-        #     total_samples = len(balanced_train_indices)
-        #     class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
-        #     class_dist = new_class_dist
-        
-        
+        if 'multiclass' in self.method_info['task']:
+            values,counts = np.unique(all_labels,return_counts=True)    
+            class_dist = dict(zip(values,counts))
+            c = 1e-3
+            class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
+            if validation['balanced']:
+                train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
+                class_counts = np.bincount(train_labels_after_val)
+                min_class_count = np.min(class_counts)
+                print("Min class count:",min_class_count,"Class counts:",class_counts)
+                balanced_train_indices = []
+                for cls in np.unique(train_labels_after_val):
+                    cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
+                    balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
+                    balanced_train_indices.extend(balanced_cls_indices)
+                after_val_train_indices = balanced_train_indices
+                balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
+                values, counts = np.unique(balanced_train_labels, return_counts=True)
+                new_class_dist = dict(zip(values, counts))
+                total_samples = len(balanced_train_indices)
+                class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
+                class_dist = new_class_dist
+            #class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
+            self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+
+            if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
+                # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+                self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+            elif self.method_info['criterion']['type'].startswith("FocalLoss"):
+                #Getting second element of class weights since it is the error class (positive class is 1)
+                #Scale weights between 0 and 1 using sum
+                # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+                # if "Custom" not in self.method_info['criterion']['type']:
+                #     self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
+                # else:
+                self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
+            if self.verbose:
+
+                print("Class distribution:",class_dist)
+                print("Class weights:",class_weights)
+            
         
         self.train_dataset = Subset(self.dataset, after_val_train_indices)
         self.val_dataset = Subset(self.dataset, val_indices)
         self.test_dataset = Subset(self.dataset, test_indices)
 
-
         self.split=True
         #Provide the class distribution overall
-
-        # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
-        #self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
-
-        # if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
-        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
-        #     self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
-        # elif self.method_info['criterion']['type'].startswith("FocalLoss"):
-        #     #Getting second element of class weights since it is the error class (positive class is 1)
-        #     #Scale weights between 0 and 1 using sum
-        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
-        #     if "Custom" not in self.method_info['criterion']['type']:
-        #         self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
-        #     else:
-        #         self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
-        # if self.verbose:
-
-        #     print("Class distribution:",class_dist)
-        #     print("Class weights:",class_weights)
 
     def initialize_learning_parameters(self):
         self.device = self.config['device']
@@ -130,11 +130,12 @@ class IntrospectionOperator(Operator):
         self.criterion = generate_criterion_from_config(criterion_info)
         self.scheduler = generate_scheduler_from_config(self.method_info['scheduler'],self.optimizer)
         self.epochs = self.method_info['epochs']
+        self.debug = self.method_info['debug']
         self.log_interval = self.method_info['log_interval']
         self.save_interval = self.method_info['save_interval']
         
     def train_epoch(self,epoch):
-        epoch_loss = []
+        epoch_loss = 0
         if self.verbose:
             print("Epoch:",epoch)
         pbar = tqdm(total=len(self.train_loader),leave=False)
@@ -198,15 +199,17 @@ class IntrospectionOperator(Operator):
             self.optimizer.step()
             self.total_loss += loss.item()
             # print(loss.item())
-            epoch_loss.append(loss.item())
+            epoch_loss+= loss.item()
             pbar.update(1)
             clear_memory()
+            if self.debug:
+                break
             # return epoch_loss  #*debug
         #TODO: check if this division is correct way to do so
-        epoch_loss = np.mean(np.array(epoch_loss))
+        epoch_loss = epoch_loss/len(self.train_loader)
         return epoch_loss
     def update_config_from_wandb(self,conf):
-        wandb.log({"custom_config":self.config})
+        #wandb.log({"custom_config":self.config})
         self.method_info['model']['layer_config'] = wandb.config.model_yaml
         self.method_info['optimizer']['type'] = wandb.config.optimizer
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
@@ -252,6 +255,7 @@ class IntrospectionOperator(Operator):
         print("Training started")
         self.model.train()
         for epoch in range(self.epochs):
+            start = time()
             epoch_loss = self.train_epoch(epoch)
             # if epoch_loss < 0.001:
             #     print("Train loss is converged")
@@ -259,21 +263,37 @@ class IntrospectionOperator(Operator):
             if np.isnan(epoch_loss):
                 wandb.alert(title='NaN', text = f'Loss is NaN')     # Will alert you via email or slack that your metric has reached NaN
                 raise Exception(f'Loss is NaN') # This could be exchanged for exit(1) if you do not want a traceback 
-            if self.verbose:
-                print("Epoch loss:",epoch_loss)
-            wandb.log({'epoch_loss':epoch_loss})
             
             if self.method_info['sanity_check']:
                 self.evaluate(loader=self.train_loader,epoch=epoch)
-            val_loss = self.evaluate(loader=self.val_loader,epoch=epoch)           
+            val_loss, all_labels, all_preds = self.evaluate(loader=self.val_loader,epoch=epoch)           
+            wandb.log({'epoch':epoch})
+            wandb.log({'train_loss':epoch_loss})
+            wandb.log({'val_loss':val_loss})
+            if self.verbose:
+                print("Epoch Train loss:",epoch_loss, ', Val loss:',val_loss)
+            
             if val_loss < previous_val_loss:
+                wandb.log({'best_epoch':epoch})
                 previous_val_loss = val_loss
                 no_improvement_count = 0
-
+                if self.method_info['task'] == 'regression':
+                    #result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
+                    table_data = np.concatenate((all_labels,all_preds),axis=1)
+                    wandb_table = wandb.Table(data=table_data, columns=["Labels", "Predictions"])
+                    wandb.log({f'best_predictions':wandb_table})
+                if self.method_info['task'] == 'multiclass':
+                    top_pred_ids = np.argmax(all_preds,axis=1)
+                    # squeeze the labels
+                    all_labels = all_labels.squeeze()
+                    top_pred_ids = top_pred_ids.squeeze()
+                    wandb.log({'best_conf_mat': wandb.plot.confusion_matrix(preds = top_pred_ids,
+                                                                           y_true = all_labels, 
+                                                                           probs= None,
+                                                                           class_names = ['No_Error', 'Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m'])})
                 if self.verbose:
                     print("Saving model")
 
-                
                 epoch_id = epoch
                 torch.save(self.model.state_dict(), self.model_save_to + f"Ep{epoch_id}.pth")
                 torch.save(self.model.state_dict(), self.model_save_to +"_best.pth")
@@ -287,9 +307,13 @@ class IntrospectionOperator(Operator):
                     if self.verbose:
                         print("Early stopping")
                     break
+            if self.debug:
+                print('Exiting early for debug')
+                break
+            wandb.log({'epoch_time':time()-start})
 
 
-    def evaluate(self,iteration=1,loader=None,epoch=None):
+    def evaluate(self,iteration=1,loader=None,epoch='N/A'):
         if loader == None:
             loader = self.test_loader
             self.model.load_state_dict(torch.load(self.model_save_to +"_best.pth"))
@@ -347,6 +371,7 @@ class IntrospectionOperator(Operator):
                     elif self.method_info['criterion']['type'] == 'MSELOSS':
                         test_loss += self.criterion(output, target).item()
                     else:
+                        target = target.long()
                         test_loss += self.criterion(output, target.squeeze(1)).item()
                     all_preds = torch.cat(
                         (all_preds, output),dim=0
@@ -357,24 +382,29 @@ class IntrospectionOperator(Operator):
                     pbar.update(1)
                     clear_memory()
                     # return test_loss  #*debug
-        test_loss /= len(loader.dataset)       
+                    if self.debug:
+                        break
+        test_loss /= len(loader)       
         
         if loader == self.test_loader:
-            wandb.log({f'test_loss_{iteration}':test_loss})
-            #self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
+            #wandb.log({f'test_loss_{iteration}':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
-            wandb.log({f'train_loss_{iteration}':test_loss})
-            #self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
+            #wandb.log({f'train_loss_{iteration}':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
-            wandb.log({f'val_loss_{iteration}':test_loss})
-            #self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
+            #wandb.log({f'val_loss_{iteration}':test_loss})
+            self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
         #save all preds and labels in csv format
         all_labels = all_labels.cpu().numpy()
         all_preds = all_preds.cpu().numpy()
-        result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
-        result_df = pd.DataFrame(result_dict)
-        result_df.to_csv(f"results_{iteration}.csv")
-        return test_loss
+        # result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
+        # table_data = np.concatenate((all_labels,all_preds),axis=1)
+        # wandb_table = wandb.Table(data=table_data, columns=["Labels", "Predictions"])
+        # wandb.log({f'predictions_{epoch}':wandb_table})
+        #result_df = pd.DataFrame(result_dict)
+        #result_df.to_csv(f"results_{epoch}.csv")
+        return test_loss, all_labels, all_preds
     def seprate_multiclass_metrics(self,metric_name):
         multi_class_metric = self.metrics[metric_name]
         try:
@@ -386,61 +416,57 @@ class IntrospectionOperator(Operator):
     def log_metrics(self,mode,task,iteration=1):
         #Here I need to separate metrics for each class and log them in wandb
         for metric_name in self.metrics.keys():
-            if 'ConfusionMatrix' in metric_name:
-                cm = self.metrics[metric_name]
-                # wandb_table = wandb.Table(data=cm.cpu().numpy().tolist(), columns=["Predicted Safe", "Predicted Error"])
-                # wandb.log({f'{mode}_confusion_matrix_{iteration}':wandb_table})
-                cm = cm.cpu().numpy()
-                cm = cm.astype(int)
-                tp, fp, fn, tn = cm[1,1], cm[0,1], cm[1,0], cm[0,0]
-                wandb.log({f'{mode}_tp':tp,f'{mode}_fp':fp,f'{mode}_fn':fn,f'{mode}_tn':tn})
-            else:
-                if task == 'multiclass':
-                    positive_metric,negative_metric = self.seprate_multiclass_metrics(metric_name)
-                    # print(positive_metric)
-                    try:
-                        for i in range(positive_metric.shape[0]):
-                            wandb.log({f'{mode}_{metric_name}_positive_{i}_{iteration}':positive_metric[i]})
-                        for i in range(negative_metric.shape[0]):
-                            wandb.log({f'{mode}_{metric_name}_negative_{i}_{iteration}':negative_metric[i]})
-                    except:
-                        wandb.log({f'{mode}_{metric_name}_positive_{iteration}':positive_metric})
-                        wandb.log({f'{mode}_{metric_name}_negative_{iteration}':negative_metric})
-                elif task == 'regression':
-                    #TODO: Implement this
-                    continue
+            
+            
+            if task == 'multiclass':
+                print('Accuracy: ', self.metrics[metric_name].cpu().numpy())
+                wandb.log({f'{mode}_{metric_name}':self.metrics[metric_name].cpu().numpy()})
+            elif task == 'regression':
+                if metric_name=='MeanSquaredError' and self.metric_collection[metric_name].squared==False:
+                    metric_name_='RootMeanSquaredError'
                 else:
-                    wandb.log({f'{mode}_{metric_name}_{iteration}':self.metrics[metric_name].cpu().numpy()})
+                    metric_name_=metric_name
+                wandb.log({f'{mode}_{metric_name_}':self.metrics[metric_name].cpu().numpy()})
+            else:
+                wandb.log({f'{mode}_{metric_name}':self.metrics[metric_name].cpu().numpy()})
 
 
     def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass',iteration=1):
-        num_classes = 2
-        pred = torch.tensor(pred).squeeze()
-        target = torch.tensor(target,dtype=torch.int64).squeeze()
         
-        metric_collection = MetricCollection([
-            ConfusionMatrix(num_classes=num_classes,task=task),
-            # Accuracy(task=task,num_classes=num_classes,average='none'),
-            # Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
-            Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
-            F1Score(task=task,num_classes=num_classes,average='none'),
-            AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
-            # StatScores(num_classes=num_classes,task=task,average='none'),
-            AveragePrecision(num_classes=num_classes,task=task,average='none'),
-        ])
-        metric_collection.to(self.device)
-        self.metrics = metric_collection(pred,target)
-        from pprint import pprint
-        # pprint(self.metrics)
-        #This is messy but to try
-        self.log_metrics(mode,task,iteration)
+        if task == 'multiclass':
+            num_classes = 4 #TODO: to update for multi-class
+            pred = torch.tensor(pred).squeeze()
+            target = torch.tensor(target,dtype=torch.int64).squeeze()
+            
+            self.metric_collection = MetricCollection([
+                Accuracy(task=task,num_classes=num_classes),
+            ])
+            self.metric_collection.to(self.device)
+            self.metrics = self.metric_collection(pred,target)
+            from pprint import pprint
+            # pprint(self.metrics)
+            #This is messy but to try
+            self.log_metrics(mode,task,iteration)
+        elif task == 'regression':
+            pred = torch.tensor(pred).squeeze()
+            target = torch.tensor(target).squeeze()
+            self.metric_collection = MetricCollection([
+                MeanSquaredError( squared = False, num_outputs=1),
+            ])
+            self.metric_collection.to(self.device)
+            self.metrics = self.metric_collection(pred*100,target*100)
+            
+            self.log_metrics(mode,task,iteration)
+        else:
+            print("Task not supported")
+            exit()
         
     def train_sweep(self): #Basic wrapper for wandb sweep with montecarlo cross validation
         print("Wrapper initialized")
         for i in range(self.method_info['cross_validation']['iteration']):
             print("Iteration:",i)
             self.train(i)
-            self.evaluate(i)
+            #test_loss = self.evaluate(i)
         
     def execute(self, **kwargs):
         

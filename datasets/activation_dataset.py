@@ -12,6 +12,7 @@ class ActivationDataset:
     def __init__(self,config) -> None:
         self.config = config
         self.extension = config.get('extension','')  
+        self.task = config.get('task','Classification')
         self.root_dir = config['root_dir']
         #self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
@@ -19,11 +20,15 @@ class ActivationDataset:
         print("Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
         self.label_file = self.get_label_file()
         self.labels = pd.read_csv(self.label_file)
-        self.labels.head()
+        #self.labels.head()
         self.gt_dist, self.pred_dist = self.get_de_error(self.labels['gt_lead'].values, self.labels['pred_lead'].values)
+        if self.task == 'Classification':
+            self.class_names = config.get('class_names',None)
+            self.target = self.get_target_classes(self.gt_dist, self.pred_dist)
+
         self.layer = config.get('layer',None)
         self.threshold = config.get('threshold',None)
-        print("Threshold is ",self.threshold)
+        #print("Threshold is ",self.threshold)
         self.labels['name'] = self.labels['name'].astype(str)
         #remove if any leading path is there in self labels['name']
         # if self.is_multi_feature: #Need to fix this extension issue
@@ -44,6 +49,19 @@ class ActivationDataset:
             print("Feature paths and labels are not equal, some features are missing")
             # print(len(self.feature_paths),len(self.labels))
         print(len(self.feature_paths),len(self.labels))
+
+    def get_target_classes(self, gt_dist, pred_dist):
+        target = np.zeros_like(gt_dist)
+        for i in range(len(gt_dist)):
+            if np.abs(gt_dist[i] - pred_dist[i]) == 0:
+                target[i] = 0
+            elif np.abs(gt_dist[i] - pred_dist[i]) < 0.1:
+                target[i] = 1
+            elif np.abs(gt_dist[i] - pred_dist[i]) < 2:
+                target[i] = 2
+            else:
+                target[i] = 3
+        return target
 
     def get_de_error(self, gt_bboxes, pred_bboxes, filter_boundry = 100):
         gt_dists = []
@@ -79,7 +97,12 @@ class ActivationDataset:
         return os.path.join(self.root_dir,self.config["label_file"])
     def get_label(self,idx):
         itr = np.nonzero(self.labels['name'] == idx)[0][0]
-        return np.abs(self.gt_dist[itr] - self.pred_dist[itr])/100
+        if self.task == 'Classification':
+            return self.target[itr]
+        elif self.task == 'Regression':
+            return np.abs(self.gt_dist[itr] - self.pred_dist[itr])/100
+        else:
+            raise NotImplementedError("Task not implemented")
     def __getitem__(self, idx):
         feature_path = self.feature_paths[idx]
         feature_name = feature_path.split('/')[-1].replace(self.extension,'')
@@ -127,7 +150,10 @@ class ActivationDataset:
     def __len__(self):
         return len(self.feature_paths)
     def get_all_labels(self):
-        return np.abs(self.gt_dist - self.pred_dist)/100
+        if self.task == 'Classification':
+            return self.target
+        elif self.task == 'Regression':
+            return np.abs(self.gt_dist - self.pred_dist)/100
     
 class ActivationDatasetLegacy:
     def __init__(self) -> None:

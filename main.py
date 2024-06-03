@@ -26,3 +26,4 @@ if __name__== "__main__":
     
     operator = get_operator(int(args.operator))(config)
     operator.execute(verbose=config.verbose)
+# python main.py -c /5gcat-pc/centerpoint_nus_distclass.yaml -o 2

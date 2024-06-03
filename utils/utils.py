@@ -209,6 +209,7 @@ def generate_criterion_from_config(config,**kwargs):
     print(config)
     loss_type = config['type']
     loss_params = config['params']
+    print(loss_params)
     if "weight" in loss_params.keys():
         loss_params['weight'] = torch.tensor(loss_params['weight'],dtype=torch.float32)
     return eval(f"{loss_type}(**loss_params)")
