@@ -95,7 +95,7 @@ class CustomModel(nn.Module):
         return x
     
 class GenericInjection(nn.Module):
-    def __init__(self, model_config,hooks=None,device = 'cuda:1'):
+    def __init__(self, model_config,hooks=None,device = 'cuda:0'):
         super(GenericInjection, self).__init__()
         # Store the layers in an OrderedDict
         layers = generate_model_from_config(model_config)

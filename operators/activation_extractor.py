@@ -40,19 +40,30 @@ class ActivationExractionOperator(Operator):
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
             filtered_predicted_boxes = predicted_boxes[score_mask]
             is_nuscenes = self.config['dataset']['name'] == 'NuScenesDataset'
+            is_custom = self.config['dataset']['name'] == 'CustomDataset'
             prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
             # vis = Visualizer()
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
-            matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
-            # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
-            if(len(ground_truth_boxes) > 0):
-                row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
-                from pprint import pprint
-                # pprint(row)
+            if not is_custom:
+        
+                matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
+                # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
+                if(len(ground_truth_boxes) > 0):
+                    row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
+                    from pprint import pprint
+                    # pprint(row)
+                    self.activation.save_multi_layer_activation()
+                    self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
+                if verbose:
+                    progress_bar.update(1)
+            else:
+                label = ground_truth_boxes
+                row = {'name':f"{file_name}",'is_missed':label,'missed_objects':0,'total_objects':0}
+                # print(row)
                 self.activation.save_multi_layer_activation()
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
-            if verbose:
-                progress_bar.update(1)
+                if verbose:
+                    progress_bar.update(1)
         # if(self.config['active']):
         self.save_labels()
             

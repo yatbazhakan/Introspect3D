@@ -1,6 +1,7 @@
 from datasets.kitti import Kitti2D, Kitti3D
 from datasets.nuscenes import NuScenesDataset
 from datasets.activation_dataset import ActivationDataset
+from datasets.custom_dataset import CustomDataset
 import os
 import matplotlib.pyplot as plt
 import pandas as pd

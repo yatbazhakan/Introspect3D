@@ -16,7 +16,7 @@ class Activations:
     def __init__(self,
                  config,extract=True) -> None:
         self.model = load_detection_model(config)
-        print(self.model)
+        # print(self.model)
         self.config = config
         method = config['method']
         self.save_dir = method['save_dir']
@@ -58,11 +58,14 @@ class Activations:
         global d 
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
         # else:
+        print("Saving", save_name, "to", self.save_dir)
             # save_name = self.save_name + ".pkl" # A fix that might create an isssue, hoping that extension param will fix automatically
         if d == 1:
 
             print("Saving", save_name, "to", self.save_dir)
             d = 0
+
+        print(len(self.activation_list))
         with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
             pickle.dump(self.activation_list, f)
         # print(save_name,self.save_dir)
@@ -100,6 +103,74 @@ class Activations:
         save_name = self.save_name.replace(self.extension,'.npy') #should be more generic currently depends on image, maybe jsut remove extension
         # print(save_name,self.save_dir)
         # np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)
+    def clear(self):
+        self.activations = []
+        self.gradients = []
+        for hook in self.hooks:
+            hook.remove()
+
+class E2EActivations:
+
+    def __init__(self,
+                 config,extract=True) -> None:
+        self.model = load_detection_model(config)
+        # print(self.model)
+        self.config = config
+        method = config['method']
+        self.hooks = []
+        self.activation_list= []
+        #TODO: better way to do this, indexes are not used right now, save activation must be generalized
+        if extract:
+            print("Hook initialized")
+            # if self.save_input:
+            #     input_hool = self.model.backbone.register_forward_hook(self.register_prerpocessing_output)
+            self.hook_layers = method['hook']['indexes']
+            for i,index in enumerate(self.hook_layers):
+                extract = method['hook']['extract_from'][i]
+                if extract:
+                    hook = eval(f'self.model.{method["hook"]["layer"]}._modules["{index}"].register_forward_hook(self.register_activation_output)')
+                else:
+                    hook = eval(f'self.model.{method["hook"]["layer"]}._modules["{index}"].register_forward_hook(self.register_activation_input)')
+                self.hooks.append(hook)
+                # self.hooks = eval(f'self.model.{method["hook"]["layer"]}.register_forward_hook(self.debug_activation)')
+        else:
+            self.hook = None
+            
+    def __call__(self, x,name):
+        self.gradients = []
+        self.activations = []
+        print("x shape",x.shape)
+        return inference_detector(self.model, x)
+    def debug_activation(self, module, input, output):
+        print("Debugging")
+        print(output.shape)
+        print(output)
+    
+    def register_prerpocessing_output(self,module, input, output):
+        # print(output[0].shape,output[1].shape)
+        # print(len(output))
+        print(len(input),input[0].shape)
+
+        last_output = input[0].detach().cpu().numpy()
+    def register_activation_output(self,module, input, output):
+        # print(output[0].shape,output[1].shape)
+        # print(len(output))
+        print("O",len(output))
+        last_output = output.detach().cpu().numpy() #TODO: generalize this
+        # print("Last output shape",last_output.shape)
+        # print(last_output.shape)
+        # print("-------------------")
+        last_output = np.squeeze(last_output)
+        self.activation_list.append(last_output)
+
+    def register_activation_input(self,module, input, output):
+        # print(output[0].shape,output[1].shape)
+        print("I", len(input),input[0].shape)
+        last_output = input[0].detach().cpu().numpy() #TODO: generalize this
+        # print("Last output shape",last_output.shape)
+        last_output = np.squeeze(last_output)
+        self.activation_list.append(last_output)
+
     def clear(self):
         self.activations = []
         self.gradients = []

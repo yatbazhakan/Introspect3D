@@ -66,7 +66,7 @@ tk.Button(app, text="Browse", command=browse_file).grid(row=0, column=2)
 tk.Label(app, text="Operator:").grid(row=1, column=0)
 operator_var = tk.StringVar(app)
 operator_var.set("1")  # default value
-operator_menu = tk.OptionMenu(app, operator_var, "0", "1", "2")
+operator_menu = tk.OptionMenu(app, operator_var, "0", "1", "2","3")
 operator_menu.grid(row=1, column=1)
 # Session name entry
 tk.Label(app, text="Session Name:").grid(row=2, column=0)

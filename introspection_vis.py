@@ -76,9 +76,9 @@ activation_dataset = ActivationDataset({'root_dir':file_path,
                                         'classes':["No Error","Error"],
                                         'label_file':'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
                                         'label_field':'is_missed',
-                                        'layer':0,
-                                        'is_multi_feature':False,
-                                        'name':'kitti'})
+                                        'layer':[0,1,2],
+                                        'is_multi_feature':True,
+                                        'name':'nuscenes'})
 #%%
 
 object_det_config = os.path.join(det_root_dir,"configs",model_name,config)
@@ -96,9 +96,9 @@ introspection_activations = None
 introspection_activations = []
 
 
-my_hook  = introspection_model[0].layer4.register_forward_hook(hook_func)
-my_hook2 = introspection_model[0].layer3.register_forward_hook(hook_func)
-my_hook3 = introspection_model[0].layer2.register_forward_hook(hook_func)
+# my_hook  = introspection_model[0].layer4.register_forward_hook(hook_func)
+# my_hook2 = introspection_model[0].layer3.register_forward_hook(hook_func)
+# my_hook3 = introspection_model[0].layer2.register_forward_hook(hook_func)
 my_hook4 = introspection_model[0].layer1.register_forward_hook(hook_func)
 
 import torch.nn.functional as TF
@@ -117,30 +117,30 @@ else:
     res = introspection_model(tensor)
     tensor= tensor.squeeze(0)
 res_sm, label = TF.softmax(res,dim=1), label
-my_hook.remove()
-my_hook2.remove()
-my_hook3.remove()
+# my_hook.remove()
+# my_hook2.remove()
+# my_hook3.remove()
 my_hook4.remove()
-del my_hook, my_hook2, my_hook3, my_hook4
+# del my_hook, my_hook2, my_hook3, my_hook4
 res_sm,label
 # %%
-idx = 2
-#RUn detection and visualize with open3d
-print(nuscenes_dataset[idx]['pointcloud'].points.shape)
-print(type(nuscenes_dataset[idx]['pointcloud']))
-data = nuscenes_dataset[idx]['pointcloud']
-data.validate_and_update_descriptors(extend_or_reduce=5)
-# nuscenes_dataset[idx]['pointcloud'].points = nuscenes_dataset[idx]['pointcloud'].point
-print(nuscenes_dataset[idx]['pointcloud'].raw_points.shape)
-# nuscenes_dataset[idx]['pointcloud'].po
-detections = inference_detector(model,data.points)
-detections[0].pred_instances_3d
+# idx = 2
+# #RUn detection and visualize with open3d
+# print(nuscenes_dataset[idx]['pointcloud'].points.shape)
+# print(type(nuscenes_dataset[idx]['pointcloud']))
+# data = nuscenes_dataset[idx]['pointcloud']
+# data.validate_and_update_descriptors(extend_or_reduce=5)
+# # nuscenes_dataset[idx]['pointcloud'].points = nuscenes_dataset[idx]['pointcloud'].point
+# print(nuscenes_dataset[idx]['pointcloud'].raw_points.shape)
+# # nuscenes_dataset[idx]['pointcloud'].po
+# detections = inference_detector(model,data.points)
+# detections[0].pred_instances_3d
 #%%
-dets= detections[0].pred_instances_3d.bboxes_3d.tensor.detach().cpu().numpy()
-scores = detections[0].pred_instances_3d.scores_3d.detach().cpu().numpy()
-filtered_indices = np.where(scores >= 0.5)[0]
-dets = dets[filtered_indices]
-dets
+# dets= detections[0].pred_instances_3d.bboxes_3d.tensor.detach().cpu().numpy()
+# scores = detections[0].pred_instances_3d.scores_3d.detach().cpu().numpy()
+# filtered_indices = np.where(scores >= 0.5)[0]
+# dets = dets[filtered_indices]
+# dets
 #%%
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches

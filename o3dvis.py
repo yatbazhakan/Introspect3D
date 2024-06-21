@@ -239,11 +239,11 @@ def load_point_clouds(folder_path):
 
 if __name__ == '__main__':
         # folder_path = '/media/yatbaz_h/Extreme SSD/HYY/Urban/2024-04-30-12-28-22/'
-        folder_path = '/mnt/ssd2/HYY/Motorway/Rainy/run8_2024-05-16-14-42-11'#/run7_2024-05-16-14-33-23/'
+        folder_path = '/mnt/ssd2/HYY/Motorway/Rainy/run1_2024-05-16-13-36-20/'#/run7_2024-05-16-14-33-23/'
         # folder_path = '/mnt/ssd2/HYY/Urban/2024-04-30-12-28-22/'
 
         files = sorted(glob(os.path.join(folder_path, 'lidar','*.npy')))
-        point_clouds = load_point_clouds(folder_path)
+        point_clouds = load_point_clouds(folder_path)   
         checkpoint = r'/mnt/ssd2/mmdetection3d/ckpts/centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth'
         config= r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py'
         # config = r'/mnt/ssd2/mmdetection3d/configs/centerpoint/centerpoint_pillar02_second_secfpn_head-dcn_8xb4-cyclic-20e_nus-3d.py'
@@ -255,12 +255,12 @@ if __name__ == '__main__':
         t_i = 1000
         for i,cloud in enumerate(point_clouds):
             print("---------NEW SAMPLE--------")
-            # if i < t_i:
-            #     file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
-            #     if str(file_wo_extension) == '20240430_101715':
-            #         t_i = i
-            #     else:
-            #         continue
+            if i < t_i:
+                file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
+                if str(file_wo_extension) == '20240516_133942':
+                    t_i = i
+                else:
+                    continue
 
             file_wo_extension = os.path.splitext(os.path.basename(files[i]))[0]
             print(file_wo_extension)
@@ -286,7 +286,7 @@ if __name__ == '__main__':
                                 outside_cloud=outside_points,
                                 pred_boxes=prediction_bounding_boxes,
                                 colors={'inside':np.full((inside_points.shape[0],3),[0.56470588235, 0.93333333333, 0.56470588235]),
-                                        'outside':np.full((outside_points.shape[0],3),[0.0,0.5,1.0])})
+                                        'outside':np.full((outside_points.shape[0],3),[0.56470588235, 0.93333333333, 0.56470588235])})#[0.0,0.5,1.0])})
             print("-----------------")
 
             # while error not in ['Y','y','N','n']:

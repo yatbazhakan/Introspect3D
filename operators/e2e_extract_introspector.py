@@ -12,6 +12,7 @@ import pandas as pd
 from base_classes.base import Operator
 from utils.factories import DatasetFactory
 from utils.utils import *
+from utils.pointcloud import PointCloud
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
@@ -28,7 +29,7 @@ from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score,
 import os
 from base_classes.base import Operator
 from utils.factories import DatasetFactory
-from utils.activations import Activations
+from utils.activations import E2EActivations
 from utils.utils import create_bounding_boxes_from_predictions, check_detection_matches
 import os 
 import numpy as np
@@ -47,38 +48,52 @@ class E2EIntrospector(Operator):
         self.introspection_config = config.introspection
         #Set extraction related parameters and objects
         self.dataset = DatasetFactory().get(**self.extraction_config['dataset'])
-        self.activation = Activations(self.extraction_config,extract=self.extraction_config['active'])
-        os.makedirs(self.extraction_config['method']['save_dir'], exist_ok=True)
+        
+        self.activation = E2EActivations(self.extraction_config,extract=self.extraction_config['active'])
+        # os.makedirs(self.extraction_config['method']['save_dir'], exist_ok=True)
         #Set introspection related parameters and objects
         self.wandb = self.introspection_config.get('wandb',{})
         self.verbose = self.introspection_config.get('verbose',False)
         self.method_info = self.introspection_config.get('method',{})
         self.is_sweep = self.wandb.get('is_sweep',False)
         self.device = self.introspection_config.get('device','cuda:1')
-        os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
+        self.split = True
+    
         if self.method_info['processing']['active']:
-            print(self.method_info['processing']['method'])
+            # print(self.method_info['processing']['method'])
             self.proceesor = eval(self.method_info['processing']['method']).value(**self.method_info['processing']['params'])
         else:
             self.proceesor = None
 
 
     def execute(self, **kwargs):
-        self.new_dataset = pd.DataFrame(columns=['name', 'is_missed','missed_objects','total_objects'])
-
+        self.train_test_split()
+        self.get_dataloader()
         if self.verbose:
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
-        for i in range(len(self.dataset)):
-            data = self.dataset[i]
+            print(len(self.dataset))
+            print(self.dataset.get_all_labels())
+        for data in self.train_loader:
+            
+            
             cloud, ground_truth_boxes, file_name = data['pointcloud'], data['labels'], data['file_name']
-            if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
-                cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-            file_name = file_name.replace(self.config['method']['extension'],'')
-            result, data = self.activation(cloud.points,file_name)
-            # for activation in self.activation.activation_list:
-            #     print(activation.shape)
-            # exit()
+            new_cloud = []
+            for i,c in enumerate(cloud):
+                
+                pc = PointCloud(c)
+                #if "nus" in self.method_info['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
+                pc.validate_and_update_descriptors(extend_or_reduce = 5)
+                new_cloud.append(pc.points)
+            cloud = torch.from_numpy(np.array(new_cloud))
+            print(cloud.shape)
+            
+            result, data = self.activation(pc.points,file_name)
+            print("Activation shapes")
+            print(len(self.activation.activation_list))
+            for activation in self.activation.activation_list:
+                print(activation.shape)
+            exit()
             # self.activation.save_multi_layer_activation()
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
@@ -95,10 +110,79 @@ class E2EIntrospector(Operator):
                 from pprint import pprint
                 # pprint(row)
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
-            if verbose:
-                progress_bar.update(1)
-        if(self.config['active']):
-            self.save_labels()
+            
+            progress_bar.update(1)
+    def get_dataloader(self):
+        if self.split:
+            train_loader = DataLoader(self.train_dataset, **self.introspection_config['dataloader']['train'])
+            test_loader = DataLoader(self.test_dataset, **self.introspection_config['dataloader']['test'])
+            val_loader = DataLoader(self.val_dataset, **self.introspection_config['dataloader']['test'])
+            self.train_loader = train_loader
+            self.test_loader = test_loader
+            self.val_loader = val_loader
+        else: # THis will give me flexibility for dataset shift case
+            loader = DataLoader(self.dataset, **self.introspection_config['dataloader']['all'])
+            self.test_loader = loader
+    def train_test_split(self):
+        indices = list(range(len(self.dataset)))
+        all_labels= self.dataset.get_all_labels()
+        validation = self.method_info['cross_validation']
+        random_state = random.randint(0,2048) if validation['type'] == "montecarlo" and  not self.is_sweep else 1024
+        train_indices, test_indices = train_test_split(indices, test_size=validation['train_test_split'],stratify=all_labels,random_state=random_state)
+        self.train_dataset = Subset(self.dataset, train_indices)
+        after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],stratify=all_labels[train_indices],random_state=random_state)
+        values,counts = np.unique(all_labels,return_counts=True)
+        class_dist=  dict(zip(values,counts))
+        num_classes = len(values)
+        total_samples = len(all_labels)
+        class_weights = [total_samples / (float(count)*num_classes) for cls, count in class_dist.items()]
+        c = 1e-3
+        if validation['balanced']:
+            train_labels_after_val = [all_labels[i] for i in after_val_train_indices]
+            class_counts = np.bincount(train_labels_after_val)
+            min_class_count = np.min(class_counts)
+            print("Min class count:",min_class_count,"Class counts:",class_counts)
+            balanced_train_indices = []
+            for cls in np.unique(train_labels_after_val):
+                cls_indices = [i for i, label in zip(after_val_train_indices, train_labels_after_val) if label == cls]
+                balanced_cls_indices = np.random.choice(cls_indices, min_class_count, replace=False)
+                balanced_train_indices.extend(balanced_cls_indices)
+            after_val_train_indices = balanced_train_indices
+            balanced_train_labels = [all_labels[i] for i in balanced_train_indices]
+            values, counts = np.unique(balanced_train_labels, return_counts=True)
+            new_class_dist = dict(zip(values, counts))
+            total_samples = len(balanced_train_indices)
+            class_weights = [ total_samples / (len(values) * count) for cls, count in new_class_dist.items()]
+            class_dist = new_class_dist
+        
+        
+        
+        self.train_dataset = Subset(self.dataset, after_val_train_indices)
+        self.val_dataset = Subset(self.dataset, val_indices)
+        self.test_dataset = Subset(self.dataset, test_indices)
+
+
+        self.split=True
+        #Provide the class distribution overall
+
+        # class_weights = [1 / (np.log(c + count)) for cls, count in class_dist.items()]
+        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.introspection_config['device'])
+
+        # if self.method_info['criterion']['type'] == 'CrossEntropyLoss':
+        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+        #     self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
+        # elif self.method_info['criterion']['type'].startswith("FocalLoss"):
+        #     #Getting second element of class weights since it is the error class (positive class is 1)
+        #     #Scale weights between 0 and 1 using sum
+        #     # class_weights = [float(i)/sum(class_weights) for i in class_weights]
+        #     if "Custom" not in self.method_info['criterion']['type']:
+        #         self.method_info['criterion']['params']['alpha'] = torch.tensor(class_weights[1]).to(self.config['device'])
+        #     else:
+        #         self.method_info['criterion']['params']['weight'] = torch.tensor(class_weights).to(self.config['device'])
+        if self.verbose:
+
+            print("Class distribution:",class_dist)
+            print("Class weights:",class_weights)
         
 
 
@@ -119,8 +203,8 @@ class ActivationExractionOperator(Operator):
         if verbose:
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
-        for i in range(len(self.dataset)):
-            data = self.dataset[i]
+        for data,label in self.train_loader:
+            print(data)
             cloud, ground_truth_boxes, file_name = data['pointcloud'], data['labels'], data['file_name']
             if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)

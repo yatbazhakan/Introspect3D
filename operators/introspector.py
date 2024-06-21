@@ -30,12 +30,16 @@ class IntrospectionOperator(Operator):
         print(self.method_info)
         self.is_sweep = self.wandb['is_sweep']
         self.device = self.config['device']
+        self.load_model_first = False
         os.makedirs(os.path.join(ROOT_DIR,self.method_info['save_path']),exist_ok=True)
         if self.method_info['processing']['active']:
             print(self.method_info['processing']['method'])
             self.proceesor = eval(self.method_info['processing']['method']).value(**self.method_info['processing']['params'])
         else:
             self.proceesor = None
+        if self.config.get("dataset",None).get("config",None).get("name",None) == "custom":
+            print("Loading model first---")
+            self.load_model_first = True
     def name_builder(self):
 
         dataset = self.config['dataset']['config']['name'].lower()
@@ -249,6 +253,9 @@ class IntrospectionOperator(Operator):
         val_loss = np.inf
         print("Training started")
         self.model.train()
+        if self.load_model_first:
+            print("Loading model")
+            self.model.load_state_dict(torch.load(self.method_info['model']['load_from'],map_location=self.device))
         for epoch in range(self.epochs):
             epoch_loss = self.train_epoch(epoch)
             if epoch_loss < 0.001:

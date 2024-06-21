@@ -5,6 +5,7 @@ datasets:
     - BDD100K
     - NuScenesDataset
     - ActivationDataset
+    - CustomDataset
 models: {}
 operators:
   - ActivationExtractionOperator

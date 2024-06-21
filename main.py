@@ -4,12 +4,15 @@ import traceback
 import os
 from operators.activation_extractor import ActivationExractionOperator
 from operators.introspector import IntrospectionOperator
+from operators.e2e_extract_introspector import E2EIntrospector 
 from definitions import ROOT_DIR,CONFIG_DIR
 def get_operator(type:int = 1):
     if type == 1:
         return ActivationExractionOperator
     elif type == 2:
         return IntrospectionOperator
+    elif type ==3:
+        return E2EIntrospector
     else:
         raise NotImplementedError("Operator not implemented")
 def parse_args():

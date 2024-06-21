@@ -13,11 +13,15 @@ from datasets.kitti import Kitti3D
 from utils.filter import FilterType
 from datasets.nuscenes import NuScenesDataset
 from datasets.activation_dataset import ActivationDataset
+from modules.custom_networks import GenericInjection
 from scipy.ndimage import zoom
 import open3d as o3d
 from mmdet3d.apis import init_model, inference_detector
 from utils.utils import generate_model_from_config
 from operators.introspector import IntrospectionOperator
+#run the command export CUDA_VISIBLE_DEVICES=1
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+#%%
 def get_2d_projection(activation_batch):
     # TBD: use pytorch batch svd implementation
     print(activation_batch.shape)
@@ -37,6 +41,32 @@ def get_2d_projection(activation_batch):
         projection = projection.reshape(activations.shape[1:])
         projections.append(projection)
     return projections[0]
+def compute_eigen_cam(activation_maps):
+    """
+    Compute the Eigen CAM
+    
+    :param activation_maps: numpy array of shape (D, H, W) where D is the depth (number of feature maps),
+                            H and W are spatial dimensions
+    :return: numpy array of shape (H, W) - the eigen CAM
+    """
+    D, H, W = activation_maps.shape
+    
+    # Reshape activation maps to (H*W, D)
+    reshaped_maps = activation_maps.reshape(D, H * W).T
+    
+    # Perform PCA to find the principal component
+    pca = PCA(n_components=1)
+    pca.fit(reshaped_maps)
+    principal_component = pca.components_[0]
+    
+    # Compute the eigen CAM by projecting the activation maps onto the principal component
+    eigen_cam = np.dot(principal_component, reshaped_maps.T).reshape(H, W)
+    
+    # Normalize the CAM to the range [0, 1]
+    eigen_cam = eigen_cam - np.min(eigen_cam)
+    eigen_cam = eigen_cam / np.max(eigen_cam)
+    
+    return eigen_cam
 def hook_func(module, input, output):
     introspection_activations.append(output)
     print(len(introspection_activations))
@@ -44,7 +74,7 @@ def hook_func(module, input, output):
 #INTROSPECTION model
 config_int = '/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn2.yaml'
 model_dir = "/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK/" #'/mnt/ssd2/Introspect3D/'#
-model_pth = 'nuscenes_filtered_labels_only.pth'
+model_pth = 'nuscenes_filtered_middle_best.pth'
 #%%
 det_root_dir = "/mnt/ssd2/mmdetection3d/"
 model_name = 'centerpoint'
@@ -55,7 +85,7 @@ checkpoint = 'centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_n
 # checkpoint = 'hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth'#%%
 kitti_path = r"/mnt/ssd2/kitti/training/"
 file_path = r"/mnt/ssd2/custom_dataset/kitti_pointpillars_activations_filtered/"
-file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_aggregated_raw/"
+file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered_all/"
 #r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
 file_names = sorted(glob(os.path.join(file_path,'features','*')))
 # files = [pickle.load(open(file_name,'rb')) for file_name in file_names[:10]]
@@ -66,31 +96,31 @@ kitti_dataset = Kitti3D(kitti_path, kitti_classes, 'FilterType.ELLIPSE', filter_
                                                                                             offset= -10,
                                                                                             axis = 0))
 #%%
-nuscenes_dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/', 
-                                   version='v1.0-trainval', 
-                                   filtering_style='FilterType.NONE', 
-                                   filter_params={},
-                                   process=False,
-                                   save_path='/mnt/ssd2/nuscenes',
-                                   save_filename='nuscenes_train.pkl')
+# nuscenes_dataset = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/', 
+#                                    version='v1.0-trainval', 
+#                                    filtering_style='FilterType.NONE', 
+#                                    filter_params={},
+#                                    process=False,
+#                                    save_path='/mnt/ssd2/nuscenes',
+#                                    save_filename='nuscenes_train.pkl')
 #%%
 # idx = 4808
 object_det_config = os.path.join(det_root_dir,"configs",model_name,config)
 object_det_checkpoint = os.path.join(det_root_dir,"ckpts",checkpoint)
-model = init_model(object_det_config, object_det_checkpoint, device='cuda:1')
+model = init_model(object_det_config, object_det_checkpoint, device='cuda:0')
 #RUn detection and visualize with open3d
-data = nuscenes_dataset[2]['pointcloud']#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud']
-data.validate_and_update_descriptors(extend_or_reduce=5)
+# data = nuscenes_dataset[2]['pointcloud']#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud']
+# data.validate_and_update_descriptors(extend_or_reduce=5)
 # nuscenes_dataset[idx]['pointcloud'].points = nuscenes_dataset[idx]['pointcloud'].point
 # nuscenes_dataset[idx]['pointcloud'].po
-detections = inference_detector(model,data.points)
-detections[0].pred_instances_3d
+# detections = inference_detector(model,data.points)
+# detections[0].pred_instances_3d
 #%%
-dets= detections[0].pred_instances_3d.bboxes_3d.tensor.detach().cpu().numpy()
-scores = detections[0].pred_instances_3d.scores_3d.detach().cpu().numpy()
-filtered_indices = np.where(scores >= 0.5)[0]
-dets = dets[filtered_indices]
-dets
+# dets= detections[0].pred_instances_3d.bboxes_3d.tensor.detach().cpu().numpy()
+# scores = detections[0].pred_instances_3d.scores_3d.detach().cpu().numpy()
+# filtered_indices = np.where(scores >= 0.5)[0]
+# dets = dets[filtered_indices]
+# dets
 #%%
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -136,102 +166,106 @@ def get_rotated_corners(x, y, z, w, l, yaw, pitch=0, roll=0):
 #%%
 #dets = []
 #labels = []
-points = nuscenes_dataset[2]['pointcloud'].points#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud'].points
-print(points.shape)
-#%%
-# points = kitti_dataset[4808]['pointcloud'].points
-# Assuming 'points' is your N,3 point cloud data
-x = points[:, 0]  # X coordinates
-y = points[:, 1]  # Y coordinates
-# indices = x[:] >=0 
-# x = x[indices]
-# y = y[indices]
-fig = plt.figure()
-fig.set_facecolor('black')
+# points = nuscenes_dataset[2]['pointcloud'].points#nuscenes_dataset.get_with_name("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915267947714")['pointcloud'].points
+# print(points.shape)
+# #%%
+# # points = kitti_dataset[4808]['pointcloud'].points
+# # Assuming 'points' is your N,3 point cloud data
+# x = points[:, 0]  # X coordinates
+# y = points[:, 1]  # Y coordinates
+# # indices = x[:] >=0 
+# # x = x[indices]
+# # y = y[indices]
+# fig = plt.figure()
+# fig.set_facecolor('black')
 
-plt.scatter(x, y, s=0.01,c="white")  # s is the size of each point
-# plt.xlabel('X Coordinate')
-# plt.ylabel('Y Coordinate')
-# plt.title('2D Top-Down View of Point Cloud')
-plt.tight_layout()
-plt.xticks([])
-plt.yticks([])
-plt.axis('off')
-#plt.show()
-# plt.axis('equal')  # To maintain aspect ratio
-# print("Labels", len(nuscenes_dataset[idx]['labels']))
-for detection in dets:
-    x, y, z, w, l, h, yaw,_,_= detection
+# plt.scatter(x, y, s=0.01,c="white")  # s is the size of each point
+# # plt.xlabel('X Coordinate')
+# # plt.ylabel('Y Coordinate')
+# # plt.title('2D Top-Down View of Point Cloud')
+# plt.tight_layout()
+# plt.xticks([])
+# plt.yticks([])
+# plt.axis('off')
+# #plt.show()
+# # plt.axis('equal')  # To maintain aspect ratio
+# # print("Labels", len(nuscenes_dataset[idx]['labels']))
+# for detection in dets:
+#     x, y, z, w, l, h, yaw,_,_= detection
     
-    # box.rotation = R
-    corners = get_rotated_corners(x, y,z, w, l, yaw=yaw)
-    # Create a polygon patch
-    polygon = patches.Polygon(corners, closed=True, linewidth=1, edgecolor='r', facecolor='none')
+#     # box.rotation = R
+#     corners = get_rotated_corners(x, y,z, w, l, yaw=yaw)
+#     # Create a polygon patch
+#     polygon = patches.Polygon(corners, closed=True, linewidth=1, edgecolor='r', facecolor='none')
 
-    # Add the polygon to the Axes
-    plt.gca().add_patch(polygon)
-for label in nuscenes_dataset[2]['labels']:
-    # x, y, _, _, w, l, yaw = label.center[0],label.center[1],label.center[2],label.dimensions[0],label.dimensions[1],label.dimensions[2],label.rotation[1]
-    print(label.corners.shape)
-    corners = label.corners[:,:2]
-    polygon = patches.Polygon(corners, closed=True, linewidth=1, edgecolor='g', facecolor='none')
-    plt.gca().add_patch(polygon)
-#plt.show()
-plt.savefig('nus_filtered.png',bbox_inches='tight',pad_inches=0,dpi=300)
+#     # Add the polygon to the Axes
+#     plt.gca().add_patch(polygon)
+# for label in nuscenes_dataset[2]['labels']:
+#     # x, y, _, _, w, l, yaw = label.center[0],label.center[1],label.center[2],label.dimensions[0],label.dimensions[1],label.dimensions[2],label.rotation[1]
+#     print(label.corners.shape)
+#     corners = label.corners[:,:2]
+#     polygon = patches.Polygon(corners, closed=True, linewidth=1, edgecolor='g', facecolor='none')
+#     plt.gca().add_patch(polygon)
+# #plt.show()
+# plt.savefig('nus_filtered.png',bbox_inches='tight',pad_inches=0,dpi=300)
 
 
-#%%                                                                                         axis= 0) )
-nuscenes_dataset2 = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/', 
-                                   version='v1.0-trainval', 
-                                   filtering_style='FilterType.ELLIPSE', 
-                                   filter_params={'a': 15,
-                                                'b': 25,
-                                                'offset': -10,
-                                                'axis': 1},
-                                   process=False,
-                                   save_path='/mnt/ssd2/nuscenes',
-                                   save_filename='nuscenes_train.pkl')
+# #%%                                                                                         axis= 0) )
+# nuscenes_dataset2 = NuScenesDataset(root_dir='/mnt/ssd2/nuscenes/', 
+#                                    version='v1.0-trainval', 
+#                                    filtering_style='FilterType.ELLIPSE', 
+#                                    filter_params={'a': 15,
+#                                                 'b': 25,
+#                                                 'offset': -10,
+#                                                 'axis': 1},
+#                                    process=False,
+#                                    save_path='/mnt/ssd2/nuscenes',
+#                                    save_filename='nuscenes_train.pkl')
 #%%
 activation_dataset = ActivationDataset({'root_dir':file_path,
                                         'classes':["No Error","Error"],
-                                        'label_file': 'nus_centerpoint_labels_aggregated_raw.csv',
+                                        'label_file': 'nus_centerpoint_labels_filtered_all.csv',
                                         #'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
                                         'label_field':'is_missed',
-                                        'layer':2,
+                                        'layer':1,
                                         'is_multi_feature':False,
                                         'name':'nuscenes',
                                         'extension':''})
 #%%
-file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
-activation_dataset = ActivationDataset({'root_dir':file_path,
-                                        'classes':["No Error","Error"],
-                                        'label_file': 'nus_centerpoint_labels_filtered.csv',
-                                        #'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
-                                        'label_field':'is_missed',
-                                        'layer':None,
-                                        'is_multi_feature':False,
-                                        'name':'nuscenes',
-                                        'extension':'.npy'})
-# #%%
+# file_path = r"/mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered/"
+# activation_dataset = ActivationDataset({'root_dir':file_path,
+#                                         'classes':["No Error","Error"],
+#                                         'label_file': 'nus_centerpoint_labels_filtered.csv',
+#                                         #'nus_centerpoint_labels_filtered.csv',#'nus_centerpoint_labels_filtered.csv', #'kitti_point_pillars_labels_filtered.csv',#'nus_centerpoint_labels_aggregated_raw.csv', ##'kitti_point_pillars_labels_aggregated_raw.csv',#
+#                                         'label_field':'is_missed',
+#                                         'layer':None,
+#                                         'is_multi_feature':False,
+#                                         'name':'nuscenes',
+#                                         'extension':'.npy'})
+# # #%%
 
 # object_det_config = os.path.join(det_root_dir,"configs",model_name,config)
 # object_det_checkpoint = os.path.join(det_root_dir,"ckpts",checkpoint)
-# model = init_model(object_det_config, object_det_checkpoint, device='cuda:1')
+# model = init_model(object_det_config, object_det_checkpoint, device='cuda:0')
 
 # %%#
 from utils.process import MultiFeatureActivationEarlyFused
+from modules.custom_networks import GenericInjection, CustomModel,EarlyFusionAdaptive
 multi = False
+# introspection_model = GenericInjection({'layer_config': config_int})#
+# introspection_model = EarlyFusionAdaptive({'layer_config': config_int})
 introspection_model = generate_model_from_config({'layer_config': config_int})
 introspection_model.load_state_dict(torch.load(os.path.join(model_dir,model_pth),map_location='cuda:0'))
-# processor = MultiFeatureActivationEarlyFused(config={})
+processor = MultiFeatureActivationEarlyFused(config={})
 
 introspection_activations = None
 introspection_activations = []
 
-
+# print(introspection_model.resnet[4])
 # my_hook  = introspection_model[0].layer4.register_forward_hook(hook_func)
 # my_hook2 = introspection_model[0].layer3.register_forward_hook(hook_func)
 # my_hook3 = introspection_model[0].layer2.register_forward_hook(hook_func)
+# my_hook4 = introspection_model.resnet[4].register_forward_hook(hook_func)
 my_hook4 = introspection_model[0].layer1.register_forward_hook(hook_func)
 def find_index(name):
     for i,act in enumerate(activation_dataset):
@@ -241,7 +275,12 @@ def find_index(name):
     return None
 import torch.nn.functional as TF #1526915267947714  ,1526915268947475 1526915330047920
 tensor , label, file_name = find_index("n008-2018-05-21-11-06-59-0400__LIDAR_TOP__1526915330047920")
-
+# tensor , label, file_name = activation_dataset[50]
+# for i,data in enumerate(activation_dataset):
+#     tensor, label, file_name = data
+#     if label.item() == 0:
+#         print(i,file_name,label)
+#         break
 introspection_model.to('cuda:0')
 introspection_model.eval()
     
@@ -250,10 +289,9 @@ if not multi:
     tensor = tensor.to('cuda:0')
     res = introspection_model(tensor.unsqueeze(0))
 else:
-    tensor = [t.unsqueeze(0) for t in tensor]
-    # tensor = processor.process(activation=tensor,stack=True)
-    tensor = tensor.to('cuda:0')
-    print(tensor.shape)
+    tensor = [t.unsqueeze(0).to('cuda:0') for t in tensor]
+    tensor = processor.process(activation=tensor,stack=True)
+    # tensor = tensor.to('cuda:0')
     res = introspection_model(tensor)
     tensor= tensor.squeeze(0)
 res_sm, label = TF.softmax(res,dim=1), label
@@ -366,12 +404,14 @@ labels = []
 #     plt.gca().add_patch(polygon)
 # plt.savefig('kitti_filtered.png',bbox_inches='tight',pad_inches=0,dpi=300)
 #%%
-numpy_tens  = tensor.detach().cpu().numpy()
-
-eigen_tens = get_2d_projection(numpy_tens[np.newaxis,:])
+from sklearn.decomposition import PCA
+print(tensor.shape)
+numpy_tens  = tensor.detach().cpu().numpy().astype(np.float32)#.squeeze()
+print("Numpy tensor shape",numpy_tens.shape)
+eigen_tens = compute_eigen_cam(numpy_tens)#get_2d_projection(numpy_tens[np.newaxis,:])
 rw = numpy_tens.max(axis=0)
-plt.imshow(rw,cmap='gray')
-plt.show()
+# plt.imshow(rw,cmap='gray')
+# plt.show()
 #%%
 print(eigen_tens.shape)
 #%%
@@ -396,17 +436,13 @@ grayscale_org = (norm_max_acti * 255).astype(np.uint8)
 #black to white and white to coloer 
 # cmap = cm.get_cmap('viridis')
 # testh = cmap(max_acti)
+print("original")
 plt.imshow(grayscale_org,cmap='gray')
 plt.xticks([])
 plt.yticks([])
 # plt.axis('off')
-plt.savefig('nus_filtered_max_spatial4.png',bbox_inches='tight',pad_inches=0,dpi=600)
-# %%
-import cv2
-im = cv2.imread(kitti_dataset.image_paths[idx])
-im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-plt.imshow(im)
-#plt.show()
+plt.savefig('nus_filtered_spatial_middle.png',bbox_inches='tight',pad_inches=0,dpi=600)
+
 # %%
 
 # for i in range(4):
@@ -419,7 +455,8 @@ plt.imshow(im)
 eigen_cams = []
 for i in range(1):
     int_acti = introspection_activations[i].detach().cpu().numpy()
-    eigen_cam = get_2d_projection(int_acti)
+    print("int_acti shape",int_acti.shape)
+    eigen_cam = compute_eigen_cam(int_acti.squeeze(0))#get_2d_projection(int_acti)
     eigen_cams.append(eigen_cam)
 
 # eigen_cam = get_2d_projection(int_acti)
@@ -457,6 +494,8 @@ alpha, beta = 0.55, 0.45
 plt.xticks([])
 plt.yticks([])
 # plt.axis('off')
+print("Scaled cams",len(scaled_cams))
+plt.cla()
 for i,cam in enumerate(scaled_cams):
     # if i%2 == 0:
     #     cam = 1-cam
@@ -480,8 +519,10 @@ for i,cam in enumerate(scaled_cams):
     # blended = (blended - blended.min()) / (blended.max() - blended.min())
     # colored = (blended * 255).astype(np.uint8)
     # colored = cmap(colored)
-    plt.imshow(blended,cmap='viridis')
-    plt.savefig('nus_eigen_labelsonly.png',bbox_inches='tight',pad_inches=0,dpi=600)
+    # plt.imshow(blended,cmap='jet')
+    cv2.imwrite(f'nus_eigen_filtered_middle_1.png',blended)
+    # plt.savefig('nus_eigen_filtered_inj.png',bbox_inches='tight',pad_inches=0,dpi=600)  
+    # plt.savefig('nus_eigen_filtered_inj.png',bbox_inches='tight',pad_inches=0,dpi=600)
         
 
 # cbar = plt.colorbar(fraction=0.1, pad=0.04)
