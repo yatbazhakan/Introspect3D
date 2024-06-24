@@ -76,6 +76,9 @@ class NuScenesDataset(DrivingDataset):
         self.labels_only = kwargs.get('filter_labels_only',False)
         self.filter = self.filtering_style.value(**self.filter_params)
         self.dataset_flattened = {}
+        self.dataset_flattened['train'] = {}
+        self.dataset_flattened['val'] = {}
+        self.dataset_flattened['test'] = {}
         if process:
             self.nusc = NuScenes(version=version, dataroot=root_dir, verbose=True)
 
@@ -83,16 +86,31 @@ class NuScenesDataset(DrivingDataset):
             self.transform = transform
             # Extract only the first sample token of each scene.
             self.sample_tokens = [s['first_sample_token'] for s in self.nusc.scene]
+            if not os.path.exists(self.save_path):
+                os.makedirs(self.save_path)
 
+            #SPlit sample tokens into train test val sets
+            np.random.shuffle(self.sample_tokens)
+            split_ratio = [0.7,0.15,0.15]
+            train_end = int(len(self.sample_tokens)*split_ratio[0])
+            val_end = train_end + int(len(self.sample_tokens)*split_ratio[1])
+            self.sample_tokens = {'train':self.sample_tokens[:train_end],
+                                  'val':self.sample_tokens[train_end:val_end],
+                                  'test':self.sample_tokens[val_end:]}
             self.process_data()
         else:
             self.dataset_flattened = pickle.load(open(os.path.join(self.save_path,self.save_filename),'rb'))
-            self.dataset_flattened = list(self.dataset_flattened.values()) #Test
+            # self.dataset_flattened = list(self.dataset_flattened.values()) #Test
+            if split == 'all':
+                self.dataset_flattened = list(self.dataset_flattened['train'].values()) + list(self.dataset_flattened['val'].values())+ list(self.dataset_flattened['test'].values())
+            else:
+                self.dataset_flattened = list(self.dataset_flattened[split].values())
             print("Loaded dataset with {} samples, {}".format(len(self.dataset_flattened),self.dataset_flattened[0].keys()))
 
 
     def read_labels(self, **kwargs):
         id = kwargs['id']
+        split = kwargs['split']
         lidar_token = kwargs['lidar_token']
         sample_record = kwargs['sample_record']
         _,  boxes, _  = self.nusc.get_sample_data(lidar_token)
@@ -104,25 +122,26 @@ class NuScenesDataset(DrivingDataset):
                 custom_box = BoundingBox()
                 custom_box.from_nuscenes_box(box)
 
-                self.dataset_flattened[id]['label'].append(custom_box)
+                self.dataset_flattened[split][id]['label'].append(custom_box)
 
 
     def process_data(self, **kwargs):
-        id = 0
-        for first_sample_token in self.sample_tokens:
-            while not first_sample_token == '':
-                sample_record = self.nusc.get('sample', first_sample_token)
-                lidar_token = sample_record['data']['LIDAR_TOP']
-                # print(calibrated_lidar)
-                lidar_data = self.nusc.get('sample_data', lidar_token)
-                if lidar_data['is_key_frame']:
-                    lidar_filepath = self.nusc.get_sample_data_path(lidar_token)
-                    self.dataset_flattened[id] = {}
-                    self.dataset_flattened[id]['path'] = lidar_filepath
-                    self.dataset_flattened[id]['label'] = []
-                    self.read_labels(id=id, lidar_token=lidar_token, sample_record=sample_record)
-                    id += 1
-                first_sample_token = sample_record['next']
+        for split,tokens in self.sample_tokens.items():
+            id = 0
+            for first_sample_token in tokens:
+                while not first_sample_token == '':
+                    sample_record = self.nusc.get('sample', first_sample_token)
+                    lidar_token = sample_record['data']['LIDAR_TOP']
+                    # print(calibrated_lidar)
+                    lidar_data = self.nusc.get('sample_data', lidar_token)
+                    if lidar_data['is_key_frame']:
+                        lidar_filepath = self.nusc.get_sample_data_path(lidar_token)
+                        self.dataset_flattened[split][id] = {}
+                        self.dataset_flattened[split][id]['path'] = lidar_filepath
+                        self.dataset_flattened[split][id]['label'] = []
+                        self.read_labels(id=id, lidar_token=lidar_token, sample_record=sample_record,split=split)
+                        id += 1
+                    first_sample_token = sample_record['next']
         pickle.dump(self.dataset_flattened,open(os.path.join(self.save_path,self.save_filename),'wb'))
     
     

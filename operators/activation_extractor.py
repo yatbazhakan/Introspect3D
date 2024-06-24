@@ -11,17 +11,39 @@ import pandas as pd
 class ActivationExractionOperator(Operator):
     def __init__(self, config):
         self.config = config.extraction
-        self.dataset = DatasetFactory().get(**self.config['dataset'])
-        self.activation = Activations(self.config,extract=self.config['active'])
-        os.makedirs(self.config['method']['save_dir'], exist_ok=True)
-    def save_labels(self):
-        self.new_dataset.to_csv(os.path.join(ROOT_DIR,
-                                             self.config['method']['save_dir'],
-                                             self.config['method']['labels_file_name']))
-    def execute(self, **kwargs):
-        verbose = kwargs.get('verbose', False)
-        self.new_dataset = pd.DataFrame(columns=['name', 'is_missed','missed_objects','total_objects'])
+        # try:
+        if self.config.get('split',False):
+            print("Loading splits")
+            self.datasets = {}
+            for split in ['train','val','test']:
+                self.config['dataset']['split'] = split
+                dataset = DatasetFactory().get(**self.config['dataset'])
+                self.datasets[split]= dataset
+                os.makedirs(os.path.join(self.config['method']['save_dir'],split), exist_ok=True)
+                os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
+        else:
+            self.dataset = DatasetFactory().get(**self.config['dataset'])
+            os.makedirs(self.config['method']['save_dir'], exist_ok=True)
+            os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
 
+
+        self.activation = Activations(self.config,extract=self.config['active'])
+        # except:
+        #     print("Dataset not found")
+        #     exit()
+        
+    def save_labels(self,split = False):
+        if split:
+            self.new_dataset.to_csv(os.path.join(ROOT_DIR,
+                                             self.config['method']['save_dir'],
+                                             split,
+                                           self.config['method']['labels_file_name']))
+        else:
+            self.new_dataset.to_csv(os.path.join(ROOT_DIR,
+                                             self.config['method']['save_dir'],
+                                           self.config['method']['labels_file_name']))
+    def extract(self, verbose = True,split=False):
+        self.new_dataset = pd.DataFrame(columns=['name', 'is_missed','missed_objects','total_objects'])
         if verbose:
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
@@ -52,7 +74,10 @@ class ActivationExractionOperator(Operator):
                     row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
                     from pprint import pprint
                     # pprint(row)
-                    self.activation.save_multi_layer_activation()
+                    if split:
+                        self.activation.save_multi_layer_activation(split)
+                    else:
+                        self.activation.save_multi_layer_activation()
                     self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
                 if verbose:
                     progress_bar.update(1)
@@ -60,10 +85,29 @@ class ActivationExractionOperator(Operator):
                 label = ground_truth_boxes
                 row = {'name':f"{file_name}",'is_missed':label,'missed_objects':0,'total_objects':0}
                 # print(row)
-                self.activation.save_multi_layer_activation()
+                if split:
+                    self.activation.save_multi_layer_activation(split)
+                else:
+                    self.activation.save_multi_layer_activation()
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
                 if verbose:
                     progress_bar.update(1)
         # if(self.config['active']):
-        self.save_labels()
+        if split:
+            self.save_labels(split)
+        else:
+            self.save_labels()
+    def execute(self, **kwargs):
+        verbose = kwargs.get('verbose', False)
+        
+        if len(self.datasets) !=0:
+            for split,dataset in self.datasets.items():
+                self.dataset = dataset
+                self.extract(verbose,split)
+        else:
+            self.extract(verbose)
+
+                
+
+        
             

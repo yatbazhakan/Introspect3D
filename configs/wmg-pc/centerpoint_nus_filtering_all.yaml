@@ -4,20 +4,20 @@ device: cuda:0
 method: activations
 verbose: True
 detection:
-  device: 'cuda:1'
+  device: 'cuda:0'
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
     version: v1.0-trainval
-    process: False
+    process: True
     save_path: /mnt/ssd2/nuscenes/
-    save_filename: nuscenes_train.pkl
-    filtering_style: FilterType.NONE
+    save_filename: nuscenes_train_fix.pkl
+    filtering_style: FilterType.ELLIPSE
     filter_params:
       a: 25
       b: 15
       offset: -10
-      axis: 0
+      axis: 1
   model:
     name: centerpoint
     root_dir: /mnt/ssd2/mmdetection3d/
@@ -25,13 +25,14 @@ detection:
     checkpoint_dir: ckpts/
     config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
     checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
-  #save_path: ./custom_dataset/
+  save_path: ./custom_dataset/
   training_params: {}
 extraction:
   active: True
   device: 'cuda:0'
   labels_only: True
   score_threshold: 0.5
+  split: True
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
@@ -39,7 +40,7 @@ extraction:
     process: False
     filter_labels_only: False
     save_path: /mnt/ssd2/nuscenes/
-    save_filename: nuscenes_train.pkl
+    save_filename: nuscenes_train_fix.pkl
     filtering_style: FilterType.ELLIPSE
     filter_params:
       a: 15

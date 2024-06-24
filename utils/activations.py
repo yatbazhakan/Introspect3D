@@ -52,10 +52,16 @@ class Activations:
         print("Debugging")
         print(output.shape)
         print(output)
-    def save_multi_layer_activation(self):
+    def save_multi_layer_activation(self,split=False):
         # print("Saving activations")
         # if self.extension != "":
         global d 
+        if split:
+            if split not in self.save_dir:
+                self.save_dir = os.path.join(self.save_dir,split)
+                # os.makedirs(self.save_dir,exist_ok=True)
+                # os.makedirs(os.path.join(self.save_dir,"features"),exist_ok=True)
+
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
         # else:
         print("Saving", save_name, "to", self.save_dir)
