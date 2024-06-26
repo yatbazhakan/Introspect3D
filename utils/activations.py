@@ -64,14 +64,14 @@ class Activations:
 
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
         # else:
-        print("Saving", save_name, "to", self.save_dir)
+        # print("Saving", save_name, "to", self.save_dir)
             # save_name = self.save_name + ".pkl" # A fix that might create an isssue, hoping that extension param will fix automatically
         if d == 1:
 
             print("Saving", save_name, "to", self.save_dir)
             d = 0
 
-        print(len(self.activation_list))
+        # print(len(self.activation_list))
         with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
             pickle.dump(self.activation_list, f)
         # print(save_name,self.save_dir)

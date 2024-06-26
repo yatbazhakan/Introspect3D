@@ -20,7 +20,7 @@ def run_in_tmux(config_path, operator_type, session_name):
         "conda activate openmmlab2",
         "export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}",
         "export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}",
-        "export CUDA_VISIBLE_DEVICES=1",
+        "export CUDA_VISIBLE_DEVICES=0",
         "cd /mnt/ssd2/Introspect3D"
     ]
 

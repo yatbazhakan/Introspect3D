@@ -105,6 +105,7 @@ class NuScenesDataset(DrivingDataset):
                 self.dataset_flattened = list(self.dataset_flattened['train'].values()) + list(self.dataset_flattened['val'].values())+ list(self.dataset_flattened['test'].values())
             else:
                 self.dataset_flattened = list(self.dataset_flattened[split].values())
+                print("Split"  + split)
             print("Loaded dataset with {} samples, {}".format(len(self.dataset_flattened),self.dataset_flattened[0].keys()))
 
 

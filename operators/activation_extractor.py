@@ -102,6 +102,8 @@ class ActivationExractionOperator(Operator):
         
         if len(self.datasets) !=0:
             for split,dataset in self.datasets.items():
+                if split == 'train' or split == 'val':
+                    continue
                 self.dataset = dataset
                 self.extract(verbose,split)
         else:
