@@ -68,6 +68,7 @@ class IntrospectionOperator(Operator):
         self.train_dataset = Subset(self.dataset, train_indices)
         after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],stratify=all_labels[train_indices],random_state=random_state)
         values,counts = np.unique(all_labels,return_counts=True)
+        # TODO: THis should be depending on the train dataset, requires a fix later 
         class_dist=  dict(zip(values,counts))
         c = 1e-3
         class_weights = [len(all_labels)/float(count) for cls, count in class_dist.items()]
@@ -117,6 +118,13 @@ class IntrospectionOperator(Operator):
 
             print("Class distribution:",class_dist)
             print("Class weights:",class_weights)
+    def get_class_weights(self):
+        all_labels = self.train_dataset.get_all_labels()
+        values,counts = np.unique(all_labels,return_counts=True)
+        # Calculate the class weights
+        total_samples = len(all_labels)
+        class_weights = [total_samples / (len(values) * count) for value, count in zip(values, counts)]
+        self.method_info['criterion']['params']['weight'] = torch.FloatTensor(class_weights).to(self.config['device'])
 
     def initialize_learning_parameters(self):
         self.device = self.config['device']
@@ -125,8 +133,10 @@ class IntrospectionOperator(Operator):
         criterion_info = self.method_info['criterion']
         self.split = False
         
-        if self.method_info['cross_validation']['type'] != None:
+        if self.method_info['cross_validation']['type'] != "None":
             self.train_test_split()
+        else:
+            self.split = True
         self.get_dataloader()
 
         self.optimizer = generate_optimizer_from_config(optimizer_info,self.model)
@@ -226,7 +236,21 @@ class IntrospectionOperator(Operator):
         self.name_builder()
 
         self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+self.str_uid+f"{iteration}_")
-        self.dataset = DatasetFactory().get(**self.config['dataset'])
+        if self.method_info['cross_validation']['type'] != "None":
+            self.dataset = DatasetFactory().get(**self.config['dataset'])
+            self.train_test_split()
+        else:
+            print("SPLIT EXISTS")
+            root = self.config.get('dataset',None).get('config',None).get('root_dir',None)
+            self.config['dataset']['config']['root_dir'] = os.path.join(root,'train')
+            self.train_dataset = DatasetFactory().get(**self.config['dataset'])
+            self.config['dataset']['config']['root_dir'] = os.path.join(root,'test')
+            self.test_dataset = DatasetFactory().get(**self.config['dataset'])
+            self.config['dataset']['config']['root_dir'] = os.path.join(root,'val')
+            self.val_dataset = DatasetFactory().get(**self.config['dataset'])
+            self.get_class_weights()
+            # self.split = True
+
         model_info = self.method_info['model']            
         if "GAP" in self.method_info['processing']['method']:
             self.model = GCN(model_info)
@@ -278,6 +302,7 @@ class IntrospectionOperator(Operator):
 
                 
                 epoch_id = epoch
+                print("Saving model as ",self.model_save_to + f"Ep{epoch_id}.pth")
                 torch.save(self.model.state_dict(), self.model_save_to + f"Ep{epoch_id}.pth")
                 torch.save(self.model.state_dict(), self.model_save_to +"_best.pth")
                 wandb.save( self.model_save_to)
