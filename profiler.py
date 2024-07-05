@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 #%%
 #INTROSPECTION model
-config_int = '/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn_vis.yaml'
+config_int = '/mnt/ssd2/Introspect3D/configs/networks/resnet18_fcn.yaml'
 model_dir = "/home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK"
 # model_pth = "kitti_mid_single.pth"
 

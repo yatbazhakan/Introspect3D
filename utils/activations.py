@@ -2,6 +2,7 @@ from typing import List, Union, Tuple, Dict, Any
 import numpy as np
 import os
 import pickle
+import torch
 from definitions import ROOT_DIR
 from utils.utils import load_detection_model, check_and_create_folder
 
@@ -52,24 +53,82 @@ class Activations:
         print("Debugging")
         print(output.shape)
         print(output)
-    def save_multi_layer_activation(self):
+    def save_multi_layer_activation(self,split=False):
         # print("Saving activations")
         # if self.extension != "":
         global d 
+        if split:
+            if split not in self.save_dir:
+                self.save_dir = os.path.join(self.save_dir,split)
+                # os.makedirs(self.save_dir,exist_ok=True)
+                # os.makedirs(os.path.join(self.save_dir,"features"),exist_ok=True)
+
         save_name = self.save_name.replace(self.extension,'.pkl') #should be more generic currently depends on image, maybe jsut remove extension
         # else:
-        print("Saving", save_name, "to", self.save_dir)
+        # print("Saving", save_name, "to", self.save_dir)
             # save_name = self.save_name + ".pkl" # A fix that might create an isssue, hoping that extension param will fix automatically
         if d == 1:
 
             print("Saving", save_name, "to", self.save_dir)
             d = 0
 
-        print(len(self.activation_list))
+        # print(len(self.activation_list))
         with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
             pickle.dump(self.activation_list, f)
         # print(save_name,self.save_dir)
         #np.save(os.path.join(self.save_dir,"features" ,save_name), self.activation_list)
+        del self.activation_list
+        self.activation_list = []
+    def save_multi_layer_activation_sparse(self,split=False):
+        # print("Saving activations")
+        # if self.extension != "":
+        global d 
+        if split:
+            if split not in self.save_dir:
+                self.save_dir = os.path.join(self.save_dir,split)
+                # os.makedirs(self.save_dir,exist_ok=True)
+                # os.makedirs(os.path.join(self.save_dir,"features"),exist_ok=True)
+
+        save_name = self.save_name.replace(self.extension,'.pt')
+        #should be more generic currently depends on image, maybe jsut remove extension
+        # else:
+        # print("Saving", save_name, "to", self.s   ave_dir)
+            # save_name = self.save_name + ".pkl" # A fix that might create an isssue, hoping that extension param will fix automatically
+        if d == 1:
+
+            print("Saving", save_name, "to", self.save_dir)
+            d = 0
+
+        # print(len(self.activation_list))
+        sparse_list=self.make_sparse(self.activation_list)
+
+        with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
+            pickle.dump(sparse_list, f)
+        # torch.save(sparse_list,os.path.join(self.save_dir,"features" ,save_name))
+        # print(save_name,self.save_dir)
+        #np.save(os.path.join(self.save_dir,"features" ,save_name), self.activation_list)
+        del self.activation_list
+        self.activation_list = []
+    def make_sparse(self, activation_list):
+        sparse_list = []
+        for activation in activation_list:
+            # Convert numpy array to PyTorch tensor
+            dense_tensor = torch.from_numpy(activation)
+            
+            # Find indices of non-zero elements
+            indices = torch.nonzero(dense_tensor).t()
+            
+            # Extract values at those indices
+            values = dense_tensor[indices[0], indices[1], indices[2]]
+            
+            # Create sparse tensor
+            sparse_tensor = torch.sparse_coo_tensor(indices, values, dense_tensor.size())
+            
+            # Add the sparse tensor to the list
+            sparse_list.append(sparse_tensor)
+        
+        return sparse_list
+    def clear_activation(self):
         del self.activation_list
         self.activation_list = []
     def register_prerpocessing_output(self,module, input, output):

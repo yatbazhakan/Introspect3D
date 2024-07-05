@@ -4,18 +4,18 @@ device: cuda:0
 method: activations
 verbose: True
 detection:
-  device: 'cuda:0'
+  device: 'cuda:1'
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
     version: v1.0-trainval
-    process: True
+    process: False
     save_path: /mnt/ssd2/nuscenes/
-    save_filename: nuscenes_train_fix.pkl
+    save_filename: nuscenes_train.pkl
     filtering_style: FilterType.ELLIPSE
     filter_params:
-      a: 25
-      b: 15
+      a: 15
+      b: 25
       offset: -10
       axis: 1
   model:
@@ -25,14 +25,16 @@ detection:
     checkpoint_dir: ckpts/
     config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
     checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
-  save_path: ./custom_dataset/
+  #save_path: ./custom_dataset/
   training_params: {}
 extraction:
   active: True
   device: 'cuda:0'
   labels_only: True
+  object_filter: True
+  sparse: False
   score_threshold: 0.5
-  split: True
+  split: 'test'
   dataset:
     name: NuScenesDataset
     root_dir: /mnt/ssd2/nuscenes/
@@ -61,8 +63,8 @@ extraction:
       indexes: [0,0,1]
       extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_all/
-    labels_file_name: nus_centerpoint_labels_filtered_all.csv
+    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_objects/
+    labels_file_name: nus_centerpoint_labels_filtered_objects.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
@@ -75,24 +77,24 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: nus_centerpoint_filtered_spatial_injection
+  experiment_name: nus_centerpoint_filtered_spatial_concat_wobjf
   wandb:
     is_sweep: True
     sweep_configuration:
       method: bayes
-      name: nus_centerpoint_filtered_spatial_injection
+      name: nus_centerpoint_filtered_spatial_concat_wobjf
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn_indv.yaml
+          - configs/networks/resnet18_fcn_mult_c.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
           - SGD
-          - Adam
+          # - Adam
         criterion:
           values:
           - FocalLoss
@@ -113,7 +115,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: nus_centerpoint_filtered_spatial_injection
+    name: nus_centerpoint_filtered_wobjf concat
   verbose: True
   method:
     task: multiclass
@@ -125,8 +127,8 @@ introspection:
       validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.MULTI
-      stack: False
+      method: ProcessorEnum.EFM
+      stack: True
       params:
         # config:
         #   percentile: 0.9
@@ -137,7 +139,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn_indv.yaml
+      layer_config: configs/networks/resnet18_fcn_mult_c.yaml
     optimizer:
       type: SGD
       params: 
@@ -162,14 +164,14 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: nus_centerpoint_filtered_spatial_injection
+    save_name: nus_centerpoint_filtered_spatial_concat_wobjf.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered_all
-      label_file: nus_centerpoint_labels_filtered_all.csv
+      root_dir: /mnt/ssd2/custom_dataset/nus_centerpoint_activations_filtered_objects
+      label_file: nus_centerpoint_labels_filtered_objects.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
       layer: 
