@@ -8,7 +8,49 @@ from base_classes.base import FilterStrategy
 class FilteringArea(Enum):
     INSIDE = 0
     OUTSIDE = 1 
+class ObjectFilter(FilterStrategy):
+    def __init__(self) -> None:
+        """Initialize ObjectFilter with a list of bounding boxes.
+        
+        Args:
+            bounding_boxes: A list of bounding boxes to filter points inside.
+        """
+        super().__init__()
 
+    def filter_pointcloud(self, data: PointCloud, bounding_boxes: List[BoundingBox], mode: FilteringArea = FilteringArea.INSIDE):
+        points = data.points  # Assuming data is an instance of PointCloud
+        mask = np.ones(len(points), dtype=bool)
+        
+        for box in bounding_boxes:
+            inside_box = self.is_inside(points, box)
+            if mode == FilteringArea.INSIDE:
+                mask = np.logical_and(mask, ~inside_box)
+            elif mode == FilteringArea.OUTSIDE:
+                mask = np.logical_and(mask, inside_box)
+
+        return data.points[mask]
+    def filter_bounding_boxes(self, data, mode):
+        pass
+    def is_inside(self, points: np.ndarray, box: BoundingBox) -> np.ndarray:
+        """Check if points are inside the given bounding box.
+        
+        Args:
+            points: The point cloud data.
+            box: The bounding box to check against.
+
+        Returns:
+            A boolean array indicating whether each point is inside the bounding box.
+        """
+        x_min, y_min, z_min = np.min(box.corners, axis=0)
+        x_max, y_max, z_max = np.max(box.corners, axis=0)
+
+        inside_x = np.logical_and(points[:, 0] >= x_min, points[:, 0] <= x_max)
+        inside_y = np.logical_and(points[:, 1] >= y_min, points[:, 1] <= y_max)
+        inside_z = np.logical_and(points[:, 2] >= z_min, points[:, 2] <= z_max)
+
+        return np.logical_and(np.logical_and(inside_x, inside_y), inside_z)
+    def is_outside(self, **kwargs):
+        pass
 class EllipseFilter(FilterStrategy):
     """Implements ellipse-based filtering."""
 
@@ -129,5 +171,6 @@ class GridFilter(FilterStrategy):
         pass  
 class FilterType(Enum):
     RECTANGLE = RectangleFilter
-    ELLIPSE = EllipseFilter 
+    ELLIPSE = EllipseFilter
+    OBJECT = ObjectFilter
     NONE = NoFilter

@@ -6,21 +6,35 @@ import os
 import numpy as np
 from tqdm.auto import tqdm
 from utils.visualizer import Visualizer
+from utils.pointcloud import PointCloud
 from definitions import ROOT_DIR
 import pandas as pd
+from utils.filter import ObjectFilter
 class ActivationExractionOperator(Operator):
     def __init__(self, config):
         self.config = config.extraction
+        self.is_object_filter = self.config.get('object_filter',False)
+        if self.is_object_filter:
+            self.object_filter = ObjectFilter()
         # try:
         if self.config.get('split',False):
             print("Loading splits")
             self.datasets = {}
-            for split in ['train','val','test']:
-                self.config['dataset']['split'] = split
+            split_value = self.config.get('split',False)
+            if split_value in ['train','val','test']:
+                print("Operating on split ",split_value)
+                self.config['dataset']['split'] = split_value
                 dataset = DatasetFactory().get(**self.config['dataset'])
-                self.datasets[split]= dataset
-                os.makedirs(os.path.join(self.config['method']['save_dir'],split), exist_ok=True)
-                os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
+                self.datasets[split_value]= dataset
+                os.makedirs(os.path.join(self.config['method']['save_dir'],split_value), exist_ok=True)
+                os.makedirs(os.path.join(self.config['method']['save_dir'],split_value,"features"), exist_ok=True)
+            else:
+                for split in ['train','val','test']:
+                    self.config['dataset']['split'] = split
+                    dataset = DatasetFactory().get(**self.config['dataset'])
+                    self.datasets[split]= dataset
+                    os.makedirs(os.path.join(self.config['method']['save_dir'],split), exist_ok=True)
+                    os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
         else:
             self.dataset = DatasetFactory().get(**self.config['dataset'])
             os.makedirs(self.config['method']['save_dir'], exist_ok=True)
@@ -44,6 +58,7 @@ class ActivationExractionOperator(Operator):
                                            self.config['method']['labels_file_name']))
     def extract(self, verbose = True,split=False):
         self.new_dataset = pd.DataFrame(columns=['name', 'is_missed','missed_objects','total_objects'])
+        sparse = self.config.get('sparse',False)
         if verbose:
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
@@ -67,17 +82,33 @@ class ActivationExractionOperator(Operator):
             # vis = Visualizer()
             # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
             if not is_custom:
-        
+                
                 matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
+                #*NOTE* Object filtering will be there, for now I will use the info I have with ground truth, in inference we will delete
+                if self.is_object_filter:
+                    filtering_boxes = [t[1] for t in matched_boxes]
+                    new_points = self.object_filter.filter_pointcloud(cloud,filtering_boxes)
+                    new_cloud = PointCloud(new_points)
+                    # print("--",cloud.points.shape,new_cloud.points.shape,"--")
+                    if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
+                        new_cloud.validate_and_update_descriptors(extend_or_reduce = 5)
+                    self.activation(new_cloud.points,file_name) # I assume I dont care about the result now
                 # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
                 if(len(ground_truth_boxes) > 0):
                     row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
                     from pprint import pprint
                     # pprint(row)
-                    if split:
-                        self.activation.save_multi_layer_activation(split)
+                    if sparse:
+                        print("Saving sparse")
+                        if split:
+                            self.activation.save_multi_layer_activation_sparse(split)
+                        else:
+                            self.activation.save_multi_layer_activation_sparse()
                     else:
-                        self.activation.save_multi_layer_activation()
+                        if split:
+                            self.activation.save_multi_layer_activation(split)
+                        else:
+                            self.activation.save_multi_layer_activation()
                     self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
                 if verbose:
                     progress_bar.update(1)
@@ -85,10 +116,16 @@ class ActivationExractionOperator(Operator):
                 label = ground_truth_boxes
                 row = {'name':f"{file_name}",'is_missed':label,'missed_objects':0,'total_objects':0}
                 # print(row)
-                if split:
-                    self.activation.save_multi_layer_activation(split)
+                if sparse:
+                    if split:
+                        self.activation.save_multi_layer_activation_sparse(split)
+                    else:
+                        self.activation.save_multi_layer_activation_sparse()
                 else:
-                    self.activation.save_multi_layer_activation()
+                    if split:
+                        self.activation.save_multi_layer_activation(split)
+                    else:
+                        self.activation.save_multi_layer_activation()
                 self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
                 if verbose:
                     progress_bar.update(1)
@@ -102,8 +139,8 @@ class ActivationExractionOperator(Operator):
         
         if len(self.datasets) !=0:
             for split,dataset in self.datasets.items():
-                if split == 'train' or split == 'val':
-                    continue
+                # if split == 'train' or split == 'val':
+                #     continue
                 self.dataset = dataset
                 self.extract(verbose,split)
         else:
