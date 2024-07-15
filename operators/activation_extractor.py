@@ -69,6 +69,7 @@ class ActivationExractionOperator(Operator):
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
             file_name = file_name.replace(self.config['method']['extension'],'')
             result, data = self.activation(cloud.points,file_name)
+            self.activation.clear_activation()
             # for activation in self.activation.activation_list:
             #     print(activation.shape)
             # exit()
@@ -99,7 +100,7 @@ class ActivationExractionOperator(Operator):
                     from pprint import pprint
                     # pprint(row)
                     if sparse:
-                        print("Saving sparse")
+                        # print("Saving sparse")
                         if split:
                             self.activation.save_multi_layer_activation_sparse(split)
                         else:

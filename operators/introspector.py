@@ -207,6 +207,17 @@ class IntrospectionOperator(Operator):
                 loss = self.criterion(output, target.squeeze())
 
             loss.backward()
+            if self.method_info['log_grads']:
+                grad_norms = {}
+                for name, param in self.model.named_parameters():
+                    if param.grad is not None:
+                        grad_norm = param.grad.data.norm(2).item()
+                        grad_norms[f'grad_norm_{name}'] = grad_norm
+                
+                # Log all gradient norms under a single step
+                wandb.log({'epoch': epoch, 'batch_idx': batch_idx, **grad_norms})
+            if self.method_info['clip_grad'] != None:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.method_info['clip_grad'])
             self.optimizer.step()
             self.total_loss += loss.item()
             # print(loss.item())
@@ -235,7 +246,7 @@ class IntrospectionOperator(Operator):
         print("Name Builder")
         self.name_builder()
 
-        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+self.str_uid+f"{iteration}_")
+        self.model_save_to = os.path.join(ROOT_DIR,self.method_info['save_path'],self.method_info['save_name']+wandb.run.name+f"{iteration}_")
         if self.method_info['cross_validation']['type'] != "None":
             self.dataset = DatasetFactory().get(**self.config['dataset'])
             self.train_test_split()
@@ -475,7 +486,8 @@ class IntrospectionOperator(Operator):
                 
             else:
                 #Some management will be needed here
-                wandb.init(project=self.wandb['project'],config=self.config, entity=self.wandb['entity'],mode=self.wandb['mode'],name=self.wandb['name'])
+                #, entity=self.wandb['entity']
+                wandb.init(project=self.wandb['project'],config=self.config,mode=self.wandb['mode'])
                 
                 if self.config['operation']['type'] == "train":
                     for i in range(self.method_info['cross_validation']['iteration']):

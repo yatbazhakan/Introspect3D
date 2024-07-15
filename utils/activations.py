@@ -90,6 +90,8 @@ class Activations:
                 # os.makedirs(os.path.join(self.save_dir,"features"),exist_ok=True)
 
         save_name = self.save_name.replace(self.extension,'.pt')
+        if '.pt' not in save_name:
+            save_name = save_name + ".pt"
         #should be more generic currently depends on image, maybe jsut remove extension
         # else:
         # print("Saving", save_name, "to", self.s   ave_dir)
@@ -101,32 +103,27 @@ class Activations:
 
         # print(len(self.activation_list))
         sparse_list=self.make_sparse(self.activation_list)
-
-        with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
-            pickle.dump(sparse_list, f)
+        torch.save(sparse_list,os.path.join(self.save_dir,"features" ,save_name))
+        # with open(os.path.join(self.save_dir,"features" ,save_name), 'wb') as f:
+        #     pickle.dump(sparse_list, f)
         # torch.save(sparse_list,os.path.join(self.save_dir,"features" ,save_name))
         # print(save_name,self.save_dir)
         #np.save(os.path.join(self.save_dir,"features" ,save_name), self.activation_list)
         del self.activation_list
         self.activation_list = []
     def make_sparse(self, activation_list):
+        if len(activation_list) > 3:
+            print("Activation list length",len(activation_list))
         sparse_list = []
         for activation in activation_list:
-            # Convert numpy array to PyTorch tensor
-            dense_tensor = torch.from_numpy(activation)
-            
-            # Find indices of non-zero elements
-            indices = torch.nonzero(dense_tensor).t()
-            
-            # Extract values at those indices
-            values = dense_tensor[indices[0], indices[1], indices[2]]
-            
-            # Create sparse tensor
-            sparse_tensor = torch.sparse_coo_tensor(indices, values, dense_tensor.size())
-            
-            # Add the sparse tensor to the list
-            sparse_list.append(sparse_tensor)
-        
+            num_zeros = np.sum(activation == 0)
+            # Calculate the total number of elements
+            total_elements = np.prod(activation.shape)
+            s = num_zeros/total_elements
+            if s > 0.9:
+                sparse_list.append(torch.from_numpy(activation).to_sparse().to('cuda:0'))
+            else:
+                sparse_list.append(torch.from_numpy(activation).to('cuda:0'))
         return sparse_list
     def clear_activation(self):
         del self.activation_list
@@ -140,25 +137,31 @@ class Activations:
     def register_activation_output(self,module, input, output):
         # print(output[0].shape,output[1].shape)
         # print(len(output))
+        # last_output = output#.detach().cpu() #TODO: generalize this
         last_output = output.detach().cpu().numpy() #TODO: generalize this
         # print("Last output shape",last_output.shape)
         # print(last_output.shape)
         # print("-------------------")
         last_output = np.squeeze(last_output)
+        # last_output = torch.squeeze(last_output)
         self.activation_list.append(last_output)
 
     def register_activation_input(self,module, input, output):
         # print(output[0].shape,output[1].shape)
+        # last_output = input[0]# .detach().cpu() #TODO: generalize this
         last_output = input[0].detach().cpu().numpy() #TODO: generalize this
         # print("Last output shape",last_output.shape)
         last_output = np.squeeze(last_output)
+        # last_output = torch.squeeze(last_output)
         self.activation_list.append(last_output)
 
     def save_backbone_output(self,module, input, output): #Original implementation
         # print(output[0].shape,output[1].shape)
-        last_output = output[self.hook_layer].detach().cpu().numpy() #TODO: generalize this
+        last_output = output[self.hook_layer].detach().cpu() #TODO: generalize this
         # print("Last output shape",last_output.shape)
-        last_output = np.squeeze(last_output)
+        # last_output = np.squeeze(last_output)
+        last_output = torch.squeeze(last_output)
+
         save_name = self.save_name.replace(self.extension,'.npy') #should be more generic currently depends on image, maybe jsut remove extension
         # print(save_name,self.save_dir)
         # np.save(os.path.join(self.save_dir,"features" ,save_name), last_output)

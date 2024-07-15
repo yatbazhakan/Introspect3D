@@ -16,19 +16,25 @@ def run_in_tmux(config_path, operator_type, session_name):
         subprocess.run(["tmux", "new-session", "-d", "-s", session_name])
 
     # Set up environment and directory
+    # setup_commands = [
+    #     "conda activate openmmlab2",
+    #     "export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}",
+    #     "export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}",
+    #     "export CUDA_VISIBLE_DEVICES=1",
+    #     "cd /mnt/ssd2/Introspect3D"
+    # ]
     setup_commands = [
-        "conda activate openmmlab2",
-        "export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}",
-        "export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}",
-        "export CUDA_VISIBLE_DEVICES=1",
-        "cd /mnt/ssd2/Introspect3D"
+        "conda activate distest",
+        # "export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}",
+        # "export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}",
+        # "export CUDA_VISIBLE_DEVICES=1",
+        "cd '/media/wmg-5gcat/Co-op Autonomy 2/Hakan/Introspect3D'"
     ]
-
     for cmd in setup_commands:
         subprocess.run(["tmux", "send-keys", "-t", session_name, cmd, "C-m"])
 
     # Run the Python script
-    python_cmd = f"python -W ignore main.py -c {config_path} -o {operator_type}"
+    python_cmd = f"python -W ignore main.py -c '{config_path}' -o {operator_type}"
     result = subprocess.run(["tmux", "send-keys", "-t", session_name, python_cmd, "C-m"])
 
     if result.returncode == 0:
@@ -49,6 +55,7 @@ def run():
 def browse_file():
     filename = filedialog.askopenfilename(initialdir=CONFIG_DIR, title="Select Config File",
                                           filetypes=(("YAML files", "*.yaml"), ("all files", "*.*")))
+    filename = f'{filename}'
     config_path_entry.delete(0, tk.END)
     config_path_entry.insert(0, filename)
 

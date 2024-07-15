@@ -13,9 +13,11 @@ class ActivationDataset:
         self.config = config
         self.extension = config.get('extension','')  
         self.root_dir = config['root_dir']
+        print("ROOT DIR: ",self.root_dir)
         self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
         self.is_caption = config.get('is_caption',False)
+        self.is_sparse = config.get('is_sparse',False)
         if self.is_caption:
             self.caption_file = config.get('caption_file',None)
             with open(self.caption_file,'r') as f:
@@ -24,6 +26,7 @@ class ActivationDataset:
         self.feature_paths = self.get_feature_paths()
         print("Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
         self.label_file = self.get_label_file()
+        
         self.label_field = config['label_field']
         self.layer = config.get('layer',None)
         self.threshold = config.get('threshold',None)
@@ -33,6 +36,8 @@ class ActivationDataset:
         #remove if any leading path is there in self labels['name']
         # if self.is_multi_feature: #Need to fix this extension issue
         self.labels['name'] = self.labels['name'].apply(lambda x: x.split('/')[-1].replace('.npy',''))
+        # print(self.labels.head())
+
         #fill names with leading zeros to make them 6 digits
         if self.config['name'] == 'kitti':
             self.labels['name'] = self.labels['name'].apply(lambda x: x.zfill(6))
@@ -54,6 +59,7 @@ class ActivationDataset:
     def get_feature_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'features', f'*{self.extension}')))
     def get_label_file(self):
+        #*DEBUG
         return os.path.join(self.root_dir,self.config["label_file"])
     def get_label(self,idx):
         # name_from_idx = int(self.feature_paths[idx].split('/')[-1].replace('.npy',''))
@@ -86,44 +92,59 @@ class ActivationDataset:
         feature_path = self.feature_paths[idx]
         feature_name = feature_path.split('/')[-1].replace(self.extension,'')
         # print(feature_name)
-        if self.is_multi_feature:
-            pickle_path = feature_path.replace('.npy','')
-            with open(pickle_path,'rb') as f:
-                feature = pickle.load(f)
-            #making the grouping agnostic from the number of layers selected
-            # print(first.shape,second.shape,third.shape)
-            if type(self.layer) == list:
-                tensor_feature = []
-                for i in range(len(self.layer)):
-                    data = torch.from_numpy(feature[self.layer[i]])
-                # Handled in the model, will be changed to sort out here as well
-                #     if i == 0:
-                #         data = torch.from_numpy(feature[self.layer[i]])
-                #     elif i == 1:
-                #         data = torch.from_numpy(feature[self.layer[i]])
-                #     elif i == 2:
-                #         data = torch.from_numpy(feature[self.layer[i]])
-                    tensor_feature.append(data)
-    
-            # tensor_feature = [first,second,third]        
-        else:
-            if self.layer == None:
-                feature = np.load(feature_path)
-                tensor_feature = torch.from_numpy(feature)
+        if self.is_sparse:
+            if self.is_multi_feature:
+               tensor_feature  = torch.load(feature_path)
+               tensor_feature = [tensor.to_dense() if tensor.is_sparse else tensor for tensor in tensor_feature]
             else:
+                if self.layer == None:
+                    tensor_feature = torch.load(feature_path)
+                else:
+                    tensor_feature = torch.load(feature_path)[int(self.layer)]
+                if tensor_feature.is_sparse:
+                    tensor_feature = tensor_feature.to_dense()
+        else:           
+            if self.is_multi_feature:
                 pickle_path = feature_path.replace('.npy','')
-                # print("----",pickle_path)
                 with open(pickle_path,'rb') as f:
                     feature = pickle.load(f)
-                tensor_feature = torch.from_numpy(feature[int(self.layer)])
+                #making the grouping agnostic from the number of layers selected
+                # print(first.shape,second.shape,third.shape)
+                if type(self.layer) == list:
+                    tensor_feature = []
+                    for i in range(len(self.layer)):
+                        data = torch.from_numpy(feature[self.layer[i]])
+                    # Handled in the model, will be changed to sort out here as well
+                    #     if i == 0:
+                    #         data = torch.from_numpy(feature[self.layer[i]])
+                    #     elif i == 1:
+                    #         data = torch.from_numpy(feature[self.layer[i]])
+                    #     elif i == 2:
+                    #         data = torch.from_numpy(feature[self.layer[i]])
+                        tensor_feature.append(data)
+        
+                # tensor_feature = [first,second,third]        
+            else:
+                if self.layer == None:
+                    feature = np.load(feature_path)
+                    tensor_feature = torch.from_numpy(feature)
+                else:
+                    pickle_path = feature_path.replace('.npy','')
+                    # print("----",pickle_path)
+                    with open(pickle_path,'rb') as f:
+                        feature = pickle.load(f)
+                    tensor_feature = torch.from_numpy(feature[int(self.layer)])
             # print(tensor_feature.shape)
         # print(feature_name)
         feature_name = feature_name.replace('.npy','')
+        feature_name = feature_name.replace('.pkl','')
+        feature_name = feature_name.replace('.pt','')
         label = self.get_label(feature_name)
         
         tensor_label = torch.LongTensor([label])
         # print(tensor_feature.shape,tensor_label.shape,feature_name)
         # print(tensor_label)
+        # print(len(tensor_feature))
         return tensor_feature, tensor_label, feature_name
     def __len__(self):
         return len(self.feature_paths)
