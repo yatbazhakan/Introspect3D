@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import traceback 
 import pdb
+import pickle
 from definitions import ROOT_DIR
 from utils.process import *
 import wandb
@@ -21,6 +22,7 @@ import os
 import uuid
 import pandas as pd
 from time import time
+import logging
 class IntrospectionOperator(Operator):
     def __init__(self,config) -> None:
         super().__init__()
@@ -47,9 +49,9 @@ class IntrospectionOperator(Operator):
         self.method_info['save_name'] = f"{dataset}_{filtering}_{network}_{procesing}"
     def get_dataloader(self):
         if self.split:
-            train_loader = DataLoader(self.train_dataset, **self.config['dataloader']['train'])
-            test_loader = DataLoader(self.test_dataset, **self.config['dataloader']['test'])
-            val_loader = DataLoader(self.val_dataset, **self.config['dataloader']['test'])
+            train_loader = DataLoader(self.train_dataset, drop_last=False, **self.config['dataloader']['train'])
+            test_loader = DataLoader(self.test_dataset, drop_last=False, **self.config['dataloader']['test'])
+            val_loader = DataLoader(self.val_dataset, drop_last=False, **self.config['dataloader']['test'])
             self.train_loader = train_loader
             self.test_loader = test_loader
             self.val_loader = val_loader
@@ -196,6 +198,10 @@ class IntrospectionOperator(Operator):
                 loss = self.criterion(output, target.squeeze())
 
             loss.backward()
+            # Gradient clipping
+            if self.method_info['clip_grad']['active']:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.method_info['clip_grad']['value'])
+
             self.optimizer.step()
             self.total_loss += loss.item()
             # print(loss.item())
@@ -286,18 +292,22 @@ class IntrospectionOperator(Operator):
                     top_pred_ids = np.argmax(all_preds,axis=1)
                     # squeeze the labels
                     all_labels = all_labels.squeeze()
+                    
                     top_pred_ids = top_pred_ids.squeeze()
                     wandb.log({'best_conf_mat': wandb.plot.confusion_matrix(preds = top_pred_ids,
                                                                            y_true = all_labels, 
                                                                            probs= None,
-                                                                           class_names = ['No_Error', 'Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m'])})
+                                                                           class_names = ['Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m'])})
                 if self.verbose:
                     print("Saving model")
 
                 epoch_id = epoch
                 torch.save(self.model.state_dict(), self.model_save_to + f"Ep{epoch_id}.pth")
                 torch.save(self.model.state_dict(), self.model_save_to +"_best.pth")
+                with open('self.model_save_to +"_best.pkl"', 'wb') as f:
+                    pickle.dump(self.config, f)
                 wandb.save(self.model_save_to)
+
             else:
                 if self.verbose:
                     print("No improvement")
@@ -325,15 +335,12 @@ class IntrospectionOperator(Operator):
         test_loss = 0
         all_preds = torch.tensor([]).to(self.config['device'],dtype=torch.float32) 
         all_labels = torch.tensor([]).to(self.config['device'],dtype=torch.float32)
+        all_filenames = []
         with torch.no_grad():
             with tqdm(total=len(loader),leave=False) as pbar:
                 pbar.set_description(f'Evaluating at Epoch {epoch}')
                 pbar.refresh()
-                batch_itr = 0
                 for data, target, name in loader:
-                    batch_itr += 1
-                    if batch_itr >2:
-                        break
                     if(self.proceesor != None and "GAP" not in self.method_info['processing']['method'] and
                        "MULTI" not in self.method_info['processing']['method']
                        and "EFS" not in self.method_info['processing']['method']):
@@ -379,6 +386,7 @@ class IntrospectionOperator(Operator):
                     all_labels = torch.cat(
                             (all_labels, target),dim=0
                         )
+                    all_filenames.extend(name)
                     pbar.update(1)
                     clear_memory()
                     # return test_loss  #*debug
@@ -398,10 +406,26 @@ class IntrospectionOperator(Operator):
         #save all preds and labels in csv format
         all_labels = all_labels.cpu().numpy()
         all_preds = all_preds.cpu().numpy()
-        # result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
-        # table_data = np.concatenate((all_labels,all_preds),axis=1)
-        # wandb_table = wandb.Table(data=table_data, columns=["Labels", "Predictions"])
-        # wandb.log({f'predictions_{epoch}':wandb_table})
+        all_filenames = np.array(all_filenames)
+        # save the results in a pickle file
+        result_dict = {'labels':all_labels,'predictions':all_preds,'filenames':all_filenames}
+        time_snap = time()
+        with open(f"results_{time_snap}.pkl", 'wb') as f:
+            pickle.dump(result_dict, f)
+        top_pred_ids = np.argmax(all_preds,axis=1)
+        # squeeze the labels
+        all_labels = all_labels.squeeze()
+        
+        top_pred_ids = top_pred_ids.squeeze()
+        wandb.log({'best_conf_mat_test': wandb.plot.confusion_matrix(preds = top_pred_ids,
+                                                                y_true = all_labels, 
+                                                                probs= None,
+                                                                class_names = ['Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m'])})
+
+        #result_dict = {'labels':all_labels[:,0],'predictions':all_preds[:,0]}
+        #table_data = np.concatenate((all_labels,all_preds),axis=1)
+        #wandb_table = wandb.Table(data=table_data, columns=["Labels", "Predictions"])
+        #wandb.log({f'predictions_{epoch}':wandb_table})
         #result_df = pd.DataFrame(result_dict)
         #result_df.to_csv(f"results_{epoch}.csv")
         return test_loss, all_labels, all_preds
@@ -434,12 +458,14 @@ class IntrospectionOperator(Operator):
     def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass',iteration=1):
         
         if task == 'multiclass':
-            num_classes = 4 #TODO: to update for multi-class
+            num_classes = 3 #TODO: to update for multi-class
             pred = torch.tensor(pred).squeeze()
             target = torch.tensor(target,dtype=torch.int64).squeeze()
             
             self.metric_collection = MetricCollection([
                 Accuracy(task=task,num_classes=num_classes),
+                Precision(task=task,num_classes=num_classes),
+                Recall(task=task,num_classes=num_classes),
             ])
             self.metric_collection.to(self.device)
             self.metrics = self.metric_collection(pred,target)

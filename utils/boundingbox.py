@@ -11,6 +11,9 @@ class BoundingBox:
                  label: Union[str,int,None] = None) -> None:
         
         self.center = center
+        self.global_center = None
+        self.frenet_center = None
+        self.frenet_dist2ego = None
         self.dimensions = dimensions
         self.rotation = rotation
         self.type = label

@@ -37,6 +37,9 @@ except:
     pass
 import gc
 
+from numpy.linalg import norm
+import math
+import sys
 
 def get_lead_vehicle(data, length, width):
         lead_vehicle = []
@@ -232,3 +235,28 @@ def get_quaternion_from_euler(roll, pitch, yaw):
     qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
 
     return [qx, qy, qz, qw]
+
+
+def cart2frenet(traj, ref, ref_frenet=None):
+    '''
+    traj = np array of size [T,2]
+    ref = np array of size [L,2]
+    '''
+    repeated_points = np.append([True], np.any(np.diff(ref, axis=0), axis=1))
+    ref = ref[repeated_points]
+    L = ref.shape[0]
+    T = traj.shape[0]
+    if ref_frenet is None:
+        ref_frenet = np.zeros((L,2))
+        ref_frenet[1:, 0] = norm(np.diff(ref, axis=0), axis=1)
+        ref_frenet[:,0] = np.cumsum(ref_frenet[:,0])
+    traj_frenet = np.zeros((T, 2))
+    for i in range(T):
+        traj2ref_dist = norm(ref-traj[i], axis=1)     
+        itrs = list(np.argpartition(traj2ref_dist, 1)[0:2])
+        itrs.sort()
+        itr1 = itrs[0]
+        itr2 = itrs[1]
+        traj_frenet[i,0] =  ref_frenet[itr1, 0] + np.dot(ref[itr2]-ref[itr1], traj[i]-ref[itr1])/norm(ref[itr2]-ref[itr1])
+        traj_frenet[i,1] = np.cross(ref[itr2] - ref[itr1], traj[i] - ref[itr1])/norm(ref[itr2]-ref[itr1])
+    return traj_frenet

@@ -53,44 +53,41 @@ class ActivationDataset:
     def get_target_classes(self, gt_dist, pred_dist):
         target = np.zeros_like(gt_dist)
         for i in range(len(gt_dist)):
-            if np.abs(gt_dist[i] - pred_dist[i]) == 0:
+            if np.abs(gt_dist[i] - pred_dist[i]) < 0.1:
                 target[i] = 0
-            elif np.abs(gt_dist[i] - pred_dist[i]) < 0.1:
-                target[i] = 1
             elif np.abs(gt_dist[i] - pred_dist[i]) < 2:
-                target[i] = 2
+                target[i] = 1
             else:
-                target[i] = 3
+                target[i] = 2
         return target
 
-    def get_de_error(self, gt_bboxes, pred_bboxes, filter_boundry = 100):
+    def get_de_error(self, gt_bboxes, pred_bboxes, filter_boundry = 50):
         gt_dists = []
         pred_dists = []
-        for gt_bbox, pred_bbox in zip(gt_bboxes, pred_bboxes):    
-            gt_bbox = eval(gt_bbox)
-            pred_bbox = eval(pred_bbox)
-            if len(gt_bbox) > 1 or len(pred_bbox) > 1:
-                print(gt_bbox, pred_bbox, len(gt_bbox), len(pred_bbox))
-                raise ValueError("Only one bounding box is expected")
+        for gt_bbox, pred_bbox in zip(gt_bboxes, pred_bboxes):
+            gt_bbox = gt_bbox.replace('[', '').replace(']', '')  # Remove square brackets
+            gt_bbox = np.fromstring(gt_bbox, dtype=float, sep=' ')  # Convert string to numpy array    
+            
+            pred_bbox = pred_bbox.replace('[', '').replace(']', '')
+            pred_bbox = np.fromstring(pred_bbox, dtype=float, sep=' ')
+            
             gt_exists = len(gt_bbox) != 0
             pred_exists = len(pred_bbox) != 0
-            if gt_exists and pred_exists: # True Positive
-                gt_dist = gt_bbox[0][1]
-                pred_dist = pred_bbox[0][1]
-            elif not gt_exists and not pred_exists: # True Negative
+            if gt_exists:
+                #print(gt_bbox)
+                gt_dist = gt_bbox[0]
+            else:
                 gt_dist = filter_boundry
-                pred_dist = filter_boundry
-            elif not gt_exists and pred_exists: # False Positive
-                gt_dist = filter_boundry
-                pred_dist = pred_bbox[0][1]
-            elif gt_exists and not pred_exists: # False Negative
-                gt_dist = gt_bbox[0][1]
+            if pred_exists:
+                pred_dist = pred_bbox[0]
+            else:
                 pred_dist = filter_boundry
             gt_dists.append(gt_dist)
             pred_dists.append(pred_dist)
         gt_dists = np.array(gt_dists)
         pred_dists = np.array(pred_dists)
         return gt_dists, pred_dists
+    
     def get_feature_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'features', f'*{self.extension}')))
     def get_label_file(self):

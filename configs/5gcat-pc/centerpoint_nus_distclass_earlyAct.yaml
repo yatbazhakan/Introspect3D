@@ -73,7 +73,7 @@ extraction:
 introspection:
   experiment_name: centerpoint_nus_activations
   wandb:
-    is_sweep: True
+    is_sweep: False
     sweep_configuration:
       method: grid
       name: centerpoint_nus_activations_all
@@ -87,7 +87,7 @@ introspection:
            - configs/networks/resnet18_fcn_distmc.yaml
         optimizer:
           values:
-          - Adam
+          - SGD
         criterion:
           values:
           - FocalLoss
@@ -97,7 +97,7 @@ introspection:
           - 0.001
         batch_size:
           values:
-          - 64
+          - 128
     project: DistEstimation
     entity: introspection_events
     mode: online
@@ -142,6 +142,9 @@ introspection:
       params:
         patience : 10
         factor: 0.7
+    clip_grad:
+      active: True
+      value: 1
     epochs: 200
     debug: False
     log_interval: 1
@@ -156,9 +159,9 @@ introspection:
     name: ActivationDataset
     config:
       root_dir: /media/ssd_reza/sajjad/distest/custom_dataset/nus_centerpoint_early_activations
-      label_file: nus_centerpoint_labels.csv
+      label_file: 'lv_dist_est2.csv'
       task: 'Classification'
-      classes: ['No_Error', 'Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m']
+      classes: ['Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m']
       is_multi_feature: False
       extension: .npy
       name: nuscenes
@@ -169,16 +172,16 @@ introspection:
       num_workers: 8
       pin_memory: False
     train:
-      batch_size: 64
+      batch_size: 128
       shuffle: True
       num_workers: 8
       pin_memory: False
     test:
-      batch_size: 64
+      batch_size: 128
       shuffle: False
       num_workers: 8
       pin_memory: False
   operation: 
-    type: trainval #traineval #evaluate
-    model_dir: 'outputs/ckpts/nuscenes_none_resnet18_fcn_reg_rawe165fd92-2e48-4339-ab27-acb7ccac79780_'
+    type: evaluate #traineval #evaluate
+    model_dir: 'outputs/ckpts/nuscenes_none_resnet18_fcn_distmc_raw8c379d25-450e-4021-9ab9-302ac6ccbc8d0_'
     load_model: False
