@@ -1,13 +1,19 @@
-import numpy as np
-import torch
-from torch import nn
-import pandas as pd
-from utils.process import *
-from glob import glob
 import os
 import pickle
 import pdb
+from glob import glob
+
+import numpy as np
 from numpy import array, float32
+import torch
+from torch import nn
+import pandas as pd
+
+from utils.logger import setup_logging
+from utils.process import *
+
+logger = setup_logging('DistEst')
+
 class ActivationDataset:
     def __init__(self,config) -> None:
         self.config = config
@@ -17,7 +23,7 @@ class ActivationDataset:
         #self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
         self.feature_paths = self.get_feature_paths()
-        print("Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
+        logger.debug(f"Number of features found: {len(self.feature_paths)} in {self.feature_paths[:5]}")
         self.label_file = self.get_label_file()
         self.labels = pd.read_csv(self.label_file)
         #self.labels.head()
@@ -46,9 +52,9 @@ class ActivationDataset:
                     
                     temp_paths.append(path)
             self.feature_paths = temp_paths
-            print("Feature paths and labels are not equal, some features are missing")
+            logger.info("Feature paths and labels are not equal, some features are missing")
             # print(len(self.feature_paths),len(self.labels))
-        print(len(self.feature_paths),len(self.labels))
+        logger.debug(f"Number of features found: {len(self.feature_paths)} in {self.feature_paths[:5]}")
 
     def get_target_classes(self, gt_dist, pred_dist):
         target = np.zeros_like(gt_dist)

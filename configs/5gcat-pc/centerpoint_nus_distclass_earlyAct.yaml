@@ -72,11 +72,12 @@ extraction:
 # Only showing the introspection section for brevity
 introspection:
   experiment_name: centerpoint_nus_activations
+  debug: False
   wandb:
     is_sweep: False
     sweep_configuration:
       method: grid
-      name: centerpoint_nus_activations_all
+      name: None
       metric:
         name: val_loss
         goal: minimize
@@ -97,11 +98,11 @@ introspection:
           - 0.001
         batch_size:
           values:
-          - 128
+          - 32
     project: DistEstimation
     entity: introspection_events
     mode: online
-    name: centerpoint_nus_activations_distest
+    name: None
   verbose: True
   method:
     task: multiclass
@@ -144,9 +145,8 @@ introspection:
         factor: 0.7
     clip_grad:
       active: True
-      value: 1
+      value: 2
     epochs: 200
-    debug: False
     log_interval: 1
     save_interval: 1
     early_stop: 25
@@ -167,21 +167,21 @@ introspection:
       name: nuscenes
   dataloader:
     all:
-      batch_size: 64
+      batch_size: 32
       shuffle: True
       num_workers: 8
       pin_memory: False
     train:
-      batch_size: 128
+      batch_size: 32
       shuffle: True
       num_workers: 8
       pin_memory: False
     test:
-      batch_size: 128
+      batch_size: 32
       shuffle: False
       num_workers: 8
       pin_memory: False
   operation: 
-    type: evaluate #traineval #evaluate
+    type: train #traineval #train 
     model_dir: 'outputs/ckpts/nuscenes_none_resnet18_fcn_distmc_raw8c379d25-450e-4021-9ab9-302ac6ccbc8d0_'
     load_model: False
