@@ -34,13 +34,13 @@ extraction:
   object_filter: True
   sparse: True
   score_threshold: 0.5
-  split: 'train'
+  split: 'test'
   dataset:
     name: NuScenesDataset
     root_dir: /media/ssd_reza/nuscenes/
     version: v1.0-trainval
     process: False
-    filter_labels_only: True
+    filter_labels_only: False
     save_path: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/"
     save_filename: nuscenes_train_fix.pkl
     filtering_style: FilterType.ELLIPSE
@@ -63,8 +63,8 @@ extraction:
       indexes: [0,0,1]
       extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_objects_lonly/
-    labels_file_name: nus_centerpoint_labels_filtered_objects_lonly.csv
+    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_objects/
+    labels_file_name: nus_centerpoint_labels_filtered_objects.csv
     balanced: False
     transforms: None
     extension: .pcd.bin
@@ -77,12 +77,12 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: nus_centerpoint_filtered_spatial_late_wobjf
+  experiment_name: nus_centerpoint_filtered_spatial_concat_wobjf
   wandb:
     is_sweep: False
     sweep_configuration:
       method: bayes
-      name: nus_centerpoint_filtered_spatial_late_wobjf
+      name: nus_centerpoint_filtered_spatial_concat_wobjf
       metric:
         name: val_loss
         goal: minimize
@@ -101,12 +101,12 @@ introspection:
         lr:
           values:
           # - 0.005
-          - 0.1
+          - 0.001
           - 0.01
         batch_size:
           values:
           # - 16
-          - 32
+          - 256
         gamma:
           values:
           - 5
@@ -115,7 +115,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: nus_centerpoint_filtered_wobjf_late
+    name: nus_centerpoint_filtered_wobjf_concat
   verbose: True
   method:
     task: multiclass
@@ -129,7 +129,7 @@ introspection:
       validation_split: 0.2
     processing:
       active: True
-      method: ProcessorEnum.RAW
+      method: ProcessorEnum.EFM
       stack: True
       params:
         # config:
@@ -141,7 +141,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn.yaml
+      layer_config: configs/networks/resnet18_fcn_mult_c.yaml
     optimizer:
       type: SGD
       params: 
@@ -166,7 +166,7 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: nus_centerpoint_filtered_spatial_late_wobjf.pt
+    save_name: nus_centerpoint_filtered_spatial_concat_wobjf.pt
   device: cuda:0
   filtering: none
   dataset:
@@ -176,8 +176,8 @@ introspection:
       label_file: nus_centerpoint_labels_filtered_objects.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
-      layer: 2
-      is_multi_feature: False
+      layer: [0,1,2]
+      is_multi_feature: True
       is_sparse: True
       extension: .pt
       name: nuscenes
