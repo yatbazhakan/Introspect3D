@@ -36,9 +36,10 @@ class ActivationExractionOperator(Operator):
                     os.makedirs(os.path.join(self.config['method']['save_dir'],split), exist_ok=True)
                     os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
         else:
+            self.datasets = {}
             self.dataset = DatasetFactory().get(**self.config['dataset'])
             os.makedirs(self.config['method']['save_dir'], exist_ok=True)
-            os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
+            os.makedirs(os.path.join(self.config['method']['save_dir'],"features"), exist_ok=True)
 
 
         self.activation = Activations(self.config,extract=self.config['active'])
@@ -65,6 +66,7 @@ class ActivationExractionOperator(Operator):
         for i in range(len(self.dataset)):
             data = self.dataset[i]
             cloud, ground_truth_boxes, file_name = data['pointcloud'], data['labels'], data['file_name']
+            full_labels = data['full_labels']
             if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
             file_name = file_name.replace(self.config['method']['extension'],'')
@@ -87,7 +89,8 @@ class ActivationExractionOperator(Operator):
                 matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
                 #*NOTE* Object filtering will be there, for now I will use the info I have with ground truth, in inference we will delete
                 if self.is_object_filter:
-                    filtering_boxes = [t[1] for t in matched_boxes]
+                    if self.object_filter != 2:
+                        filtering_boxes = [t[1] for t in matched_boxes] + full_labels
                     new_points = self.object_filter.filter_pointcloud(cloud,filtering_boxes)
                     new_cloud = PointCloud(new_points)
                     # print("--",cloud.points.shape,new_cloud.points.shape,"--")
@@ -114,6 +117,15 @@ class ActivationExractionOperator(Operator):
                 if verbose:
                     progress_bar.update(1)
             else:
+                if self.is_object_filter:
+                    
+                    filtering_boxes = prediction_bounding_boxes
+                    new_points = self.object_filter.filter_pointcloud(cloud,filtering_boxes)
+                    new_cloud = PointCloud(new_points)
+                    # print("--",cloud.points.shape,new_cloud.points.shape,"--")
+                    if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
+                        new_cloud.validate_and_update_descriptors(extend_or_reduce = 5)
+                    self.activation(new_cloud.points,file_name) # I assume I dont care about the result now
                 label = ground_truth_boxes
                 row = {'name':f"{file_name}",'is_missed':label,'missed_objects':0,'total_objects':0}
                 # print(row)

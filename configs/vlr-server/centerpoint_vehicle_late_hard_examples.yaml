@@ -1,23 +1,23 @@
-experiment_name: centerpoint_nus_activations
+experiment_name: centerpoint_vehicle
 experiment_path: ./
 device: cuda:0
 method: activations
 verbose: True
 detection:
-  device: 'cuda:1'
+  device: 'cuda:0'
   dataset:
     name: NuScenesDataset
-    root_dir: /media/ssd_reza/nuscenes
+    root_dir: /mnt/ssd2/nuscenes/
     version: v1.0-trainval
-    process: True
-    save_path: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/"
-    save_filename: nuscenes_train_fix.pkl
-    filtering_style: FilterType.ELLIPSE
+    process: False
+    save_path: /mnt/ssd2/nuscenes/
+    save_filename: nuscenes_train.pkl
+    filtering_style: FilterType.NONE
     filter_params:
-      a: 15
-      b: 25
+      a: 25
+      b: 15
       offset: -10
-      axis: 1
+      axis: 0
   model:
     name: centerpoint
     root_dir: /mnt/ssd2/mmdetection3d/
@@ -31,23 +31,23 @@ extraction:
   active: True
   device: 'cuda:0'
   labels_only: True
-  object_filter: True
   sparse: True
+  object_filter: True
+  split: False
   score_threshold: 0.5
-  split: 'test'
   dataset:
-    name: NuScenesDataset
-    root_dir: /media/ssd_reza/nuscenes/
-    version: v1.0-trainval
+    name: CustomDataset
+    root_dir: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/HYY/Dataset/"
+    label_file: labels.csv
     process: False
     filter_labels_only: False
-    save_path: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/"
-    save_filename: nuscenes_train_fix.pkl
+    # save_path: /mnt/ssd2/nuscenes/
+    # save_filename: nuscenes_train.pkl
     filtering_style: FilterType.ELLIPSE
     filter_params:
       a: 15
       b: 25
-      offset: -10
+      offset: -5
       axis: 1
   model:
     name: centerpoint
@@ -63,12 +63,12 @@ extraction:
       indexes: [0,0,1]
       extract_from: [0,1,1]
       layer_index: 1
-    save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_objects/
-    labels_file_name: nus_centerpoint_labels_filtered_objects.csv
+    save_dir: ../custom_dataset/vehicle_centerpoint_activations_aggregated_raw/
+    labels_file_name: vehicle_centerpoint_labels_aggregated_raw_filtered.csv
     balanced: False
     transforms: None
-    extension: .pcd.bin
-    save_input: False
+    extension: .npy
+    save_input: True
     #Are theese needed?
     # config : /mnt/ssd2/mmdetection3d/configs/pointpillars/pointpillars_hv_secfpn_sbn-all_8xb4-2x_nus-3d.py
     # checkpoint:  /mnt/ssd2/mmdetection3d/ckpts/hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth
@@ -77,60 +77,59 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: nus_centerpoint_filtered_spatial_mid_wobjf
+  experiment_name: centerpoint_vehicle_activations_filtered_late
   wandb:
     is_sweep: False
     sweep_configuration:
-      method: bayes
-      name: nus_centerpoint_filtered_spatial_mid_wobjf
+      method: grid
+      name: centerpoint_vehicle_activations_filtered_late
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn2.yaml
+          - configs/networks/resnet18_fcn.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
           - SGD
-          # - Adam
+          - Adam
         criterion:
           values:
           - FocalLoss
         lr:
           values:
-          # - 0.005
-          - 0.001
+          - 0.005
+          - 0.005
           - 0.01
         batch_size:
           values:
-          # - 16
-          - 256
+          - 16
+          - 64
+          - 128
         gamma:
           values:
           - 5
-          # - 0
-          # - 2
+          - 0
+          - 2
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: nus_centerpoint_filtered_wobjf mid
+    name: centerpoint_vehicle_activations_filtered_late
   verbose: True
   method:
     task: multiclass
-    clip_grad: 1.0
-    log_grads: True
     cross_validation:
-      type: None
-      iteration: 1
+      type: montecarlo
+      iteration: 5
       balanced: false
       train_test_split: 0.2
-      validation_split: 0.2
+      validation_split: 0.15
     processing:
       active: True
       method: ProcessorEnum.RAW
-      stack: True
+      stack: False
       params:
         # config:
         #   percentile: 0.9
@@ -141,11 +140,12 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn2.yaml
+      layer_config: configs/networks/resnet18_fcn.yaml
+      load_from: /home/yatbaz_h@WMGDS.WMG.WARWICK.AC.UK/nuscenes_filtered_late.pth
     optimizer:
       type: SGD
       params: 
-        lr: 0.1
+        lr: 0.001
         weight_decay: 0.001
     criterion:
       type: FocalLoss
@@ -158,7 +158,7 @@ introspection:
     scheduler:
       type: ReduceLROnPlateau
       params:
-        patience : 15
+        patience : 10
         factor: 0.7
     epochs: 200
     log_interval: 1
@@ -166,31 +166,29 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: nus_centerpoint_filtered_spatial_mid_wobjf.pt
+    save_name: centerpoint_vehicle_activations_filtered_late.pt
   device: cuda:0
   filtering: none
   dataset:
     name: ActivationDataset
     config:
-      root_dir: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/custom_dataset/nus_centerpoint_activations_filtered_objects"  
-      label_file: nus_centerpoint_labels_filtered_objects.csv
+      root_dir: /mnt/ssd2/custom_dataset/vehicle_centerpoint_activations_aggregated_raw/
+      label_file: vehicle_centerpoint_labels_aggregated_raw_filtered.csv
       classes: ['No Error', 'Error']
       label_field: is_missed
-      layer: 1
+      layer: 2
       is_multi_feature: False
-      is_sparse: True
-      extension: .pt
-      name: nuscenes
+      name: custom
   dataloader:
     all:
-      batch_size: 128
+      batch_size: 16
       shuffle: True
     train:
-      batch_size: 128
+      batch_size: 16
       shuffle: True
     test:
       batch_size: 1
       shuffle: False
   operation: 
-    type: traineval
+    type: evaluate
     load_model: False

@@ -17,6 +17,7 @@ class Activations:
     def __init__(self,
                  config,extract=True) -> None:
         self.model = load_detection_model(config)
+        # print("model loaded")
         # print(self.model)
         self.config = config
         method = config['method']
@@ -33,10 +34,12 @@ class Activations:
             self.hook_layers = method['hook']['indexes']
             for i,index in enumerate(self.hook_layers):
                 extract = method['hook']['extract_from'][i]
+                print(f'self.model.{method["hook"]["layer"]}._modules["{index}"]')
                 if extract:
                     hook = eval(f'self.model.{method["hook"]["layer"]}._modules["{index}"].register_forward_hook(self.register_activation_output)')
                 else:
                     hook = eval(f'self.model.{method["hook"]["layer"]}._modules["{index}"].register_forward_hook(self.register_activation_input)')
+                # print(hook)
                 self.hooks.append(hook)
                 # self.hooks = eval(f'self.model.{method["hook"]["layer"]}.register_forward_hook(self.debug_activation)')
         else:
@@ -100,7 +103,7 @@ class Activations:
 
             print("Saving", save_name, "to", self.save_dir)
             d = 0
-
+        print(len(self.activation_list))
         # print(len(self.activation_list))
         sparse_list=self.make_sparse(self.activation_list)
         torch.save(sparse_list,os.path.join(self.save_dir,"features" ,save_name))
@@ -131,7 +134,7 @@ class Activations:
     def register_prerpocessing_output(self,module, input, output):
         # print(output[0].shape,output[1].shape)
         # print(len(output))
-        print(len(input),input[0].shape)
+        # print(len(input),input[0].shape)
 
         last_output = input[0].detach().cpu().numpy()
     def register_activation_output(self,module, input, output):
@@ -143,6 +146,7 @@ class Activations:
         # print(last_output.shape)
         # print("-------------------")
         last_output = np.squeeze(last_output)
+        # print("Last output shape",last_output.shape)
         # last_output = torch.squeeze(last_output)
         self.activation_list.append(last_output)
 
@@ -153,6 +157,7 @@ class Activations:
         # print("Last output shape",last_output.shape)
         last_output = np.squeeze(last_output)
         # last_output = torch.squeeze(last_output)
+        # print("Last input shape",last_output.shape)
         self.activation_list.append(last_output)
 
     def save_backbone_output(self,module, input, output): #Original implementation

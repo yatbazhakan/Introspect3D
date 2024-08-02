@@ -141,10 +141,11 @@ class NuScenesDataset(DrivingDataset):
         if not self.labels_only:
             point_cloud.points = self.filter.filter_pointcloud(point_cloud.points)
         point_cloud.raw_points = point_cloud.points.copy()
+        
         labels = self.filter.filter_bounding_boxes(labels)
-
+        out_labels = self.filter.filter_bounding_boxes(labels, FilteringArea.OUTSIDE)
         # Initialize the item dictionary
-        item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath}
+        item_dict = {'pointcloud': point_cloud, 'labels': labels, 'file_name': lidar_filepath, 'full_labels':out_labels}
 
         if self.projection:
             # Get camera image and calibration data

@@ -77,12 +77,12 @@ extraction:
 # experiment_name: point_pillar_nus_activations
 # Only showing the introspection section for brevity
 introspection:
-  experiment_name: nus_centerpoint_filtered_spatial_late_wobjf
+  experiment_name: nus_centerpoint_filtered_spatial_late_wobjf_lonly
   wandb:
     is_sweep: False
     sweep_configuration:
       method: bayes
-      name: nus_centerpoint_filtered_spatial_late_wobjf
+      name: nus_centerpoint_filtered_spatial_late_wobjf_lonly
       metric:
         name: val_loss
         goal: minimize
@@ -166,7 +166,7 @@ introspection:
     early_stop: 20
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: nus_centerpoint_filtered_spatial_late_wobjf.pt
+    save_name: nus_centerpoint_filtered_spatial_late_wobjf_lonly.pt
   device: cuda:0
   filtering: none
   dataset:

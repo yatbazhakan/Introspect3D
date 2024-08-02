@@ -90,7 +90,8 @@ class ActivationDataset:
         # return label
     def __getitem__(self, idx):
         feature_path = self.feature_paths[idx]
-        feature_name = feature_path.split('/')[-1].replace(self.extension,'')
+        feature_name = feature_path.split('/')[-1]
+        # print(feature_name,feature_path,idx)
         # print(feature_name)
         if self.is_sparse:
             if self.is_multi_feature:
@@ -100,8 +101,13 @@ class ActivationDataset:
                 if self.layer == None:
                     tensor_feature = torch.load(feature_path)
                 else:
-                    tensor_feature = torch.load(feature_path)[int(self.layer)]
+                    # print("Loading sparse tensor")
+                    # print(feature_path)
+                    tensor_feature = torch.load(feature_path)
+                    # print(tensor_feature)
+                    tensor_feature =tensor_feature[int(self.layer)]
                 if tensor_feature.is_sparse:
+                    # print("Converting to dense")
                     tensor_feature = tensor_feature.to_dense()
         else:           
             if self.is_multi_feature:
@@ -136,6 +142,7 @@ class ActivationDataset:
                     tensor_feature = torch.from_numpy(feature[int(self.layer)])
             # print(tensor_feature.shape)
         # print(feature_name)
+        # print(tensor_feature.shape)
         feature_name = feature_name.replace('.npy','')
         feature_name = feature_name.replace('.pkl','')
         feature_name = feature_name.replace('.pt','')
@@ -145,6 +152,7 @@ class ActivationDataset:
         # print(tensor_feature.shape,tensor_label.shape,feature_name)
         # print(tensor_label)
         # print(len(tensor_feature))
+        # print(tensor_feature.shape,tensor_label,feature_name)
         return tensor_feature, tensor_label, feature_name
     def __len__(self):
         return len(self.feature_paths)

@@ -1,6 +1,6 @@
 layers:
   - type: torchvision.models.resnet18
-    in_channels: 128
+    in_channels: 256
     params:
       weights: ResNet18_Weights.IMAGENET1K_V1
   - type: "Flatten"
@@ -9,8 +9,6 @@ layers:
     params:
       in_features: 2048
       out_features: 1024
-  - type: "ReLU"
-    params: {}
   - type: "Dropout"
     params:
       p: 0.5
@@ -18,8 +16,6 @@ layers:
     params:
       in_features: 1024
       out_features: 256
-  - type: "ReLU"
-    params: {}
   - type: "Dropout"
     params:
       p: 0.5
@@ -27,8 +23,6 @@ layers:
     params:
       in_features: 256
       out_features: 128
-  - type: "ReLU"
-    params: {}
   - type: "Dropout"
     params:
       p: 0.5
