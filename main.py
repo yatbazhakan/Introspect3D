@@ -29,3 +29,6 @@ if __name__== "__main__":
     
     operator = get_operator(int(args.operator))(config)
     operator.execute(verbose=config.verbose)
+'''
+python3 main.py -c config.yaml -o 1
+'''

@@ -1,77 +1,48 @@
 from base_classes.base import Operator
 from utils.factories import DatasetFactory
 from utils.activations import Activations
-from utils.utils import create_bounding_boxes_from_predictions, check_detection_matches
+from utils.utils import create_bounding_boxes_from_predictions, check_detection_matches, draw_bev_bbox
 import os 
 import numpy as np
+import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 from utils.visualizer import Visualizer
-from utils.pointcloud import PointCloud
 from definitions import ROOT_DIR
 import pandas as pd
-from utils.filter import ObjectFilter
 class ActivationExractionOperator(Operator):
     def __init__(self, config):
         self.config = config.extraction
-        self.is_object_filter = self.config.get('object_filter',False)
-        if self.is_object_filter:
-            self.object_filter = ObjectFilter()
-        # try:
-        if self.config.get('split',False):
-            print("Loading splits")
-            self.datasets = {}
-            split_value = self.config.get('split',False)
-            if split_value in ['train','val','test']:
-                print("Operating on split ",split_value)
-                self.config['dataset']['split'] = split_value
-                dataset = DatasetFactory().get(**self.config['dataset'])
-                self.datasets[split_value]= dataset
-                os.makedirs(os.path.join(self.config['method']['save_dir'],split_value), exist_ok=True)
-                os.makedirs(os.path.join(self.config['method']['save_dir'],split_value,"features"), exist_ok=True)
-            else:
-                for split in ['train','val','test']:
-                    self.config['dataset']['split'] = split
-                    dataset = DatasetFactory().get(**self.config['dataset'])
-                    self.datasets[split]= dataset
-                    os.makedirs(os.path.join(self.config['method']['save_dir'],split), exist_ok=True)
-                    os.makedirs(os.path.join(self.config['method']['save_dir'],split,"features"), exist_ok=True)
-        else:
-            self.datasets = {}
-            self.dataset = DatasetFactory().get(**self.config['dataset'])
-            os.makedirs(self.config['method']['save_dir'], exist_ok=True)
-            os.makedirs(os.path.join(self.config['method']['save_dir'],"features"), exist_ok=True)
-
-
-        self.activation = Activations(self.config,extract=self.config['active'])
-        # except:
-        #     print("Dataset not found")
-        #     exit()
+        self.dataset = DatasetFactory().get(**self.config['dataset'])
+        self.extract_labels_only = self.config['extract_labels_only']
+        self.label_image_config = self.config['method']['label_image']
         
-    def save_labels(self,split = False):
-        if split:
-            self.new_dataset.to_csv(os.path.join(ROOT_DIR,
-                                             self.config['method']['save_dir'],
-                                             split,
-                                           self.config['method']['labels_file_name']))
-        else:
-            self.new_dataset.to_csv(os.path.join(ROOT_DIR,
-                                             self.config['method']['save_dir'],
-                                           self.config['method']['labels_file_name']))
-    def extract(self, verbose = True,split=False):
-        self.new_dataset = pd.DataFrame(columns=['name', 'is_missed','missed_objects','total_objects'])
-        sparse = self.config.get('sparse',False)
+        self.save_dir = self.config['method']['save_dir']
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        self.activation = Activations(self.config,extract=self.config['active'])
+        os.makedirs(self.config['method']['save_dir'], exist_ok=True)
+    def save_labels(self):
+        return
+        # self.new_dataset.to_csv(os.path.join(ROOT_DIR,
+        #                                      self.config['method']['save_dir'],
+        #                                      self.config['method']['labels_file_name']))
+    def execute(self, **kwargs):
+        verbose = kwargs.get('verbose', False)
+        image_size = (self.label_image_config['width'], self.label_image_config['height'])
+        resolution = self.label_image_config['resolution']
         if verbose:
             print("Extracting activations")
             progress_bar = tqdm(total=len(self.dataset))
         for i in range(len(self.dataset)):
+            # create a int img with size 
+            label_image = np.ones(image_size, dtype=np.uint8) * 0
             data = self.dataset[i]
-            cloud, ground_truth_boxes, file_name = data['pointcloud'], data['labels'], data['file_name']
-            full_labels = data['full_labels']
+            cloud, ground_truth_boxes = data['pointcloud'], data['labels']
+            file_name = data['file_name']
             if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-            file_name = file_name.replace(self.config['method']['extension'],'')
+            #file_name = file_name.replace(self.config['method']['extension'],'')
             result, data = self.activation(cloud.points,file_name)
-            self.activation.clear_activation()
             # for activation in self.activation.activation_list:
             #     print(activation.shape)
             # exit()
@@ -79,86 +50,36 @@ class ActivationExractionOperator(Operator):
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
             filtered_predicted_boxes = predicted_boxes[score_mask]
-            is_nuscenes = self.config['dataset']['name'] == 'NuScenesDataset'
-            is_custom = self.config['dataset']['name'] == 'CustomDataset'
             prediction_bounding_boxes = create_bounding_boxes_from_predictions(filtered_predicted_boxes)
-            # vis = Visualizer()
-            # vis.visualize(cloud= cloud.points,gt_boxes = ground_truth_boxes,pred_boxes = prediction_bounding_boxes)
-            if not is_custom:
-                
-                matched_boxes, unmatched_ground_truths, unmatched_predictions = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
-                #*NOTE* Object filtering will be there, for now I will use the info I have with ground truth, in inference we will delete
-                if self.is_object_filter:
-                    if self.object_filter != 2:
-                        filtering_boxes = [t[1] for t in matched_boxes] + full_labels
-                    new_points = self.object_filter.filter_pointcloud(cloud,filtering_boxes)
-                    new_cloud = PointCloud(new_points)
-                    # print("--",cloud.points.shape,new_cloud.points.shape,"--")
-                    if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
-                        new_cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-                    self.activation(new_cloud.points,file_name) # I assume I dont care about the result now
-                # print("Matched boxes",len(matched_boxes),"Unmatched boxes",len(unmatched_ground_truths),"Unmatched predictions",len(unmatched_predictions))
-                if(len(ground_truth_boxes) > 0):
-                    row = {'name':f"{file_name}",'is_missed':len(unmatched_ground_truths) > 0,'missed_objects':len(unmatched_ground_truths),'total_objects':len(ground_truth_boxes)}
-                    from pprint import pprint
-                    # pprint(row)
-                    if sparse:
-                        # print("Saving sparse")
-                        if split:
-                            self.activation.save_multi_layer_activation_sparse(split)
-                        else:
-                            self.activation.save_multi_layer_activation_sparse()
-                    else:
-                        if split:
-                            self.activation.save_multi_layer_activation(split)
-                        else:
-                            self.activation.save_multi_layer_activation()
-                    self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
-                if verbose:
-                    progress_bar.update(1)
-            else:
-                if self.is_object_filter:
-                    
-                    filtering_boxes = prediction_bounding_boxes
-                    new_points = self.object_filter.filter_pointcloud(cloud,filtering_boxes)
-                    new_cloud = PointCloud(new_points)
-                    # print("--",cloud.points.shape,new_cloud.points.shape,"--")
-                    if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
-                        new_cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-                    self.activation(new_cloud.points,file_name) # I assume I dont care about the result now
-                label = ground_truth_boxes
-                row = {'name':f"{file_name}",'is_missed':label,'missed_objects':0,'total_objects':0}
-                # print(row)
-                if sparse:
-                    if split:
-                        self.activation.save_multi_layer_activation_sparse(split)
-                    else:
-                        self.activation.save_multi_layer_activation_sparse()
-                else:
-                    if split:
-                        self.activation.save_multi_layer_activation(split)
-                    else:
-                        self.activation.save_multi_layer_activation()
-                self.new_dataset = pd.concat([self.new_dataset,pd.DataFrame([row])])
-                if verbose:
-                    progress_bar.update(1)
+            matched_bb, unmatched_gt, unmatched_pred = check_detection_matches(ground_truth_boxes, prediction_bounding_boxes)
+            for bboxes in matched_bb:
+                bbox = bboxes[0]
+                bev_bbox = bbox.get_bev_bbox()
+                bev_bbox = bev_bbox/resolution
+                bev_bbox = bev_bbox.astype(int)
+                label_image = draw_bev_bbox(label_image, bev_bbox, 256)
+            for bbox in unmatched_gt:
+                bev_bbox = bbox.get_bev_bbox()
+                bev_bbox = bev_bbox/resolution
+                bev_bbox = bev_bbox.astype(int)
+                label_image = draw_bev_bbox(label_image, bev_bbox, 128)
+            for bbox in unmatched_pred:
+                bev_bbox = bbox.get_bev_bbox()
+                bev_bbox = bev_bbox/resolution
+                bev_bbox = bev_bbox.astype(int)
+                label_image = draw_bev_bbox(label_image, bev_bbox, 128)
+            #save the image
+            label_file = file_name.split('/')[-1].replace('.pcd.bin','.png')
+            label_file = os.path.join(self.save_dir,label_file)
+            plt.imsave(label_file, label_image, cmap='gray')
+            if not self.extract_labels_only:
+                self.activation.save_single_layer_activation()
+            
+            if verbose:
+                progress_bar.update(1)
         # if(self.config['active']):
-        if split:
-            self.save_labels(split)
-        else:
-            self.save_labels()
-    def execute(self, **kwargs):
-        verbose = kwargs.get('verbose', False)
-        
-        if len(self.datasets) !=0:
-            for split,dataset in self.datasets.items():
-                # if split == 'train' or split == 'val':
-                #     continue
-                self.dataset = dataset
-                self.extract(verbose,split)
-        else:
-            self.extract(verbose)
-
+        self.save_labels()
+            
                 
 
         

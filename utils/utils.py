@@ -23,6 +23,7 @@ from modules.loss import *
 from modules.attention import *
 import torchvision
 import torch
+import cv2
 import yaml
 from modules.other import Identity
 from modules.conv_blocks import *
@@ -77,17 +78,21 @@ def create_bounding_boxes_from_predictions(boxes: np.ndarray):
     
         bounding_boxes.append(bounding_box)
     return bounding_boxes
+def draw_bev_bbox(label_image, bev_bbox, value):
+    """Draws a BEV bounding box on the label image."""
+    height, width = label_image.shape
+    bev_bbox[:,0] += width//2
+    bev_bbox[:,1] += height//2
+    cv2.fillConvexPoly(label_image, bev_bbox, value)
+    return label_image
 
 def check_detection_matches(ground_truth_boxes, predicted_boxes, iou_threshold:float=0.5):
     """Checks if the predicted boxes match with the ground truth boxes."""
     matches = []
     unmatched_ground_truths = []
     unmatched_predictions = list(predicted_boxes)
-    print("Unmatched Predictions",len(unmatched_predictions))
     for gt_box in ground_truth_boxes:
-
         max_iou_idx, max_iou = gt_box.find_max_iou_box(unmatched_predictions)
-        print("Max IOU",max_iou)
         if max_iou != None and max_iou >= iou_threshold:
             matches.append((gt_box, unmatched_predictions[max_iou_idx]))
             del unmatched_predictions[max_iou_idx]

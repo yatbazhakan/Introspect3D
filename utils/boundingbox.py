@@ -21,6 +21,40 @@ class BoundingBox:
             self.corners=None
         else:
             self.calculate_corners()
+    
+    def get_bev_bbox(self):
+        x,y = self.center[0], self.center[1]
+        w,h = self.dimensions[0], self.dimensions[1]
+        
+        if isinstance(self.rotation, np.float32):
+            theta = self.rotation
+            theta = self.rotation
+            local_corners = np.array([
+                [-w/2, -h/2],  # corner 1
+                [+w/2, -h/2],  # corner 2
+                [+w/2, +h/2],  # corner 3
+                [-w/2, +h/2],  # corner 4
+            ])
+            rotation_matrix = np.array([
+                [np.cos(theta), -np.sin(theta)],
+                [np.sin(theta), np.cos(theta)]
+            ])
+            rotated_corners = np.dot(local_corners, rotation_matrix)
+            translated_corners = rotated_corners + np.array([x, y])
+        elif isinstance(self.rotation, np.ndarray):
+            local_corners = np.array([
+                [-w/2, -h/2, 0],  # corner 1
+                [+w/2, -h/2, 0],  # corner 2
+                [+w/2, +h/2, 0],  # corner 3
+                [-w/2, +h/2, 0],  # corner 4
+            ])
+            rotated_corners = np.dot(local_corners, self.rotation)
+            translated_corners = rotated_corners + np.array([x, y, 0])
+            translated_corners = translated_corners[:,:2]  
+        else:
+            raise(ValueError(f"{type(self.rotation)} is not a valid type for rotation"))      
+        return translated_corners
+
     def from_nuscenes_box(self,box):
         self.center = box.center
         self.dimensions = box.wlh
