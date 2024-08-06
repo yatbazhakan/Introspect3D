@@ -1,0 +1,11 @@
+layers:
+  - type: torchvision.models.resnet18
+    in_channels: 256
+    params:
+      weights: ResNet18_Weights.IMAGENET1K_V1
+  - type: "Flatten"
+    params: {}
+  - type: "Linear"
+    params:
+      in_features: 2048
+      out_features: 2

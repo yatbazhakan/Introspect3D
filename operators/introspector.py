@@ -251,8 +251,12 @@ class IntrospectionOperator(Operator):
             self.dataset = DatasetFactory().get(**self.config['dataset'])
             self.train_test_split()
         else:
-            print("SPLIT EXISTS")
             root = self.config.get('dataset',None).get('config',None).get('root_dir',None)
+            parts_root = root.split('/')
+            for i in range(len(parts_root)):
+                if parts_root[i] in ['train','test','val']:
+                    parts_root.pop(i)
+            root = '/'.join(parts_root)
             self.config['dataset']['config']['root_dir'] = os.path.join(root,'train')
             self.train_dataset = DatasetFactory().get(**self.config['dataset'])
             self.config['dataset']['config']['root_dir'] = os.path.join(root,'test')
@@ -298,7 +302,7 @@ class IntrospectionOperator(Operator):
                 break
             if self.verbose:
                 print("Epoch loss:",epoch_loss)
-            wandb.log({'epoch_loss':epoch_loss})
+            wandb.log({'train_loss':epoch_loss,'epoch':epoch})
             
             if self.method_info['sanity_check']:
                 self.evaluate(loader=self.train_loader,epoch=epoch)
@@ -397,10 +401,10 @@ class IntrospectionOperator(Operator):
             wandb.log({f'test_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
-            wandb.log({f'train_loss_{iteration}':test_loss})
+            wandb.log({f'train_loss_{iteration}':test_loss,'epoch':epoch})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
-            wandb.log({f'val_loss_{iteration}':test_loss})
+            wandb.log({f'val_loss_{iteration}':test_loss,'epoch':epoch})
             self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
         return test_loss
     def seprate_multiclass_metrics(self,metric_name):
