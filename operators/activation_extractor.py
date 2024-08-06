@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 from utils.visualizer import Visualizer
 from definitions import ROOT_DIR
 import pandas as pd
+
 class ActivationExractionOperator(Operator):
     def __init__(self, config):
         self.config = config.extraction
@@ -21,11 +22,6 @@ class ActivationExractionOperator(Operator):
             os.makedirs(self.save_dir)
         self.activation = Activations(self.config,extract=self.config['active'])
         os.makedirs(self.config['method']['save_dir'], exist_ok=True)
-    def save_labels(self):
-        return
-        # self.new_dataset.to_csv(os.path.join(ROOT_DIR,
-        #                                      self.config['method']['save_dir'],
-        #                                      self.config['method']['labels_file_name']))
     def execute(self, **kwargs):
         verbose = kwargs.get('verbose', False)
         image_size = (self.label_image_config['width'], self.label_image_config['height'])
@@ -41,11 +37,7 @@ class ActivationExractionOperator(Operator):
             file_name = data['file_name']
             if "nus" in self.config['model']['config']: #TODO: might need to change this based on model, as it seems that is the only difference
                 cloud.validate_and_update_descriptors(extend_or_reduce = 5)
-            #file_name = file_name.replace(self.config['method']['extension'],'')
             result, data = self.activation(cloud.points,file_name)
-            # for activation in self.activation.activation_list:
-            #     print(activation.shape)
-            # exit()
             predicted_boxes = result.pred_instances_3d.bboxes_3d.tensor.cpu().numpy()
             predicted_scores = result.pred_instances_3d.scores_3d.cpu().numpy()
             score_mask = np.where(predicted_scores >= self.config['score_threshold'])[0] # May require edit later
@@ -68,17 +60,18 @@ class ActivationExractionOperator(Operator):
                 bev_bbox = bev_bbox/resolution
                 bev_bbox = bev_bbox.astype(int)
                 label_image = draw_bev_bbox(label_image, bev_bbox, 128)
-            #save the image
+            # save the image
             label_file = file_name.split('/')[-1].replace('.pcd.bin','.png')
             label_file = os.path.join(self.save_dir,label_file)
             plt.imsave(label_file, label_image, cmap='gray')
+            
             if not self.extract_labels_only:
                 self.activation.save_single_layer_activation()
-            
+            self.activation.clear_activation()
             if verbose:
                 progress_bar.update(1)
         # if(self.config['active']):
-        self.save_labels()
+        
             
                 
 
