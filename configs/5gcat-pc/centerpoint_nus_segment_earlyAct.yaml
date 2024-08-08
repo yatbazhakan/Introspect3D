@@ -37,8 +37,9 @@ extraction:
     root_dir: /media/ssd_reza/nuscenes
     version: v1.0-trainval
     process: False
-    save_path: '/media/wmg-5gcat/Co-op Autonomy 2/Hakan' #/media/ssd_reza/nuscenes
-    save_filename: nuscenes_train_fix.pkl
+    save_path: /media/ssd_reza/nuscenes
+    save_filename: nuscenes_train_segment.pkl
+    filter_object_classes: False
     filtering_style: FilterType.NONE
     filter_labels_only: False
     filter_params:
@@ -56,7 +57,7 @@ extraction:
     label_image:
       width: 500
       height: 500
-      resolution: 0.1
+      resolution: 0.2
     hook:
       layer: pts_backbone.blocks #pts_backbone
       indexes: [0]

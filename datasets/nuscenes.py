@@ -50,6 +50,7 @@ class NuScenesDataset(DrivingDataset):
         print("Filtering style", filtering_style)
         self.filtering_style = eval(filtering_style)
         self.filter_params = kwargs.get('filter_params', {})
+        self.filter_object_classes = kwargs.get('filter_object_classes', True)
         self.is_e2e = kwargs.get('is_e2e', False)
         self.labels_only = kwargs.get('filter_labels_only', False)
         self.filter = self.filtering_style.value(**self.filter_params)
@@ -94,7 +95,7 @@ class NuScenesDataset(DrivingDataset):
         for i in range(len(boxes)):
             annotation = self.nusc.get('sample_annotation', sample_record['anns'][i])
             box = boxes[i]
-            if self.filter_boxes_with_category(annotation['category_name']):
+            if (not self.filter_object_classes) or self.filter_boxes_with_category(annotation['category_name']):
                 box.label = object_label_to_index[annotation['category_name']]
                 custom_box = BoundingBox()
                 custom_box.from_nuscenes_box(box)
