@@ -12,12 +12,14 @@ import pandas as pd
 import torch
 from faker import Faker
 from sklearn.model_selection import train_test_split
+from sklearn.calibration import calibration_curve
 from torch.utils.data import DataLoader, Subset
 from torchmetrics import (AUROC, Accuracy, AveragePrecision, ConfusionMatrix,
                           F1Score, MeanSquaredError, MetricCollection,
                           Precision, Recall, StatScores)
 from tqdm.auto import tqdm
 import wandb
+import matplotlib.pyplot as plt
 try:
     from torch_geometric.data import Data,Batch 
 except:
@@ -44,10 +46,10 @@ class IntrospectionOperator(Operator):
         self.str_uid = str(uuid.uuid4())
         self.config = config.introspection
         fake = Faker()
-        wandb_name = [fake.word() for i in range(3)]
-        wandb_name = "_".join(wandb_name)
-        self.config['wandb']['name'] = wandb_name
-        self.config['wandb']['sweep_configuration']['name'] = wandb_name
+        self.wandb_name = [fake.word() for i in range(3)]
+        self.wandb_name = "_".join(self.wandb_name)
+        self.config['wandb']['name'] = self.wandb_name
+        self.config['wandb']['sweep_configuration']['name'] = self.wandb_name
         self.wandb = self.config['wandb']
         self.verbose = self.config['verbose']
         self.method_info = self.config['method']
@@ -124,7 +126,7 @@ class IntrospectionOperator(Operator):
                     table_data = np.concatenate((all_labels,all_preds),axis=1)
                     wandb_table = wandb.Table(data=table_data, columns=["Labels", "Predictions"])
                     wandb.log({f'best_predictions':wandb_table})
-                if self.method_info['task'] == 'multiclass':
+                if self.method_info['task'] == 'multiclass' or self.method_info['task'] == 'binary':
                     top_pred_ids = np.argmax(all_preds,axis=1)
                     # squeeze the labels
                     all_labels = all_labels.squeeze()
@@ -293,22 +295,36 @@ class IntrospectionOperator(Operator):
         test_loss /= len(loader)       
         
         if loader == self.test_loader:
-            #wandb.log({f'test_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
-            #wandb.log({f'train_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
-            #wandb.log({f'val_loss_{iteration}':test_loss})
             self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
+        # apply softmax to all_preds
+        all_preds = torch.nn.functional.softmax(all_preds, dim=1)
         #save all preds and labels in csv format
         all_labels = all_labels.cpu().numpy()
         all_preds = all_preds.cpu().numpy()
         all_filenames = np.array(all_filenames)
+        prob_true, prob_pred = calibration_curve(all_labels, all_preds[:,1], n_bins=5)
+        fig = plt.figure()
+        plt.plot(prob_pred, prob_true, marker='o', label='Model')
+        plt.plot([0, 1], [0, 1], linestyle='--', label='Perfectly calibrated')
+        plt.xlabel('Predicted probability')
+        plt.ylabel('True probability in each bin')
+        plt.title('Calibration plot')
+        # save in a file
+        if not os.path.exists(f"outputs/visualiation/{self.wandb_name}"):
+            os.makedirs(f"outputs/visualiation/{self.wandb_name}")
+        if epoch == 'N/A':
+            epoch_str = 'NA'
+        else:
+            epoch_str = epoch
+        plt.savefig(f"outputs/visualiation/{self.wandb_name}/cp_{epoch_str}.png")
         # save the results in a pickle file
         result_dict = {'labels':all_labels,'predictions':all_preds,'filenames':all_filenames}
         time_snap = time()
-        with open(f"results_{time_snap}.pkl", 'wb') as f:
+        with open(f"outputs/results/{self.wandb_name}.pkl", 'wb') as f:
             pickle.dump(result_dict, f)
         top_pred_ids = np.argmax(all_preds,axis=1)
         # squeeze the labels
@@ -356,7 +372,7 @@ class IntrospectionOperator(Operator):
         self.train_dataset = Subset(self.dataset, train_indices)
         after_val_train_indices, val_indices = train_test_split(train_indices, test_size=validation['validation_split'],random_state=random_state)
         
-        if 'multiclass' in self.method_info['task']:
+        if 'multiclass' in self.method_info['task'] or 'binary' in self.method_info['task']:
             values,counts = np.unique(all_labels,return_counts=True)    
             class_dist = dict(zip(values,counts))
             c = 1e-3
@@ -445,8 +461,8 @@ class IntrospectionOperator(Operator):
     def log_metrics(self,mode,task,iteration=1):
         #Here I need to separate metrics for each class and log them in wandb
         for metric_name in self.metrics.keys():        
-            if task == 'multiclass':
-                logger.info(f"Accuracy: {self.metrics[metric_name].cpu().numpy()}")
+            if task == 'multiclass' or task == 'binary':
+                logger.info(f"{metric_name}: {self.metrics[metric_name].cpu().numpy()}")
                 wandb.log({f'{mode}_{metric_name}':self.metrics[metric_name].cpu().numpy()})
             elif task == 'regression':
                 if metric_name=='MeanSquaredError' and self.metric_collection[metric_name].squared==False:
@@ -459,9 +475,11 @@ class IntrospectionOperator(Operator):
 
 
     def calculate_torchmetrics(self,pred,target,mode = 'train',task = 'multiclass',iteration=1):
-        if task == 'multiclass':
-            num_classes = 3 #TODO: to update for multi-class
+        if task == 'multiclass' or task == 'binary':
+            num_classes = 2 #3 #TODO: to update for multi-class
             pred = torch.tensor(pred).squeeze()
+            pred = torch.nn.functional.softmax(pred, dim=1)
+            pred = torch.argmax(pred, dim=1)
             target = torch.tensor(target,dtype=torch.int64).squeeze()
             
             self.metric_collection = MetricCollection([

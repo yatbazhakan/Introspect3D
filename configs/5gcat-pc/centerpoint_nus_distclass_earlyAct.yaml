@@ -105,7 +105,7 @@ introspection:
     name: None
   verbose: True
   method:
-    task: multiclass
+    task: binary
     cross_validation:
       type: holdout
       iteration: 1
@@ -130,14 +130,14 @@ introspection:
     optimizer:
       type: SGD
       params: 
-        lr: 0.001
-        # momentum: 0.9
-        # weight_decay: 0.001
+        lr: 0.001 #0.0
+        momentum: 0.9
+        weight_decay: 0.001
     criterion:
-      type: FocalLoss
+      type: CrossEntropyLoss
       params:
         reduction: mean
-        gamma: 5
+        # gamma: 5
     scheduler:
       type: ReduceLROnPlateau
       params:
@@ -146,10 +146,10 @@ introspection:
     clip_grad:
       active: True
       value: 2
-    epochs: 200
+    epochs: 300
     log_interval: 1
     save_interval: 1
-    early_stop: 25
+    early_stop: 50
     sanity_check: false
     save_path: outputs/ckpts
     save_name: centerpoint_nus_activations_raw_resnet_dist_mc.pt
@@ -161,7 +161,7 @@ introspection:
       root_dir: /media/ssd_reza/sajjad/distest/custom_dataset/nus_centerpoint_early_activations
       label_file: 'lv_dist_est2.csv'
       task: 'Classification'
-      classes: ['Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m']
+      classes: ['Less_Than_0.1m', 'More_Than_0.1'] #['Less_Than_0.1m', 'Less_Than_2m', 'More_Than_2m']
       is_multi_feature: False
       extension: .npy
       name: nuscenes
@@ -182,6 +182,6 @@ introspection:
       num_workers: 8
       pin_memory: False
   operation: 
-    type: train #traineval #train 
-    model_dir: 'outputs/ckpts/nuscenes_none_resnet18_fcn_distmc_raw8c379d25-450e-4021-9ab9-302ac6ccbc8d0_'
+    type: traineval #traineval #train # evaluate
+    model_dir: 'outputs/ckpts/three_will_particular'
     load_model: False

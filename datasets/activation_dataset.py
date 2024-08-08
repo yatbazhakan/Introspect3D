@@ -61,10 +61,12 @@ class ActivationDataset:
         for i in range(len(gt_dist)):
             if np.abs(gt_dist[i] - pred_dist[i]) < 0.1:
                 target[i] = 0
-            elif np.abs(gt_dist[i] - pred_dist[i]) < 2:
-                target[i] = 1
             else:
-                target[i] = 2
+                target[i] = 1
+            # elif np.abs(gt_dist[i] - pred_dist[i]) < 2:
+            #     target[i] = 1
+            # else:
+            #     target[i] = 2
         return target
 
     def get_de_error(self, gt_bboxes, pred_bboxes, filter_boundry = 50):

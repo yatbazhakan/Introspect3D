@@ -8,25 +8,13 @@ layers:
   - type: "Linear"
     params:
       in_features: 2048
-      out_features: 1024
+      out_features: 512
   - type: "Dropout"
     params:
       p: 0.5
+  - type: "ReLU"
+    params: {}
   - type: "Linear"
     params:
-      in_features: 1024
-      out_features: 256
-  - type: "Dropout"
-    params:
-      p: 0.5
-  - type: "Linear"
-    params:
-      in_features: 256
-      out_features: 128
-  - type: "Dropout"
-    params:
-      p: 0.5
-  - type: "Linear"
-    params:
-      in_features: 128
-      out_features: 3
+      in_features: 512
+      out_features: 2
