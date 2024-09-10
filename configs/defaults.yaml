@@ -1,0 +1,11 @@
+project_dir: /home/opencav/Desktop/DistEstIntrospection
+datasets:
+    - Kitti3D
+    - Kitti2D
+    - BDD100K
+    - NuScenesDataset
+    - ActivationDataset
+models: {}
+operators:
+  - ActivationExtractionOperator
+

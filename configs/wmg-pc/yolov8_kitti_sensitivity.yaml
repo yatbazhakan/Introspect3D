@@ -1,0 +1,174 @@
+experiment_name: yolov8_kitti_test
+experiment_path: ./
+device: cuda:0
+method: activations
+verbose: true
+detection:
+  device: cuda:0
+  dataset:
+    name: Kitti
+    root_dir: /mnt/ssd1/introspectionBase/datasets/KITTI/training/
+    class_names:
+    - Car
+    - Pedestrian
+    - Cyclist
+    filtering_style: FilterType.NONE
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  training_params: {}
+extraction:
+  active: true
+  device: cuda:0
+  score_threshold: 0.5
+  dataset:
+    name: Kitti3D
+    root_dir: /mnt/ssd2/kitti/training/
+    class_names:
+    - Car
+    - Pedestrian
+    - Cyclist
+    filtering_style: FilterType.NONE
+    filter_params:
+      a: 25
+      b: 15
+      offset: -10
+      axis: 0
+  model:
+    name: pointpillars
+    root_dir: /mnt/ssd2/mmdetection3d/
+    config_dir: configs/
+    checkpoint_dir: ckpts/
+    config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+    checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth
+  method:
+    name: raw_activations
+    hook:
+      layer: backbone.blocks
+      indexes:
+      - 0
+      - 1
+      - 2
+      extract_from:
+      - 0
+      - 1
+      - 1
+      layer_index: 2
+    save_dir: ../custom_dataset/kitti_pointpillars_activations_aggregated_raw/
+    labels_file_name: kitti_point_pillars_labels_aggregated_raw.csv
+    balanced: false
+    transforms: None
+    extension: .bin
+  training_params: {}
+introspection:
+  experiment_name: yolov8_kitti_activations
+  wandb:
+    is_sweep: True
+    sweep_configuration:
+      method: grid
+      name: yolov8_kitti_activations_ash_sens_06
+      metric:
+        name: val_loss
+        goal: minimize
+      parameters:
+        model_yaml:
+          values:
+          - configs/networks/resnet18_fcn.yaml
+          # - configs/networks/attention_custom_fcn.yaml
+          # - configs/networks/attention_resnet18_fcn.yaml
+        optimizer:
+          values:
+          - Adam
+          - SGD
+        criterion:
+          values:
+          - FocalLoss
+        lr:
+          values:
+          - 0.0001
+          - 0.001
+          - 0.01
+        batch_size:
+          values:
+          - 16
+          - 32
+          - 64
+    project: introspection-legacy
+    entity: yatbazhakan
+    mode: online
+    name: yolov8_kitti_activations_ash_sens_06
+  verbose: true
+  method:
+    task: multiclass
+    cross_validation:
+      type: holdout
+      iteration: 1
+      balanced: false
+      train_test_split: 0.2
+      validation_split: 0.2
+    processing:
+      active: true
+      method: ProcessorEnum.PADASH
+      params:
+        config:
+          method: p
+          percentile: 90
+          grid_size: 16
+          pad: [256,40,40]
+    model:
+      layer_config: configs/networks/resnet18_fcn.yaml
+    optimizer:
+      type: SGD
+      params:
+        lr: 0.001
+        weight_decay: 0.0001
+    criterion:
+      type: FocalLoss
+      params:
+        reduction: mean
+        gamma: 5
+        weight:
+        - 0.78
+        - 1.39
+    scheduler:
+      type: ReduceLROnPlateau
+      params:
+        patience: 15
+        factor: 0.7
+    epochs: 100
+    log_interval: 1
+    save_interval: 1
+    early_stop: 20
+    sanity_check: false
+    save_path: outputs/ckpts
+    save_name: yolov8_kitti_raw_06.pt
+  device: cuda:0
+  filtering: none
+  dataset:
+    name: ActivationDataset
+    config:
+      root_dir: /mnt/ssd2/error_datasets/yolov8n/version-proposed-yolov8-kitti/training/
+      label_file: labels_kitti_raw.csv
+      label_field: map50
+      threshold: 0.6
+      classes:
+      - No Error
+      - Error
+      name: kitti
+  dataloader:
+    all:
+      batch_size: 16
+      shuffle: true
+    train:
+      batch_size: 16
+      shuffle: true
+    test:
+      batch_size: 1
+      shuffle: false
+  operation:
+    type: traineval
+    load_model: true
