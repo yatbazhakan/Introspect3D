@@ -16,6 +16,8 @@ import time
 import cv2
 from tqdm import tqdm
 import pdb
+from PIL import Image
+
 
 class Colors(Enum):
     DARK_RED = (0.5,0.,0.)
@@ -33,7 +35,7 @@ def isTrusted(res_dict):
     pred = res_dict['pred']
     pred = np.argmax(pred)
     print(f'Pred: {pred}, Label: {label}')
-    return pred<2, label<2
+    return pred<1, label<1
 
 def create_line_set_bounding_box(box: BoundingBox,
                                 offset:Union[float, np.ndarray],
@@ -52,7 +54,7 @@ def create_line_set_bounding_box(box: BoundingBox,
 with(open('outputs/lv_scene_dicts.pkl','rb')) as f:
         scene_list = pickle.load(f)
 
-with(open('/home/wmg-5gcat/Desktop/Sajjad/DistEstIntrospection/Introspect3D/results_byfile.pkl','rb')) as f:
+with(open('outputs/results/results_byfile.pkl','rb')) as f:
     introspection_results = pickle.load(f)
 
 scene_number = 849
@@ -175,9 +177,73 @@ for itr, token in enumerate(tokens):
     # cut ego_xyz up to 50m
     ego_xyz = ego_xyz[distance<50]
     ax.plot(ego_xyz[:,0], ego_xyz[:,1], c = 'black')
+    x = ego_xyz[:,0]
+    y = ego_xyz[:,1]
+    dx = np.diff(x)
+    dy = np.diff(y)
+    length = np.sqrt(dx**2 + dy**2)
+    nx = -dy/length
+    ny=dx/length
+    nx = np.concatenate(([nx[0]], (nx[:-1] + nx[1:]) / 2, [nx[-1]]))
+    ny = np.concatenate(([ny[0]], (ny[:-1] + ny[1:]) / 2, [ny[-1]]))
+
+    # Normalize the normals (just to be sure)
+    norm = np.sqrt(nx**2 + ny**2)
+    nx /= norm
+    ny /= norm
+
+    # Shift the points by 1.5m in the direction of the normal
+    distance = 1.5
+    x_1 = x + distance * nx
+    y_1 = y + distance * ny
+
+    x_2 = x - distance * nx
+    y_2 = y - distance * ny
+
+
+    ax.plot(x_1,y_1, 'k--')
+    ax.plot(x_2,y_2, 'k--')
+
+    # At the start
+    plt.plot([x[0] - distance * nx[0], x[0] + distance * nx[0]],
+            [y[0] - distance * ny[0], y[0] + distance * ny[0]], 'k--')
+
+    # At the end
+    plt.plot([x[-1] - distance * nx[-1], x[-1] + distance * nx[-1]],
+            [y[-1] - distance * ny[-1], y[-1] + distance * ny[-1]], 'k--')
+
+
+
     fig.savefig('outputs/visualisation/{}_{}.png'.format(str(scene_number).zfill(3),str(itr).zfill(2)))
     plt.close(fig)
     #progress.update(1)
+if True:
+        # List to store the images
+        images = []
+        fps_divisor = 5
+        output_folder = '/home/wmg-5gcat/Desktop/Sajjad/DistEstIntrospection/Introspect3D/outputs/visualisation'
+        # Loop through the folder and collect all images
+        counter = 0
+        for file_name in sorted(os.listdir(output_folder)):
+            counter+=1
+            if file_name.endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                file_path = os.path.join(output_folder, file_name)
+                images.append(Image.open(file_path))
+
+        # Save images as a GIF
+        output_gif_path = os.path.join(output_folder, 'video.gif')
+        if images:
+            images[0].save(
+                output_gif_path,
+                save_all=True,
+                append_images=images[1:],
+                duration=int(100*fps_divisor),  # Duration between frames in milliseconds
+                loop=0  # 0 means loop forever
+            )
+            print(f"GIF created successfully at {output_gif_path}")
+        else:
+            print("No images found in the folder.")
+    
 
     
    

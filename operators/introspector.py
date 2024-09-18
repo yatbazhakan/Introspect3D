@@ -234,7 +234,10 @@ class IntrospectionOperator(Operator):
             loader = self.test_loader
             self.model.load_state_dict(torch.load(self.model_save_to +"_best.pth"))
             logger.info(f"Model loaded from: {self.model_save_to}")
-
+        elif loader == 'Train':
+            loader = self.train_loader
+            self.model.load_state_dict(torch.load(self.model_save_to +"_best.pth"))
+            logger.info(f"Model loaded from: {self.model_save_to}")
         self.model.eval()
         test_loss = 0
         all_preds = torch.tensor([]).to(self.config['device'],dtype=torch.float32) 
@@ -324,8 +327,12 @@ class IntrospectionOperator(Operator):
         # save the results in a pickle file
         result_dict = {'labels':all_labels,'predictions':all_preds,'filenames':all_filenames}
         time_snap = time()
-        with open(f"outputs/results/{self.wandb_name}.pkl", 'wb') as f:
-            pickle.dump(result_dict, f)
+        if loader == 'Train':
+            with open(f"outputs/results/{self.wandb_name}_train.pkl", 'wb') as f:
+                pickle.dump(result_dict, f)
+        else:
+            with open(f"outputs/results/{self.wandb_name}.pkl", 'wb') as f:
+                pickle.dump(result_dict, f)
         top_pred_ids = np.argmax(all_preds,axis=1)
         # squeeze the labels
         all_labels = all_labels.squeeze()

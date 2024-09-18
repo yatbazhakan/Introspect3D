@@ -78,12 +78,10 @@ class NuScenesDataset(DrivingDataset):
         self.dataset_flattened = {}
         if process:
             self.nusc = NuScenes(version=version, dataroot=root_dir, verbose=True)
-
             self.split = split
             self.transform = transform
             # Extract only the first sample token of each scene.
             self.sample_tokens = [s['first_sample_token'] for s in self.nusc.scene]
-
             self.process_data()
         else:
             self.dataset_flattened = pickle.load(open(os.path.join(self.save_path,self.save_filename),'rb'))

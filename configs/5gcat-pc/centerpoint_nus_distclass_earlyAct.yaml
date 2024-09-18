@@ -182,6 +182,6 @@ introspection:
       num_workers: 8
       pin_memory: False
   operation: 
-    type: traineval #traineval #train # evaluate
-    model_dir: 'outputs/ckpts/three_will_particular'
+    type: evaluate #traineval #train # evaluate
+    model_dir: 'outputs/ckpts/simple_trouble_her'
     load_model: False
