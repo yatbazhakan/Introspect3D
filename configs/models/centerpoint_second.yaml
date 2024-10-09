@@ -1,0 +1,6 @@
+  name: centerpoint
+  root_dir: /home/wmg-5gcat/Desktop/Sajjad/DistEstIntrospection/mmdetection3d
+  config_dir: configs/
+  checkpoint_dir: ckpts/
+  config : centerpoint_voxel0075_second_secfpn_head-dcn-circlenms_8xb4-cyclic-20e_nus-3d.py #pointpillars_hv_secfpn_sbn-all_8xb2-amp-2x_nus-3d.py
+  checkpoint: centerpoint_0075voxel_second_secfpn_dcn_circlenms_4x8_cyclic_20e_nus_20220810_025930-657f67e0.pth #hv_pointpillars_secfpn_sbn-all_fp16_2x8_2x_nus-3d_20201020_222626-c3f0483e.pth

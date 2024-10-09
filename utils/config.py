@@ -2,12 +2,6 @@ from typing import Any, Dict, Union
 import yaml
 
 import os
-try:
-    from mmdet3d.utils import register_all_modules
-    from mmdet3d.apis import inference_detector, init_model
-except:
-    print("DIfferent environment, some packages will be missing")
-    pass
 class Config:
     @staticmethod
     def join(loader, node):
@@ -33,6 +27,7 @@ class Config:
         self.verbose: bool = self.config_dict.get('verbose', False)
         self.exp_name: str = self.config_dict.get('experiment_name', 'default_exp_name')
         self.wandb: Dict[str, Any] = self.config_dict.get('wandb', {})
+        #Separation of these is needed!
         self.detection: Dict[str, Any] = self.config_dict.get('detection', {})
         self.extraction: Dict[str, Any] = self.config_dict.get('extraction', {})
         self.introspection: Dict[str, Any] = self.config_dict.get('introspection', {})

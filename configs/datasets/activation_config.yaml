@@ -1,0 +1,11 @@
+    name: ActivationDataset
+    config:
+      root_dir: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/custom_dataset/nus_centerpoint_activations_filtered_objects"  
+      label_file: nus_centerpoint_labels_filtered_objects.csv
+      classes: ['No Error', 'Error']
+      label_field: is_missed
+      layer: 2
+      is_multi_feature: False
+      is_sparse: True
+      extension: .pt
+      name: nuscenes

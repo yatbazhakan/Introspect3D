@@ -2,7 +2,7 @@ import json
 import os
 from PIL import Image
 from sklearn.model_selection import train_test_split
-
+#This is a specific tool, might be removed from the main codebase
 class DatasetConverter:
     def __init__(self, **kwargs):
         self.configs = kwargs
@@ -36,7 +36,6 @@ class DatasetConverter:
         with open(os.path.join(self.output_dir, 'instances_val.json'), 'w') as file:
             json.dump({'images': val_data, 'annotations': data['annotations'], 'categories': data['categories']}, file)
 
-        print("Dataset split into training and validation sets and saved.")
     def add_category(self, name, id_):
         self.coco['categories'].append({
             'id': id_,

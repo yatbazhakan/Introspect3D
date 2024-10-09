@@ -1,0 +1,7 @@
+    name: Kitti
+    root_dir: /mnt/ssd2/kitti/training/
+    class_names:
+    - Car
+    - Pedestrian
+    - Cyclist
+    filtering_style: FilterType.NONE

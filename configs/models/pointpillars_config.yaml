@@ -1,0 +1,6 @@
+  name: pointpillars
+  root_dir: /mnt/ssd2/mmdetection3d/
+  config_dir: configs/
+  checkpoint_dir: ckpts/
+  config: pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py
+  checkpoint: hv_pointpillars_secfpn_6x8_160e_kitti-3d-3class_20220301_150306-37dc2420.pth

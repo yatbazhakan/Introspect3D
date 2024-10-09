@@ -1,0 +1,12 @@
+name: NuScenesDataset
+root_dir: /media/ssd_reza/nuscenes
+version: v1.0-trainval
+process: True
+save_path: "/media/wmg-5gcat/Co-op Autonomy 2/Hakan/"
+save_filename: nuscenes_train_fix.pkl
+filtering_style: FilterType.ELLIPSE
+filter_params:
+  a: 15
+  b: 25
+  offset: -10
+  axis: 1

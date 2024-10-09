@@ -8,11 +8,17 @@
 *.pth
 *.pkl
 *.wandb
+archive/
+archive/*
 outputs/*
 */ckpts/
 wandb/
 debug/*
 custom_dataset/
+development/
+development/*
+visualizations/
+visualizations/*
 work_dirs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
