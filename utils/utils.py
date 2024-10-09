@@ -26,6 +26,7 @@ import torch
 import yaml
 from modules.other import Identity
 from modules.conv_blocks import *
+from modules.transformer import *
 try:
     from torch_geometric.nn import *
     from torch_geometric.data import *
@@ -132,6 +133,7 @@ def generate_model_from_config(config):
     print(path)
     layer_data = yaml.load(open(path),Loader=yaml.FullLoader)
     print("Model yaml loaded")
+    print(layer_data)
     layers = []
     pretrained = False
     num_ftrs = None
@@ -142,6 +144,8 @@ def generate_model_from_config(config):
         if layer_type.startswith('torchvision'): #expectation is to use ResNets, may adapt later to other models
             pretrained=True
             model = eval(f"{layer_type}(**layer_config['params'])")
+            # num_ftrs = model.fc.in_features
+            # model.fc = Identity()
             if not "swin" in layer_type:   
                 model,num_ftrs = clone_weights(model,layer_type,layer_config)
             # print(model)
@@ -153,7 +157,10 @@ def generate_model_from_config(config):
                 layer_params['in_features'] = num_ftrs
                 num_ftrs = None
             elif 'output_size' in layer_params.keys():
-                ouput_size = eval(layer_params['output_size'])
+                if isinstance(layer_params['output_size'],str):
+                    ouput_size = eval(layer_params['output_size'])
+                elif isinstance(layer_params['output_size'],int):
+                    ouput_size = layer_params['output_size']
                 layer_params['output_size'] = ouput_size
             # print(layer_type,layer_params)
             layers.append(eval(f"{layer_type}(**layer_params)"))

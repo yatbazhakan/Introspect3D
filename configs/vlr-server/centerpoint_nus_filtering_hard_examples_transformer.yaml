@@ -79,17 +79,17 @@ extraction:
 introspection:
   experiment_name: spatial_filtering_custom_net
   wandb:
-    is_sweep: True
+    is_sweep: False
     sweep_configuration:
       method: grid
-      name: spatial_filtering_custom_net
+      name: transformer
       metric:
         name: val_loss
         goal: minimize
       parameters:
         model_yaml:
           values:
-          - configs/networks/custom_net_simple.yaml
+          - configs/networks/transformer.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -97,7 +97,7 @@ introspection:
           # - Adam
         criterion:
           values:
-          - CrossEntropyLoss
+          - BCEWithLogitsLoss
         lr:
           values:
           # - 0.005
@@ -115,7 +115,7 @@ introspection:
     project: introspect3D
     entity: yatbazhakan
     mode: online
-    name: spatial_filtering_custom_net
+    name: transformer
   verbose: True
   method:
     task: multiclass
@@ -141,11 +141,11 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/custom_net_simple.yaml
+      layer_config: configs/networks/transformer.yaml
     optimizer:
       type: SGD
       params: 
-        lr: 0.001
+        lr: 0.01
         weight_decay: 0.0001
         momentum: 0.9
     criterion:
@@ -167,7 +167,7 @@ introspection:
     early_stop: 3
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: spatial_filtering_custom_net
+    save_name: transformer
   device: cuda:0
   filtering: none
   dataset:
@@ -186,9 +186,12 @@ introspection:
     all:
       batch_size: 64
       shuffle: True
+
     train:
-      batch_size: 64
+      batch_size: 128
       shuffle: True
+      # num_workers: 4
+      pin_memory: False
     test:
       batch_size: 1
       shuffle: False

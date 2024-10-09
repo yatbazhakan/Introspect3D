@@ -1,0 +1,38 @@
+inp_shape: 
+  channels: 256
+  height: 90
+  width: 90
+layers: 
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 256
+      out_channels: 128
+      kernel_size: 3
+      stride: 1
+      padding: 1
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 128  # Adjust according to input channels
+      out_channels: 64
+      kernel_size: 3
+      stride: 1
+      padding: 1
+  - type: "BasicConvBlock"
+    params:
+      in_channels: 64  # Adjust according to input channels
+      out_channels: 32
+      kernel_size: 3
+      stride: 1
+      padding: 1
+
+  # - type: "AdaptiveAvgPool2d"
+  #   params:
+  #     output_size: 1
+
+  - type: "Flatten"
+    params: {}
+
+  - type: "Linear"
+    params:
+      in_features: 259200
+      out_features: 2  # Adjust according to the number of classes

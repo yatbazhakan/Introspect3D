@@ -234,7 +234,8 @@ class IntrospectionOperator(Operator):
         self.method_info['optimizer']["params"]["lr"] = wandb.config.lr
         self.method_info['criterion']['type'] = wandb.config.criterion
         self.config['dataloader']['train']['batch_size'] = wandb.config.batch_size
-        self.method_info['criterion']['params']['gamma'] = wandb.config.gamma
+        if 'gamma' in wandb.config.keys():
+            self.method_info['criterion']['params']['gamma'] = wandb.config.gamma
     def train(self,iteration=1):
         #MNot very OOP of me but this might improve earlier waiting times, may need a wrapper around wandb.config to mapit to the actual config?
         if self.is_sweep:
@@ -398,13 +399,13 @@ class IntrospectionOperator(Operator):
         # test_loss /= len(loader.dataset)       
         
         if loader == self.test_loader:
-            wandb.log({f'test_loss_{iteration}':test_loss})
+            wandb.log({f'test_loss_{iteration}':test_loss/len(loader.dataset),'epoch':epoch})
             self.calculate_torchmetrics(all_preds,all_labels,mode='test',task=self.method_info['task'])
         elif loader == self.train_loader:
             wandb.log({f'train_loss_{iteration}':test_loss,'epoch':epoch})
             self.calculate_torchmetrics(all_preds,all_labels,mode='train',task=self.method_info['task'])
         else :
-            wandb.log({f'val_loss_{iteration}':test_loss,'epoch':epoch})
+            wandb.log({f'val_loss_{iteration}':test_loss/len(loader.dataset),'epoch':epoch})
             self.calculate_torchmetrics(all_preds,all_labels,mode='val',task=self.method_info['task'])
         return test_loss
     def seprate_multiclass_metrics(self,metric_name):
@@ -451,9 +452,9 @@ class IntrospectionOperator(Operator):
             ConfusionMatrix(num_classes=num_classes,task=task),
             # Accuracy(task=task,num_classes=num_classes,average='none'),
             # Precision(pos_label=1,task=task,num_classes=num_classes,average='none'),
-            Recall(pos_label=1,task=task,num_classes=num_classes,average='none'),
+            Recall(task=task,num_classes=num_classes,average='none'),
             F1Score(task=task,num_classes=num_classes,average='none'),
-            AUROC(task=task,num_classes=num_classes,pos_label=1,average='none'),
+            AUROC(task=task,num_classes=num_classes,average='none'),
             # StatScores(num_classes=num_classes,task=task,average='none'),
             AveragePrecision(num_classes=num_classes,task=task,average='none'),
         ])

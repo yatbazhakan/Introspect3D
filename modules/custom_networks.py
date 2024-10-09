@@ -4,6 +4,7 @@ import yaml
 import os
 from collections import OrderedDict
 from utils.utils import weight_init,generate_model_from_config
+from modules.conv_blocks import *
 from torchvision.models.video import swin3d_t ,Swin3D_T_Weights
 import torchvision
 class SwinIntrospection(nn.Module):
@@ -93,7 +94,10 @@ class CustomModel(nn.Module):
             #     x = layer(x)
         x = self.fc(x)
         return x
-    
+
+# model = LightFeatureExtractor(in_channels=3, num_classes=10)
+# output = model(torch.randn(1, 3, 224, 224))
+
 class GenericInjection(nn.Module):
     def __init__(self, model_config,hooks=None,device = 'cuda:0'):
         super(GenericInjection, self).__init__()
@@ -181,7 +185,103 @@ class GenericInjection(nn.Module):
             
         x = self.fc(x)
         return x
+class GenericInjectionCAM(nn.Module):
+    def __init__(self, model_config,hooks=None,device = 'cuda:0'):
+        super(GenericInjectionCAM, self).__init__()
+        # Store the layers in an OrderedDict
+        layers = generate_model_from_config(model_config)
+        self.layers = nn.ModuleDict(OrderedDict({f'layer_{i}': layer for i, layer in enumerate(layers)}))
+        self.resnet = nn.Sequential(*list(self.layers['layer_0'].children()))
+        self.fc = nn.Sequential(*list(self.layers.values())[1:])
+        self.hooks = hooks or {}
+        self.pool = None
+        self.downsample1 = DownSampleNorm(128,64,kernel_size=1,stride=1)
+        self.downsample2 = DownSampleNorm(256,128,kernel_size=1,stride=1)
+        self.downsample3 = DownSampleNorm(256,64,kernel_size=1,stride=1)
+        self.downsample1= weight_init(self.downsample1)
+        self.downsample2= weight_init(self.downsample2)
+        self.device = device
+        self.hooks = [4,6] #currently manually changed [1,2]#
+    def get_tensor_list(self,x,mode):
+        if mode == "EML":
+            first = x[0]
+            second = x[1]
+            third = x[2]
+        elif mode == "EL":
+            first = x[0]
+            third = x[2]
+            second = None
+        elif mode == "EM":
+            first = x[0]
+            second = x[1]
+            third = None
+        elif mode == "ML":
+            first = None
+            second = x[1]
+            third = x[2]
 
+        return first,second,third
+        
+    def split_stacked_tensor(self,x):
+        first = x[:, :256, :180, :180]
+        second = x[:, :128, :180, :180]
+        third = x[:, :256, :90, :90]
+        first.cpu()
+        second.cpu()
+        third.cpu()
+        return first,second,third
+        
+    def forward(self, x,mode='EML'):
+        self.cuda()
+        x = x.cuda()
+        hooks = self.hooks
+        first,second,third = self.split_stacked_tensor(x)
+        if first is not None:
+            for  idx,layer in enumerate(self.resnet):
+                if idx ==0:
+                    x = first
+                    first = first.to(self.device)
+                elif idx == hooks[0] and second is not None:
+                    second=second.to(self.device)
+                    x_add = self.downsample1(second)
+                    if x_add.shape != x.shape:
+                        self.pool  = torch.nn.AdaptiveAvgPool2d(x.shape[2:])
+                        x_add = self.pool(x_add)
+                    x = x+x_add
+                    del second,first,x_add
+                elif idx == hooks[1] and third is not None:
+                    third=third.to(self.device)
+                    x_add = self.downsample2(third)
+                    if x_add.shape != x.shape:
+                        # print(x_add.shape,x.shape)
+                        self.pool  = torch.nn.AdaptiveAvgPool2d(x.shape[2:])
+                        x_add = self.pool(x_add)
+                        # print("Adaptive Pooling",x_add.shape)
+                    x = x+x_add
+                    del third,x_add
+                x = x.to(self.device)
+                x = layer(x)
+        else:
+            # hooks = [4]
+            for idx,layer in enumerate(self.resnet):
+                if idx ==0:
+                    x = second
+                    x = x.to(self.device)
+                elif idx == hooks[0] and third is not None:
+                    third=third.to(self.device)
+                    # print(third.shape)
+                    # print(x.shape)
+                    x_add = self.downsample3(third)
+                    if x_add.shape != x.shape:
+                        self.pool  = torch.nn.AdaptiveAvgPool2d(x.shape[2:])
+                        x_add = self.pool(x_add)
+                    x = x+x_add
+                    del second,first,x_add
+                x = x.to(self.device)
+                x = layer(x)
+            
+        x = self.fc(x)
+        return x
 
 import torch
 import torch.nn as nn

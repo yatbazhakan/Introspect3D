@@ -206,6 +206,7 @@ class MultiFeatureActivationEarlyFused(ActivationProcessor): #Just an identity f
         stack = kwargs.get('stack')
         early, mid , late = activation
         # print(early.shape,mid.shape,late.shape)
+        print(early.shape,mid.shape,late.shape)
         early = early
         mid = mid
         late = late

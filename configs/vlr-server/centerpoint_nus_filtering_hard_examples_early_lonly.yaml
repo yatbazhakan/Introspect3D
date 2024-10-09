@@ -89,7 +89,7 @@ introspection:
       parameters:
         model_yaml:
           values:
-          - configs/networks/resnet18_fcn.yaml
+          - configs/networks/resnet18_fcn_wor.yaml
           # - configs/networks/attention_resnet18_fcn.yaml
         optimizer:
           values:
@@ -141,7 +141,7 @@ introspection:
             - max
             - std
     model:
-      layer_config: configs/networks/resnet18_fcn.yaml
+      layer_config: configs/networks/resnet18_fcn_wor.yaml
     optimizer:
       type: SGD
       params: 
@@ -160,13 +160,13 @@ introspection:
       params:
         patience : 15
         factor: 0.7
-    epochs: 200
+    epochs: 25
     log_interval: 1
     save_interval: 1
-    early_stop: 20
+    early_stop: 7
     sanity_check: false
     save_path: outputs/ckpts
-    save_name: nus_centerpoint_filtered_spatial_early_wobjflonly.pt
+    save_name: nus_labels_only_early
   device: cuda:0
   filtering: none
   dataset:
@@ -183,10 +183,10 @@ introspection:
       name: nuscenes
   dataloader:
     all:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     train:
-      batch_size: 128
+      batch_size: 64
       shuffle: True
     test:
       batch_size: 1
