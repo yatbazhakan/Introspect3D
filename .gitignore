@@ -17,8 +17,8 @@ debug/*
 custom_dataset/
 development/
 development/*
-visualizations/
-visualizations/*
+visualization/
+visualization/*
 work_dirs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
