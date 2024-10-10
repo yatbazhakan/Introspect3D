@@ -1,0 +1,23 @@
+operator: extraction
+active: True
+device: 'cuda:0'
+labels_only: True
+object_filter: True
+sparse: True
+score_threshold: 0.5
+split: 'val'
+dataset: #DATASET CONFIG HERE
+model: #MODEL CONFIG HERE
+method:
+  name: raw_activations
+  hook:
+    layer: pts_backbone.blocks #pts_backbone
+    indexes: [0,0,1]
+    extract_from: [0,1,1]
+    layer_index: 1
+  save_dir: ../custom_dataset/nus_centerpoint_activations_filtered_objects_lonly/
+  labels_file_name: nus_centerpoint_labels_filtered_objects_lonly.csv
+  balanced: False
+  transforms: None
+  extension: .pcd.bin
+  save_input: False

@@ -6,6 +6,8 @@ from glob import glob
 import torch
 from torch.utils.data import Dataset
 from utils.pointcloud import PointCloud
+from registries.dataset_registry import dataset_registry
+@dataset_registry.register('custom')
 class CustomDataset(Dataset):
     def __init__(self, **kwargs):
         self.data_dir = kwargs.get('root_dir',"")

@@ -10,7 +10,6 @@ def generate_scheduler_from_config(config,optimizer):
     return eval(f"{scheduler_type}(optimizer,**scheduler_params)")
 
 def generate_criterion_from_config(config,**kwargs):
-    print(config)
     loss_type = config['type']
     loss_params = config['params']
     if "weight" in loss_params.keys():

@@ -12,6 +12,8 @@ from utils.filter import *
 import copy
 import open3d as o3d
 from definitions import KITTI_CLASSES
+from registries.dataset_registry import dataset_registry
+@dataset_registry.register('kitti3d')
 class Kitti3D(DrivingDataset):
 
     def __init__(self,
@@ -142,7 +144,7 @@ class Kitti3D(DrivingDataset):
         return box
 
 
-    
+@dataset_registry.register('kitti2d')   
 class Kitti2D(DrivingDataset):
     def __init__(self, root_dir: str,
                  class_names: Union[None, List],

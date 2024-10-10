@@ -6,14 +6,18 @@ from utils.process import *
 from glob import glob
 import os
 import torch.nn.functional as F
-
+from tqdm.auto import tqdm
 import pickle
+from registries.dataset_registry import dataset_registry
+import logging
+logger = logging.getLogger(__name__)
+@dataset_registry.register('activation')
 class ActivationDataset:
     def __init__(self,config) -> None:
         self.config = config
         self.extension = config.get('extension','')  
         self.root_dir = config['root_dir']
-        print("ROOT DIR: ",self.root_dir)
+        logger.debug(f"Root directory: {self.root_dir}")
         self.classes = config['classes']
         self.is_multi_feature = config.get('is_multi_feature',False)
         self.is_caption = config.get('is_caption',False)
@@ -24,19 +28,20 @@ class ActivationDataset:
                 self.captions = f.readlines()
             self.generic_captions = self.captions
         self.feature_paths = self.get_feature_paths()
-        print("Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
         self.label_file = self.get_label_file()
+        logger.debug(f"Number of features found: ",len(self.feature_paths), " in ",self.feature_paths[:5])
+
+        
         
         self.label_field = config['label_field']
         self.layer = config.get('layer',None)
         self.threshold = config.get('threshold',None)
-        print("Threshold is ",self.threshold)
+
+        logger.debug(f"Threshold is: {self.threshold}")
         self.labels = pd.read_csv(self.label_file)
         self.labels['name'] = self.labels['name'].astype(str)
-        #remove if any leading path is there in self labels['name']
-        # if self.is_multi_feature: #Need to fix this extension issue
+
         self.labels['name'] = self.labels['name'].apply(lambda x: x.split('/')[-1].replace('.npy',''))
-        # print(self.labels.head())
 
         #fill names with leading zeros to make them 6 digits
         if self.config['name'] == 'kitti':
@@ -51,15 +56,14 @@ class ActivationDataset:
                     
                     temp_paths.append(path)
             self.feature_paths = temp_paths
-            print("Feature paths and labels are not equal, some features are missing")
+            logger.debug("Feature paths and labels are not equal, some features are missing")
             # print(len(self.feature_paths),len(self.labels))
-        print(len(self.feature_paths),len(self.labels))
+        logger.debug(f"Feature Files: {len(self.feature_paths)}\nLabel Files: {len(self.labels)}")
         if self.is_caption:
             self.generate_caption_dataset()
     def get_feature_paths(self):
         return sorted(glob(os.path.join(self.root_dir,'features', f'*{self.extension}')))
     def get_label_file(self):
-        #*DEBUG
         return os.path.join(self.root_dir,self.config["label_file"])
     def get_label(self,idx):
         # name_from_idx = int(self.feature_paths[idx].split('/')[-1].replace('.npy',''))
@@ -80,11 +84,10 @@ class ActivationDataset:
                 missed_objects = self.labels[self.labels['name']==idx][self.label_field[0]].values[0]
                 total_objects = self.labels[self.labels['name']==idx][self.label_field[1]].values[0]
                 missed_ratio = missed_objects/total_objects
-                print(missed_ratio)
                 label = 1 if missed_ratio < self.threshold else 0
                 return label
             else:
-                print("Label field is not recognized")
+                logger.error("Label field is not recognized")
         # label = self.labels[self.labels['name']==idx][self.label_field].values[0]
         # label = 1 if label > self.threshold else 0
         # return label
@@ -207,14 +210,13 @@ class ActivationDataset:
     def generate_caption_dataset(self):
         data_path = "/mnt/ssd1/test/"
         dataset_dict = {'x_features':[],'captions':[]}
-        from tqdm.auto import tqdm
-        print("Generating caption dataset")
-        print("Length of feature paths: ",len(self.feature_paths))
+ 
+        logger.info("Generating caption dataset")
+        logger.info("Length of feature paths: ",len(self.feature_paths))
         with tqdm(total=len(self.feature_paths)) as pbar:
             for i in range(len(self.feature_paths)):
                 feature_path = self.feature_paths[i]
                 feature_name = feature_path.split('/')[-1].replace(self.extension,'')
-                print(feature_name)
                 # if self.is_multi_feature:
                 #     pickle_path = feature_path.replace('.npy','')
                 #     with open(pickle_path,'rb') as f:
@@ -252,7 +254,7 @@ class ActivationDataset:
                 # ppc_resized = F.interpolate(test_map, size=(lla.shape[1], lla.shape[2]), mode='bilinear', align_corners=False)
                 # blended = weight_ppc * ppc_resized + weight_lla * lla
                 feature_name = feature_name.replace('.npy','')
-                print("length generic captions: ",len(self.generic_captions))
+                logger.debug("length generic captions: ",len(self.generic_captions))
                 for i,cap in enumerate(self.generic_captions):
                     
                     caption_details = cap.split(',')
@@ -261,7 +263,7 @@ class ActivationDataset:
                     if file in feature_name:
                         # print(i,cap)
                         processed_caption = self.get_processed_caption(caption_details)
-                        print(processed_caption)
+                        logger.debug(processed_caption)
                         # print(processed_caption)
                         # torch.save(blended.detach().cpu(),os.path.join(data_path,'features',file+'.pt'))
                         dataset_dict['x_features'].append(os.path.join(data_path,'features',file+'.pt'))
@@ -284,8 +286,11 @@ class ActivationDataset:
                     # Write each caption on a new line in the text file
                     text_file.write(caption + '\n')
 
-            print("Captions have been written to corpus.txt")
+            logger.info("Captions have been written to corpus.txt")
                         # torch.save(dataset_dict,'caption_dataset_nus.pt')
+
+
+
 class ActivationDatasetLegacy:
     def __init__(self) -> None:
         pass

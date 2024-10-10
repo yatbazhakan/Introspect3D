@@ -10,7 +10,8 @@ import numpy as np
 from tqdm.auto import tqdm
 from glob import glob
 import pickle
-
+from registries.dataset_registry import dataset_registry
+@dataset_registry.register('bdd')
 class BDD(Dataset):
     
     def __init__(self,root_dir,classes,mode='training',split=0):

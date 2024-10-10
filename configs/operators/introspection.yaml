@@ -1,0 +1,69 @@
+operator: introspection
+experiment_name: spatial_filtering_custom_net
+device: cuda:0
+logging: INFO
+wandb: #WANDB CONFIG PATH HERE
+method:
+  task: multiclass
+  clip_grad: 2.0
+  log_grads: True
+  cross_validation:
+    type: None
+    iteration: 1
+    balanced: false
+    train_test_split: 0.2
+    validation_split: 0.2
+  processing:
+    active: True
+    method: ProcessorEnum.RAW
+    stack: True
+    params:
+      config:
+        none: none
+training:
+  epochs: 20
+  log_interval: 1
+  save_interval: 1
+  early_stop: 3
+  sanity_check: false
+  model:
+    layer_config: configs/networks/custom_net_simple.yaml
+  optimizer:
+    type: SGD
+    params: 
+      lr: 0.001
+      weight_decay: 0.0001
+      momentum: 0.9
+  criterion:
+    type: CrossEntropyLoss
+    params:
+      reduction: mean
+      # gamma: 5
+      weight:
+      - 0.78
+      - 1.39
+  scheduler:
+    type: ReduceLROnPlateau
+    params:
+      patience : 15
+      factor: 0.7
+  dataloader:
+    all:
+      batch_size: 64
+      shuffle: True
+    train:
+      batch_size: 64
+      shuffle: True
+    test:
+      batch_size: 1
+      shuffle: False
+  save_path: outputs/ckpts
+  save_name: spatial_filtering_custom_net
+filtering: none
+
+dataset:
+  name: #DATASET CONFIG HERE
+
+operation: 
+  type: traineval
+  load_model: False

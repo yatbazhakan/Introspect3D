@@ -7,7 +7,7 @@ import logging
 try:
     from mmdet3d .apis import init_model
 except:
-    logging.log(logging.INFO,"mmdet3d not installed")
+    logging.info("mmdet3d not installed")
     exit()
 
 def load_detection_model(config):
@@ -17,7 +17,7 @@ def load_detection_model(config):
     model_config_full_path = os.path.join(root_dir,config['model']['config_dir'],config['model']['name'] , config['model']['config'])
     model = init_model(model_config_full_path, checkpoint_full_path, config['device'])
     # print("Model Address",id(model))
-    logging.log(logging.INFO,"Model loaded")
+    logging.info("Model loaded")
     return model
 """
 TODO: Have a separate function for each clone weights? Support more functions if needed/possible
@@ -49,12 +49,12 @@ def clone_weights(model,layer_type,layer_config):
 
         num_ftrs = model.fc.in_features 
         model.fc = nn.Identity()
-    logging.log(logging.INFO,"Weights cloned")
+    logging.info("Weights cloned")
     return model,num_ftrs
 
 def generate_model_from_config(config):
     path = os.path.join(ROOT_DIR,config['layer_config'])
-    logging.log(logging.INFO,f"Loading model yaml from {path}")
+    logging.info(f"Loading model yaml from {path}")
 
     layer_data = yaml.load(open(path),Loader=yaml.FullLoader)
     layers = []
@@ -96,12 +96,12 @@ def generate_model_from_config(config):
     else:
         model = nn.Sequential(*layers)
         model = weight_init(model)
-    logging.log(logging.INFO,"Model generated")
+    logging.info("Model generated")
     return model
 
 def weight_init(model):
     #initialize weights for better convergence
-    logging.log(logging.INFO,"Initializing weights")
+    logging.info("Initializing weights")
     for m in model.modules():
         
         if isinstance(m, nn.Conv2d):
@@ -112,5 +112,5 @@ def weight_init(model):
         elif isinstance(m,nn.Linear):
             nn.init.normal_(m.weight, 0, 0.01)
             nn.init.constant_(m.bias, 0)
-    logging.log(logging.INFO,"Weights initialized")
+    logging.info("Weights initialized")
     return model

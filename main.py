@@ -4,7 +4,7 @@ import traceback
 import os
 from operators.activation_extractor import ActivationExractionOperator
 from operators.introspector import IntrospectionOperator
-from operators.e2e_extract_introspector import E2EIntrospector 
+from archive.e2e_extract_introspector import E2EIntrospector 
 from definitions import ROOT_DIR,CONFIG_DIR
 def get_operator(type:int = 1):
     if type == 1:

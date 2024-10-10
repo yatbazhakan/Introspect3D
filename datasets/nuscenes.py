@@ -12,7 +12,7 @@ import pickle
 import os
 import copy
 import cv2
-
+from registries.dataset_registry import dataset_registry
 object_label_to_index = {
     "human.pedestrian.adult": 6,
     "human.pedestrian.child": 6,
@@ -41,6 +41,8 @@ object_label_to_index = {
 
 object_index_to_label = {v: k for k, v in object_label_to_index.items()}
 
+
+reg
 class NuScenesDataset(DrivingDataset):
     def __init__(self, root_dir, version='v1.0-mini', split='train', transform=None,
                  filtering_style: FilterType = FilterType.ELLIPSE, **kwargs):

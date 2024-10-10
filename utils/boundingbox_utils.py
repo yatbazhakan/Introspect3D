@@ -1,12 +1,13 @@
 from utils.boundingbox import BoundingBox
 import numpy as np
+import logging
 def create_bounding_boxes_from_predictions(boxes: np.ndarray):
     """Creates a list of BoundingBox objects from a numpy array of boxes."""
     #TODO: checks for the boxes in terms of shape (what if more values are given)
     bounding_boxes = []
     for box in boxes:
         if isinstance(box,BoundingBox):
-            print("Box is already a BoundingBox object")
+            logging.debug("Box is already a BoundingBox object")
             bounding_boxes.append(box)
             continue
         center = box[:3]
@@ -28,7 +29,7 @@ def check_detection_matches(ground_truth_boxes, predicted_boxes, iou_threshold:f
     for gt_box in ground_truth_boxes:
 
         max_iou_idx, max_iou = gt_box.find_max_iou_box(unmatched_predictions)
-        print("Max IOU",max_iou)
+        logging.info(f"Max IOU: {max_iou}")
         if max_iou != None and max_iou >= iou_threshold:
             matches.append((gt_box, unmatched_predictions[max_iou_idx]))
             del unmatched_predictions[max_iou_idx]
